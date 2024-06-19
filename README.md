@@ -12,7 +12,7 @@ that provides memory-efficient access to large and very large raster (grid) data
 GVRS was created with three main purposes in mind:
 
 **1. Authoring Data:** For applications that produce data sets, GVRS provides a high-performance
-virtual management system for handling content. Applicatons may stored their final results
+virtual management system for handling content. Applications may store their final results
 in persisent GVRS files, or transcribe them to conventional formats (NetCDF, HDF5, TIFF and GeoTIFF, etc.).
 
 **2. Experiments in Data Compression:**  GVRS provides a convenient testbed for developers
