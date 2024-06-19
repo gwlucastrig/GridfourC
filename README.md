@@ -11,14 +11,14 @@ The Gridfour Virtual Raster Store (GVRS, pronounced "givers") is a file-backed s
 that provides memory-efficient access to large and very large raster (grid) data sets.
 GVRS was created with three main purposes in mind:
 
-** 1. Authoring Data:** For applications that produce data sets, GVRS provides a high-performance
+**1. Authoring Data:** For applications that produce data sets, GVRS provides a high-performance
 virtual management system for handling content. Applicatons may stored their final results
 in persisent GVRS files, or transcribe them to conventional formats (NetCDF, HDF5, TIFF and GeoTIFF, etc.).
 
-** 2. Experiments in Data Compression:**  GVRS provides a convenient testbed for developers
+**2. Experiments in Data Compression:**  GVRS provides a convenient testbed for developers
 who are exploring new ways of performing data compression for raster data sources.
 
-** 3. Distribution: **  GVRS provides a light-weight API and data format suitable for distributing
+**3. Distribution: **  GVRS provides a light-weight API and data format suitable for distributing
 data to other systems. GVRS was original conceived as a way of providing environment data for small systems, 
 single-board computers, and platforms such as Autonomous Underwater Vehicles. But it is a feasible
 solution for many other use cases.
