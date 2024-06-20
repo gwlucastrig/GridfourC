@@ -19,7 +19,7 @@ in persisent GVRS files, or transcribe them to conventional formats (NetCDF, HDF
 who are exploring new ways of performing data compression for raster data sources.
 
 **3. Distribution:**  GVRS provides a light-weight API and data format suitable for distributing
-data to other systems. GVRS was original conceived as a way of providing environment data for small systems, 
+data to other systems. GVRS was originally conceived as a way of providing environment data for small systems, 
 single-board computers, and platforms such as Autonomous Underwater Vehicles. But it is a feasible
 solution for many other use cases.
 
