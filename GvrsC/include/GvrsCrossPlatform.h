@@ -23,29 +23,47 @@
  * THE SOFTWARE.
  * ---------------------------------------------------------------------
  */
+
+#ifndef GVRS_CROSS_PLATFORM_H
+#define GVRS_CROSS_PLATFORM_H
+
+#include "GvrsFramework.h"
+#include "GvrsPrimaryTypes.h"
+
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
  
-#pragma once
 
-#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <malloc.h>
-#include <memory.h>
-#include <stdio.h>
-#include <time.h>
-#include <string.h>
-#include <wchar.h>
-#include <ctype.h>
+/**
+ * Gets the current clock time in milliseconds since epoch Jan 1, 1970.
+ * <p>
+ * This function was implemented to address compatibility issues across Windows and Linux operating systems
+ * @return a positive integee.
+ */ 
+GvrsLong GvrsTimeMS();
 
-#if defined(_WIN32) || defined(_WIN64)
-#define GvrsStrdup           _strdup
-#define GvrsGmtime(A, B)     gmtime_s((A), (B))
 
-#else
-#define GvrsStrdup strdup
-#define GvrsGmtime(A, B)     gmtime_r((B),  (A) )
+/**
+* Performs a robust string copy operation.  While this function is similar to the POSIX strncpy,
+* it differs in the order of its arguments and it also ensures that the destination string is always null terminated.
+* <p>
+* This function was implemented to address compatibility issues across Windows and Linux operating systems.
+* @param destination a valid location to receive the content of the copy operation.
+* @param destinationSize a positive integral value giving the maximum size of the destination memory, including the null terminator.
+* @param source the source string to be copied.
+* @return if successful, zero; otherwise, an error code.
+*/
+int GvrsStrncpy(char* destination, size_t destinationSize, const char* source);
+
+
+
+#ifdef __cplusplus
+}
 #endif
 
 
-
+#endif

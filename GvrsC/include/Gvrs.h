@@ -26,6 +26,7 @@
 
 #include "GvrsFramework.h"
 #include "GvrsPrimaryTypes.h"
+#include "GvrsCrossPlatform.h"
 #include "GvrsCodec.h"
 #include "GvrsMetadata.h"
 #include "GvrsInternal.h"
@@ -437,6 +438,7 @@ int GvrsSummarize(Gvrs* gvrs, FILE* fp);
 * @return if successful, zero; otherwise an error code.
 */
 int GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp);
+
 
 
 #ifdef __cplusplus

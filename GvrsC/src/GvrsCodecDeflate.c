@@ -26,6 +26,7 @@
 
 #include "GvrsFramework.h"
 #include "GvrsPrimaryTypes.h"
+#include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 #include "zlib.h"
@@ -35,7 +36,8 @@
 // case-sensitive name of codec
 static const char* identification = "GvrsDeflate";
 static const char* description = "Implements the standard GVRS compression using Deflate";
-static void* destroyCodecDeflate(struct GvrsCodecTag* codec) {
+
+static GvrsCodec* destroyCodecDeflate(struct GvrsCodecTag* codec) {
 	if (codec) {
 		if (codec->description) {
 			free(codec->description);
@@ -118,8 +120,8 @@ GvrsCodec* GvrsCodecDeflateAlloc() {
 		GvrsError = GVRSERR_NOMEM;
 		return 0;
 	}
-    strcpy_s(codec->identification, sizeof(codec->identification), identification);
-    codec->description = _strdup(description);
+    GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
+    codec->description = GvrsStrdup(description);
     codec->decodeInt = decodeInt;
 	codec->destroyCodec = destroyCodecDeflate;
 	return codec;

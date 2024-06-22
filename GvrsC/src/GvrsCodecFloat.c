@@ -26,6 +26,7 @@
 
 #include "GvrsFramework.h"
 #include "GvrsPrimaryTypes.h"
+#include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 #include "zlib.h"
@@ -34,7 +35,7 @@
 static const char* identification = "GvrsFloat";
 static const char* description = "Implements the standard GVRS compression for floating-point data";
 
-static void* destroyCodecFloat(struct GvrsCodecTag* codec) {
+static GvrsCodec* destroyCodecFloat(struct GvrsCodecTag* codec) {
 	if (codec) {
 		if (codec->description) {
 			free(codec->description);
@@ -195,8 +196,8 @@ GvrsCodec* GvrsCodecFloatAlloc() {
 	if (!codec) {
 		return 0;
 	}
-	strcpy_s(codec->identification, sizeof(codec->identification), identification);
-	codec->description = _strdup(description);
+	GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
+	codec->description = GvrsStrdup(description);
 	codec->decodeFloat = decodeFloat;
 	codec->destroyCodec = destroyCodecFloat;
 	return codec;

@@ -23,29 +23,41 @@
  * THE SOFTWARE.
  * ---------------------------------------------------------------------
  */
- 
-#pragma once
 
-#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
-
-#include <stdint.h>
-#include <stdlib.h>
-#include <malloc.h>
-#include <memory.h>
-#include <stdio.h>
 #include <time.h>
 #include <string.h>
-#include <wchar.h>
-#include <ctype.h>
-
 #if defined(_WIN32) || defined(_WIN64)
-#define GvrsStrdup           _strdup
-#define GvrsGmtime(A, B)     gmtime_s((A), (B))
-
-#else
-#define GvrsStrdup strdup
-#define GvrsGmtime(A, B)     gmtime_r((B),  (A) )
+#include <sys/timeb.h>
 #endif
 
+#include "Gvrs.h"
+
+GvrsLong GvrsTimeMS() {
+#if defined(_WIN32) || defined(_WIN64)
+	struct timeb timex;
+	ftime(&timex);
+	return  1000LL * (GvrsLong)timex.time + (GvrsLong)timex.millitm;
+#else
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	return (GvrsLong)ts.tv_sec * 1000LL + (GvrsLong)ts.tv_nsec / 1000000LL;
+#endif
+
+}
 
 
+int
+GvrsStrncpy(char* destination, size_t destinationSize, const char* source) {
+	if (!(destination && source && destinationSize > 0)){
+		return -1;
+	}
+	// in this copy operation, overwrite any unused bytes with zeroes.
+	// the motivation for this approach is to prevent any inadvertant exposure
+	// of data from the calling routing
+	size_t i;
+	for (i = 0; i < destinationSize-1 && source[i] != '\0'; i++)
+		destination[i] = source[i];
+	for (; i < destinationSize; i++)
+		destination[i] = '\0';
+	return 0;
+ }

@@ -24,10 +24,10 @@
  * ---------------------------------------------------------------------
  */
 
-#include "GvrsFramework.h"
 #include <math.h>
-
+#include "GvrsFramework.h"
 #include "GvrsPrimaryTypes.h"
+#include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 #include "zlib.h"
@@ -100,7 +100,8 @@ typedef struct LsHeaderTag {
 // case-sensitive name of codec
 static const char* identification = "GvrsLsop";
 static const char* description = "Implements the optional LSOP compression";
-static void* destroyCodecLsop(struct GvrsCodecTag* codec) {
+
+static GvrsCodec* destroyCodecLsop(struct GvrsCodecTag* codec) {
 	if (codec) {
 		if (codec->description) {
 			free(codec->description);
@@ -576,8 +577,8 @@ GvrsCodec* GvrsCodecLsopAlloc() {
 	if (!codec) {
 		return 0;
 	}
-    strcpy_s(codec->identification, sizeof(codec->identification), identification);
-    codec->description = _strdup(description);
+    GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
+    codec->description = GvrsStrdup(description);
     codec->decodeInt = decodeInt;
 	codec->destroyCodec = destroyCodecLsop;
 	return codec;

@@ -56,7 +56,7 @@ typedef struct GvrsCodecTag {
 	// We expect that some codecs may include unique elements that must be managed
 	// by the specific implementation.  So we require that codecs supply their own
 	// clean-up function.
-	void* (*destroyCodec)(struct GvrsCodecTag*);
+	struct GvrsCodecTag* (*destroyCodec)(struct GvrsCodecTag*);
 
 	void* appInfo;
 }GvrsCodec;

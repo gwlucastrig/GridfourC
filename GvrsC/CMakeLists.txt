@@ -13,6 +13,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 	src/GvrsBspline.c
 	src/GvrsChecksum.c
 	src/GvrsCodecHuffman.c
+	src/GvrsCrossPlatform.c
 	src/GvrsElement.c
 	src/GvrsError.c
 	src/GvrsInterpolation.c
@@ -62,6 +63,7 @@ endif()
 set(public_headers
 	include/Gvrs.h
 	include/GvrsCodec.h
+	include/GvrsCrossPlatform.h
 	include/GvrsError.h
 	include/GvrsFramework.h
 	include/GvrsInternal.h

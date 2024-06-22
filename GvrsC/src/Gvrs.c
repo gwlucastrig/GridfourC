@@ -67,8 +67,8 @@ static GvrsCodec* createCodecPlaceholder(const char *identification) {
 	if (!codec) {
 		return 0;
 	}
-	strcpy_s(codec->identification, sizeof(codec->identification), identification);
-	codec->description = _strdup("Unimplemented compressor");
+	GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
+	codec->description = GvrsStrdup("Unimplemented compressor");
 	codec->destroyCodec = destroyCodecPlaceholder;
 	return codec;
 }
@@ -87,7 +87,7 @@ static Gvrs *fail(Gvrs *gvrs, FILE *fp ,int code) {
 }
 
 static void skipToMultipleOf4(FILE* fp) {
-	fpos_t pos = ftell(fp);
+	long pos = ftell(fp);
 	int k = (int)(pos & 0x3);
 	if (k > 0) {
 		GvrsSkipBytes(fp, 4 - k);
@@ -333,7 +333,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 		return fail(gvrs, fp, GVRSERR_NOMEM);
 	}
 	gvrs->fp = fp;
-	gvrs->path = _strdup(path);
+	gvrs->path = GvrsStrdup(path);
 	if (!path) {
 		return fail(gvrs, fp, GVRSERR_NOMEM);
 	}

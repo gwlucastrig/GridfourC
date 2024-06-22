@@ -26,6 +26,7 @@
 
 #include "GvrsFramework.h"
 #include "GvrsPrimaryTypes.h"
+#include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 
@@ -55,7 +56,7 @@ static void cleanUp( GvrsByte* output, GvrsBitInput *input, GvrsM32 *m32, int *n
 // case-sensitive name of codec
 static const char* identification = "GvrsHuffman";
 static const char* description = "Implements the standard GVRS compression using Huffman coding";
-static void* destroyCodecHuffman(struct GvrsCodecTag* codec) {
+static GvrsCodec* destroyCodecHuffman(struct GvrsCodecTag* codec) {
 	if (codec) {
 		if (codec->description) {
 			free(codec->description);
@@ -331,8 +332,8 @@ GvrsCodec* GvrsCodecHuffmanAlloc() {
 		return 0;
 	}
 
-    strcpy_s(codec->identification, sizeof(codec->identification), identification);
-    codec->description = _strdup(description);
+    GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
+    codec->description = GvrsStrdup(description);
     codec->decodeInt = decodeInt;
 	codec->destroyCodec = destroyCodecHuffman;
 

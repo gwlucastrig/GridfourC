@@ -65,7 +65,7 @@ GvrsSummarize(Gvrs* gvrs, FILE* fp) {
 	GvrsGetStringUUID(gvrs, sizeof(uuidString), uuidString);
 	char modTimeStr[64];
 	struct tm modTM;
-	gmtime_s(&modTM, &gvrs->modTimeSec);
+	GvrsGmtime(&modTM, &gvrs->modTimeSec);
 	strftime(modTimeStr, sizeof(modTimeStr), "%Y-%m-%d %H:%M:%S", &modTM);
 
 	fprintf(fp, "\n");
