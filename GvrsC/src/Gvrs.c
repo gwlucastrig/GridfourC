@@ -32,7 +32,14 @@
 #include "GvrsError.h"
 #include <math.h>
 
+
 GvrsCodec* GvrsCodecHuffmanAlloc();
+#ifdef GVRS_ZLIB
+GvrsCodec* GvrsCodecDeflateAlloc();
+GvrsCodec* GvrsCodecFloatAlloc();
+GvrsCodec* GvrsCodecLsopAlloc();
+#endif
+
 
 static double to180(double angle) {
 	if (-180 <= angle && angle < 180) {
@@ -68,7 +75,7 @@ static GvrsCodec* createCodecPlaceholder(const char *identification) {
 		return 0;
 	}
 	GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
-	codec->description = GvrsStrdup("Unimplemented compressor");
+	codec->description = GVRS_STRDUP("Unimplemented compressor");
 	codec->destroyCodec = destroyCodecPlaceholder;
 	return codec;
 }
@@ -333,7 +340,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 		return fail(gvrs, fp, GVRSERR_NOMEM);
 	}
 	gvrs->fp = fp;
-	gvrs->path = GvrsStrdup(path);
+	gvrs->path = GVRS_STRDUP(path);
 	if (!path) {
 		return fail(gvrs, fp, GVRSERR_NOMEM);
 	}
@@ -457,17 +464,54 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 		if (!gvrs->dataCompressionCodecs) {
 			return fail(gvrs, fp, GVRSERR_NOMEM);
 		}
+
+#ifdef GVRS_ZLIB
 		for (iCompress = 0; iCompress < gvrs->nDataCompressionCodecs; iCompress++) {
 			unsigned char* sp = "";
 			sp = GvrsReadString(fp, &status);
+			if (status) {
+				return fail(gvrs, fp, status);
+			}
+			if (strcmp("GvrsHuffman", sp) == 0) {
+				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecHuffmanAlloc();
+			}
+			else if (strcmp("GvrsDeflate", sp) == 0) {
+				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecDeflateAlloc();
+			}
+			else if (strcmp("GvrsFloat", sp) == 0) {
+				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecFloatAlloc();
+	}
+			else if (strcmp("GvrsLsop", sp) == 0) {
+				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecLsopAlloc();
+			}
+			else {
+				gvrs->dataCompressionCodecs[iCompress] = createCodecPlaceholder(sp);
+			}
+			if (!gvrs->dataCompressionCodecs[iCompress]) {
+				return fail(gvrs, fp, GVRSERR_BAD_COMPRESSION_FORMAT);
+			}
+			free(sp);
+		}
+#else
+		for (iCompress = 0; iCompress < gvrs->nDataCompressionCodecs; iCompress++) {
+			unsigned char* sp = "";
+			sp = GvrsReadString(fp, &status);
+			if (status) {
+				return fail(gvrs, fp, status);
+			}
 	        if (strcmp("GvrsHuffman", sp) == 0) {
 				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecHuffmanAlloc();
 			}
 			else {
 				gvrs->dataCompressionCodecs[iCompress] = createCodecPlaceholder(sp);
 			}
+			if (!gvrs->dataCompressionCodecs[iCompress]) {
+				return fail(gvrs, fp, GVRSERR_BAD_COMPRESSION_FORMAT);
+			}
 			free(sp);
 		}
+#endif
+
 	}
 
 	gvrs->productLabel = GvrsReadString(fp, &status);

@@ -197,7 +197,7 @@ GvrsCodec* GvrsCodecFloatAlloc() {
 		return 0;
 	}
 	GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
-	codec->description = GvrsStrdup(description);
+	codec->description = GVRS_STRDUP(description);
 	codec->decodeFloat = decodeFloat;
 	codec->destroyCodec = destroyCodecFloat;
 	return codec;

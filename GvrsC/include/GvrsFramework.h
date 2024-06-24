@@ -39,12 +39,12 @@
 #include <ctype.h>
 
 #if defined(_WIN32) || defined(_WIN64)
-#define GvrsStrdup           _strdup
-#define GvrsGmtime(A, B)     gmtime_s((A), (B))
+#define GVRS_STRDUP           _strdup
+#define GVRS_GMTIME(A, B)     gmtime_s((A), (B))
 
 #else
-#define GvrsStrdup strdup
-#define GvrsGmtime(A, B)     gmtime_r((B),  (A) )
+#define GVRS_STRDUP strdup
+#define GVRS_GMTIME(A, B)     gmtime_r((B),  (A) )
 #endif
 
 

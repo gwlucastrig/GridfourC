@@ -333,7 +333,7 @@ GvrsCodec* GvrsCodecHuffmanAlloc() {
 	}
 
     GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
-    codec->description = GvrsStrdup(description);
+    codec->description = GVRS_STRDUP(description);
     codec->decodeInt = decodeInt;
 	codec->destroyCodec = destroyCodecHuffman;
 

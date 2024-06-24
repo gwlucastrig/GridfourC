@@ -24,8 +24,8 @@
  * ---------------------------------------------------------------------
  */
 
-#include "GvrsC/Gvrs.h"
-#include "GvrsC/GvrsError.h"
+#include "Gvrs.h"
+#include "GvrsError.h"
 #include <time.h>
 #include <string.h>
 #include <sys/timeb.h>

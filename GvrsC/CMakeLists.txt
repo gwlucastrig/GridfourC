@@ -5,9 +5,41 @@ cmake_minimum_required (VERSION 3.8)
 
 project ("GvrsC" C )
 
+find_package(ZLIB)
+if(ZLIB_FOUND)
+	message(STATUS "This project has ZLIB")
+endif()
+
+
 add_library(${PROJECT_NAME} STATIC)
 
-target_sources(${PROJECT_NAME} PRIVATE
+
+if(ZLIB_FOUND)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE GVRS_ZLIB=1 )
+	include_directories( ${ZLIB_INCLUDE_DIRS} )
+	target_sources(${PROJECT_NAME} PRIVATE
+	src/Gvrs.c
+	src/GvrsBitInput.c
+	src/GvrsBspline.c
+	src/GvrsChecksum.c
+	src/GvrsCodecDeflate.c
+	src/GvrsCodecFloat.c
+	src/GvrsCodecHuffman.c
+	src/GvrsCodecLsop.c
+	src/GvrsCrossPlatform.c
+	src/GvrsElement.c
+	src/GvrsError.c
+	src/GvrsInterpolation.c
+	src/GvrsM32.c
+	src/GvrsMetadata.c
+	src/GvrsPredictor.c
+	src/GvrsPrimaryIo.c
+	src/GvrsRecordManager.c
+	src/GvrsSummarize.c
+	src/GvrsTileCache.c
+	)
+else()
+	target_sources(${PROJECT_NAME} PRIVATE
 	src/Gvrs.c
 	src/GvrsBitInput.c
 	src/GvrsBspline.c
@@ -24,7 +56,11 @@ target_sources(${PROJECT_NAME} PRIVATE
 	src/GvrsRecordManager.c
 	src/GvrsSummarize.c
 	src/GvrsTileCache.c
-)
+	)
+endif()
+
+
+
 
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
