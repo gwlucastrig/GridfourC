@@ -28,11 +28,7 @@
 #include "GvrsError.h"
 #include <time.h>
 #include <string.h>
-#include <sys/timeb.h>
 
-static long long deltaT(struct timeb time0, struct timeb time1) {
-	return  1000LL * (time1.time - time0.time) + (long long)(time1.millitm - time0.millitm);
-}
 
 /**
 * A simple test program that reads a GVRS file, summarizes its content
@@ -69,7 +65,6 @@ int main(int argc, char *argv[]) {
 
 
 	printf("\nPerforming exhaustive read operation on input file\n");
-	struct timeb time0, time1;
 	int iRow, iCol, nRows, nCols;
 	nRows = gvrs->nRowsInRaster;
 	nCols = gvrs->nColsInRaster;
@@ -80,13 +75,12 @@ int main(int argc, char *argv[]) {
 		// The loops below use either the Integer or Float read methods depending
 		// on the type of the source data.
 		if (e->elementType == GvrsElementTypeInt || e->elementType == GvrsElementTypeShort) {
-			GvrsLong sumValue = 0;
-			GvrsInt nGood = 0;
-			GvrsInt nBad = 0;
+			long long sumValue = 0;
+			long      nGood = 0;
+			long      nBad = 0;
 			GvrsInt iValue;
 			GvrsInt missingCompressor = 0;
-			ftime(&time0);
-			memmove_s(&time1, sizeof(time1), &time0, sizeof(time0));
+			GvrsLong time0 = GvrsTimeMS();
 			for (iRow = 0; iRow < nRows; iRow++) {
 				for (iCol = 0; iCol < nCols; iCol++) {
 					int status = GvrsElementReadInt(e, iRow, iCol, &iValue);
@@ -103,8 +97,8 @@ int main(int argc, char *argv[]) {
 					}
 				}
 			}
-			ftime(&time1);
-			printf("Processing completed in %lld ms\n", deltaT(time0, time1));
+			GvrsLong time1 = GvrsTimeMS();
+			printf("Processing completed in %lld ms\n", (long long)(time1-time0));
 			if (nGood) {
 				double avgValue = (double)sumValue / (double)nGood;
 				printf("Average value %f on %ld successful queries\n", avgValue, nGood);
@@ -114,13 +108,12 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		else {
-			GvrsDouble sumValue = 0;
-			GvrsInt nGood = 0;
-			GvrsInt nBad = 0;
+			double     sumValue = 0;
+			long       nGood = 0;
+			long       nBad = 0;
 			GvrsFloat fValue;
 			GvrsInt missingCompressor = 0;
-			ftime(&time0);
-			memmove_s(&time1, sizeof(time1), &time0, sizeof(time0));
+			GvrsLong time0 = GvrsTimeMS();
 			for (iRow = 0; iRow < nRows; iRow++) {
 				for (iCol = 0; iCol < nCols; iCol++) {
 					int status = GvrsElementReadFloat(e, iRow, iCol, &fValue);
@@ -137,8 +130,8 @@ int main(int argc, char *argv[]) {
 					}
 				}
 			}
-			ftime(&time1);
-			printf("Processing completed in %lld ms\n", deltaT(time0, time1));
+			GvrsLong time1 = GvrsTimeMS();
+			printf("Processing completed in %lld ms\n", time1-time0);
 			if (nGood) {
 				double avgValue = (double)sumValue / (double)nGood;
 				printf("Average value %f on %ld successful queries\n", avgValue, nGood);
