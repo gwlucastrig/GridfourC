@@ -216,7 +216,7 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 	int* nodeIndex = 0;
 	huffmanAppInfo* hInfo = (huffmanAppInfo*)appInfo;
 
-	int compressorIndex = (int)packing[0];
+	// int compressorIndex = (int)packing[0];
 	int predictorIndex = (int)packing[1];
 	int seed
 		= (packing[2] & 0xff)
@@ -238,7 +238,7 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 	int errCode;
    
 	nodeIndex = decodeTree(input, &indexSize, &errCode);
-	GvrsInt nBitsInTree = GvrsBitInputGetPosition(input);
+	// GvrsInt nBitsInTree = GvrsBitInputGetPosition(input);
 	if (!nodeIndex) {
 		cleanUp(output, input, m32, nodeIndex);
 		return errCode;

@@ -60,9 +60,9 @@ int GvrsReadInt(        FILE *fp, int32_t *value);
 int GvrsReadUnsignedInt(FILE* fp, uint16_t *value);
 int GvrsReadUnsignedIntArray(FILE* fp, int n, GvrsUnsignedInt* values);
 
-int GvrsReadLong(        FILE *fp, int64_t *value);
-int GvrsReadUnsignedLong(FILE* fp, uint64_t* value);
-int GvrsReadLongArray(FILE* fp, int n, GvrsLong* values);
+int GvrsReadLong(        FILE *fp, int64_t*          value);
+int GvrsReadUnsignedLong(FILE* fp, GvrsUnsignedLong* value);
+int GvrsReadLongArray(   FILE* fp, int n, GvrsLong*  values);
  
 int GvrsReadFloat( FILE *fp, float *value);
 int GvrsReadDouble(FILE *fp, double* value);

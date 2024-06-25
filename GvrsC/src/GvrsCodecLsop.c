@@ -296,7 +296,6 @@ static int doInflate(GvrsByte* input, int inputLength, GvrsByte *output, int out
 
 	inflateInit2(&zs, 15);
 	int status = inflate(&zs, Z_FINISH);
-	int inflatedLength = zs.total_out;
 	inflateEnd(&zs);
 	if (status != Z_STREAM_END) {
 		return  GVRSERR_BAD_COMPRESSION_FORMAT;
@@ -339,7 +338,7 @@ static int decodeInt(int nRows, int nColumns, int packingLength, GvrsByte* packi
 //    4 bytes    nInteriorCodes
 //    1 byte     method
  
-	int codecIndex = packing[0];
+	// int codecIndex = packing[0];
 	int nCoefficients = packing[1];
 	if (nCoefficients != 12) {
 		// the 8-coefficient variation is not implemented
@@ -360,9 +359,8 @@ static int decodeInt(int nRows, int nColumns, int packingLength, GvrsByte* packi
 	int method = packing[offset++];
 	int compressionType = method&COMPRESSION_TYPE_MASK;
 	GvrsBoolean valueChecksumIncluded = (method & VALUE_CHECKSUM_INCLUDED) != 0;
-	GvrsInt valueChecksum = 0;
 	if (valueChecksumIncluded) {
-		valueChecksum = unpackInteger(packing, offset);
+		// GvrsInt valueChecksum = unpackInteger(packing, offset);
 		offset += 4;
 	}
 

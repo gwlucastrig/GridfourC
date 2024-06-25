@@ -74,7 +74,7 @@ GvrsSummarize(Gvrs* gvrs, FILE* fp) {
 	fprintf(fp, "Identification:  %s\n", strspec(gvrs->productLabel));
 	fprintf(fp, "Last modified:   %s (UTC)\n", modTimeStr);
 	fprintf(fp, "\n");
-	int64_t nCellsInRaster = (int64_t)gvrs->nRowsInRaster * (int64_t)gvrs->nColsInRaster;
+	long long nCellsInRaster = (long long)gvrs->nRowsInRaster * (long long)gvrs->nColsInRaster;
 	long nCellsInTile = (long)gvrs->nRowsInTile * (long)gvrs->nColsInTile;
 	long nTilesInRaster = (long)gvrs->nRowsOfTiles * (long)gvrs->nColsOfTiles;
 	fprintf(fp, "Rows in raster:     %12d\n", gvrs->nRowsInRaster);
@@ -85,8 +85,8 @@ GvrsSummarize(Gvrs* gvrs, FILE* fp) {
 	fprintf(fp, "Columns of tiles:   %12d\n", gvrs->nColsOfTiles);
 
 	fprintf(fp, "Cells in raster:    %12lld\n", nCellsInRaster);
-	fprintf(fp, "Cells in tile:      %12d\n", nCellsInTile);
-	fprintf(fp, "Tiles in raster:    %12d\n", nTilesInRaster);
+	fprintf(fp, "Cells in tile:      %12ld\n", nCellsInTile);
+	fprintf(fp, "Tiles in raster:    %12ld\n", nTilesInRaster);
 	fprintf(fp, "\n");
 	fprintf(fp, "Checksums:         %s\n", gvrs->checksumEnabled ? "Enabled" : "Disabled");
 	fprintf(fp, "\n");
@@ -192,11 +192,11 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 	GvrsLong nAccessToCurrentTile = tc->nFetches - tc->nCacheSearches;
 	fprintf(fp, "\n");
 	fprintf(fp, "Access statistics ------------------------------\n");
-	fprintf(fp, "Number of Queries:      %12lld\n", tc->nFetches);
-	fprintf(fp, "Met by current tile:    %12lld\n", nAccessToCurrentTile);
-	fprintf(fp, "Cache searches:         %12lld\n", tc->nCacheSearches);
-	fprintf(fp, "Number not-found:       %12lld\n", tc->nNotFound);
-	fprintf(fp, "Number of tile reads:   %12lld\n", tc->nTileReads);
+	fprintf(fp, "Number of Queries:      %12lld\n", (long long)tc->nFetches);
+	fprintf(fp, "Met by current tile:    %12lld\n", (long long)nAccessToCurrentTile);
+	fprintf(fp, "Cache searches:         %12lld\n", (long long)tc->nCacheSearches);
+	fprintf(fp, "Number not-found:       %12lld\n", (long long)tc->nNotFound);
+	fprintf(fp, "Number of tile reads:   %12lld\n", (long long)tc->nTileReads);
 
 	return 0;
 }

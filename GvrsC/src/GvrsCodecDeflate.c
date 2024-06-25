@@ -50,7 +50,7 @@ static GvrsCodec* destroyCodecDeflate(struct GvrsCodecTag* codec) {
  
 static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo) {
 
-	int compressorIndex = (int)packing[0];
+	// int compressorIndex = (int)packing[0];
 	int predictorIndex = (int)packing[1];
 	int seed
 		= (packing[2] & 0xff)

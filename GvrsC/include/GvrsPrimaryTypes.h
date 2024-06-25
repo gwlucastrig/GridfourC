@@ -40,6 +40,7 @@ typedef uint16_t GvrsUnsignedShort;
 typedef int32_t  GvrsInt;
 typedef uint32_t GvrsUnsignedInt;
 typedef int64_t  GvrsLong;
+typedef uint64_t GvrsUnsignedLong;
 typedef float    GvrsFloat;
 typedef double   GvrsDouble;
 typedef int      GvrsBoolean;

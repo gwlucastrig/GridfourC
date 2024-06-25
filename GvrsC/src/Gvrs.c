@@ -151,7 +151,6 @@ static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int 
 	GvrsSkipBytes(fp, 6); // reserved for future use
 	status = GvrsReadIdentifier(fp, sizeof(element->name), element->name);
 	skipToMultipleOf4(fp); // needed because the name often breaks byte-alignment
-	int typeSize = 0;
 	// TO DO:  in the following, most of the types aren't completely implemented.
 	//         the code skips the appropriate bytes.
 	switch ((GvrsElementType)eType) {
@@ -354,7 +353,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 	GvrsReadLong(fp, &gvrs->uuidLow);
 	GvrsReadLong(fp, &gvrs->uuidHigh);
  
-	GvrsReadUnsignedLong(fp, &gvrs->modTimeMS);
+	GvrsReadLong(fp, &gvrs->modTimeMS);
 	gvrs->modTimeSec = gvrs->modTimeMS / 1000LL;
 
 	GvrsReadLong(fp, &gvrs->timeOpenedForWritingMS);
@@ -467,7 +466,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 
 #ifdef GVRS_ZLIB
 		for (iCompress = 0; iCompress < gvrs->nDataCompressionCodecs; iCompress++) {
-			unsigned char* sp = "";
+			char* sp = "";
 			sp = GvrsReadString(fp, &status);
 			if (status) {
 				return fail(gvrs, fp, status);

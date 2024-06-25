@@ -70,7 +70,7 @@ int GvrsGeneralBspline(
  
 
     if (iRow < 0 || iRow > nRowsInGrid - 1) {
-        GVRSERR_COORDINATE_OUT_OF_BOUNDS;
+        return GVRSERR_COORDINATE_OUT_OF_BOUNDS;
     }
  
 
@@ -375,6 +375,6 @@ GvrsInterpolateBspline(GvrsElement* e,
     int status = GvrsGeneralBspline(yRow, xCol, 4, 4, grid, computeDerivatives, rowSpacing, colSpacing, result);
  
 
-    return 0;
+    return status;
 
 }

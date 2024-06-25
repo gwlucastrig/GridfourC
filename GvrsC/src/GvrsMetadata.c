@@ -305,7 +305,7 @@ char* GvrsMetadataGetString(GvrsMetadata* metadata, int *errCode) {
 	// string when we read it from the file (see GvrsMetadataRead functions).
 
 	if (metadata->metadataType == GvrsMetadataTypeAscii || metadata->metadataType == GvrsMetadataTypeString) {
-		return metadata->data;
+		return (char *)metadata->data;
 	}
 	
 	*errCode = GVRSERR_FILE_ACCESS;

@@ -341,7 +341,6 @@ static int readAndDecomp(Gvrs *gvrs, GvrsInt n, GvrsElement* element, GvrsByte* 
 static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 	int i;
 	FILE* fp = gvrs->fp;
-	GvrsTileDirectory* tileDir = gvrs->tileDirectory;
 
 	if (tileOffset == 0) {
 		GvrsError = GVRSERR_FILE_ACCESS;
@@ -461,7 +460,7 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 	 tc->nColsInTile = gvrs->nColsInTile;
 	 tc->nRowsOfTiles = gvrs->nRowsOfTiles;
 	 tc->nColsOfTiles = gvrs->nColsOfTiles;
-	 GvrsInt nTilesTotal = gvrs->nRowsOfTiles * gvrs->nColsOfTiles;
+	 // GvrsInt nTilesTotal = gvrs->nRowsOfTiles * gvrs->nColsOfTiles;
 
 	 for (i = 0; i < tc->maxTileCacheSize; i++) {
 		 tc->tileAllocation[i].allocationIndex = i;

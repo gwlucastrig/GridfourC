@@ -74,7 +74,6 @@ static GvrsByte* doInflate(GvrsByte* input, int inputLength, int outputLength, i
 
 	inflateInit2(&zs, 15);
 	int status = inflate(&zs, Z_FINISH);
-	int inflatedLength = zs.total_out;
 	inflateEnd(&zs);
 	if (status != Z_STREAM_END) {
 		free(output);
