@@ -122,9 +122,10 @@ extern "C"
 		GvrsInt firstTileIndex;
 		GvrsInt lastReadFailure;
 		GvrsTile* tileAllocation;
-		GvrsTile* tileList;
 		GvrsTile* freeList;
-		GvrsTile* lastNodeInTileList;
+		GvrsTile* head; 
+		GvrsTile* tail;
+		GvrsTile* firstTile;
 		GvrsLong nFetches;
 		GvrsLong nTileReads;
 		GvrsLong nCacheSearches;

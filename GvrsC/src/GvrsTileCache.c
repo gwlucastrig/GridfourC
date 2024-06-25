@@ -160,7 +160,7 @@ static int hashTablePut(GvrsTileCache* tc, GvrsTile* tile) {
 			// we need to allocate a new allocation block
 			GvrsTileHashEntry** allocationBlocks = (GvrsTileHashEntry**)realloc(
 				table->allocationBlocks,
-				(table->nAllocationBlocks+1) * sizeof(GvrsTileHashEntry*));
+				(size_t)(table->nAllocationBlocks+1) * sizeof(GvrsTileHashEntry*));
 			if (!allocationBlocks) {
 				GvrsError = GVRSERR_NOMEM;
 				return GVRSERR_NOMEM;
@@ -388,63 +388,24 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 	return 0;
 }
 
-
-static void moveLastTileToFreeList(GvrsTileCache* tc) {
-	// the assumption is that this method will never be called
-	// if there are fewer than 2 nodes on the tile list.
-	GvrsTile *node = tc->lastNodeInTileList;
-	GvrsTile* prior = node->prior;
-	node->tileIndex = -1;
-	prior->next = 0; // removes node from tile list
-	tc->lastNodeInTileList = prior;
-	node->prior = 0;
-	node->next = tc->freeList;
-	tc->freeList = node;
-}
+ 
 
 static void moveTileToHeadOfMainList(GvrsTileCache* tc, GvrsTile* node) {
-	if (node == tc->tileList) {
-		return; // should never happen if properly implemented
-	}
-	if (node->next) {
-		node->next->prior = node->prior;
-	}
-	else {
-		// The node was the last node in the tile list.
-		// We need to update the last-node reference.
-		// however, if there is only one node in the list,
-		// the node will node have a prior and it will remain
-		// the last node in the tile list with no further action required..
-		if (node->prior) {
-			tc->lastNodeInTileList = node->prior;
-		}
-	}
-	if (node->prior) {
-		node->prior->next = node->next;
-	}
-
-	node->prior = 0;
-	node->next = tc->tileList;
-	node->next->prior = node;
-	tc->tileList = node;
+	GvrsTile* n = node->next;
+	GvrsTile* p = node->prior;
+	n->prior = p;
+	p->next = n;
+	p = tc->head;
+	n = p->next;
+	p->next = node;
+	n->prior = node;
+	node->next = n;
+	node->prior = p;
+	tc->firstTile = node;
+	tc->firstTileIndex = node->tileIndex;
 }
 
-static GvrsTile* moveFreeTileToMainList(GvrsTileCache* tc, int tileIndex) {
-	GvrsTile* node = tc->freeList;
-	tc->freeList = node->next;
-	node->tileIndex = tileIndex;
-	node->next = tc->tileList;
-	// node->prior should already be null because it was at the head of the free list.
-	if (node->next) {
-		node->next->prior = node;
-	} else {
-		// the tile list was empty and the node will be the only
-		// node on the tile list
-		tc->lastNodeInTileList = node;
-	}
-	tc->tileList = node;
-	return node;
-}
+ 
 
 GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 	Gvrs* gvrs = gvrspointer;
@@ -462,15 +423,26 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 	tc->gvrs = gvrs;
 	tc->firstTileIndex = -1;
 	tc->maxTileCacheSize = maxTileCacheSize;
-	tc->tileAllocation = calloc(tc->maxTileCacheSize, sizeof(GvrsTile));
-	tc->freeList = tc->tileAllocation;
-	// initialize the links for the free list
-	// the firstNode->prior and lastNode->next will be null.
-	if (!tc->freeList) {
+	// allocate empty tiles for the maximum tile cache size, plus 2 extras for the head and tail
+	tc->head = calloc((size_t)(tc->maxTileCacheSize+2), sizeof(GvrsTile));
+	if (!tc->head) {
 		free(tc);
 		GvrsError = GVRSERR_NOMEM;
 		return 0;
 	}
+	tc->tail = tc->head + 1;
+	tc->head->next = tc->tail;
+	tc->tail->prior = tc->head;
+	tc->head->tileIndex = -1;
+	tc->tail->tileIndex = -1;
+	tc->head->allocationIndex = -1;
+	tc->tail->allocationIndex = -1;
+
+	tc->tileAllocation = tc->head+2;
+	tc->freeList = tc->tileAllocation;
+
+	// initialize the links for the free list
+    // the firstNode->prior and lastNode->next will be null.
 	prior = tc->freeList;
 	prior->tileIndex = -1;
 	for (i = 1; i < tc->maxTileCacheSize; i++) {
@@ -497,6 +469,7 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 
 	 tc->hashTable = hashTableAlloc();
 	 if (!tc->hashTable) {
+		 free(tc->head);
 		 free(tc);
 		 return 0;
 	 }
@@ -532,7 +505,7 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache *tc, int gridRow, int gridColumn,
 
 	tc->nFetches++;
 	if (tileIndex == tc->firstTileIndex) {
-		return tc->tileList; // return the first node in the list
+		return tc->firstTile; // return the first node in the list
 	}
 
 
@@ -544,8 +517,7 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache *tc, int gridRow, int gridColumn,
 	GvrsTile *node= hashTableLookup(tc, tileIndex);
 	if (node) {
 		// the node is already in the cache
-		moveTileToHeadOfMainList(tc, node);
-		tc->firstTileIndex = tileIndex;
+		moveTileToHeadOfMainList(tc, node); // will also set firstTile and firstTileIndex
 		return node;
 	}
  
@@ -559,34 +531,52 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache *tc, int gridRow, int gridColumn,
 	}
 
 	// The target tile is not in the cache
-	if (!tc->freeList) {
+	if (tc->freeList) {
+		// take a node from the free list
+		node = tc->freeList;
+		tc->freeList = node->next;
+		// add the node to the start of the cache queue
+		GvrsTile* p = tc->head;
+		GvrsTile* n = p->next;
+		p->next = node;
+		n->prior = node;
+		node->prior = p;
+		node->next = n;
+		node->tileIndex = tileIndex;
+		tc->firstTileIndex = tileIndex;
+		tc->firstTile = node;
+	}else{
 		// all tiles are already committed.  we need to remove the
 		// least-recently-used tile from the cache. 
-		hashTableRemove(tc, tc->lastNodeInTileList);
-		moveLastTileToFreeList(tc);
+		node = tc->tail->prior; // last tile in queue
+		hashTableRemove(tc, node);
+		node->tileIndex = tileIndex;
+		moveTileToHeadOfMainList(tc, node); // will also set firstTile and firstTileIndex
 	}
-	if (!tc->freeList) {
-		GvrsError = GVRSERR_NOMEM;
-		return 0;
-	}
+ 
 
 	tc->nTileReads++;
-	node = tc->freeList;
 	int status = readTile(tc->gvrs, tileOffset, node);
 	if (status) {
-		// The node will remain on the free list for future use
+		// The read operation failed
+		// Restore the node to the free list for future use
 		node->tileIndex = -1;
+		tc->firstTileIndex = -1;
+		tc->firstTile = 0;
+
+		GvrsTile* p = tc->head;
+		GvrsTile* n = node->next;
+		p->next = n;
+		n->prior = p;
+		node->prior = 0;
+		node->next = tc->freeList;
 		*errCode = status;
 		return 0;
 	}
 
-	// The content was sucessfully read into the first node on the
-	// free list.  We can now move it to the main cache
-	moveFreeTileToMainList(tc, tileIndex);
+	// The content was sucessfully read into the target node.
+	// Add it to the hash table
 	hashTablePut(tc, node);
-	tc->firstTileIndex = tileIndex;
-
-
 	return node;
 }
 
@@ -601,10 +591,11 @@ GvrsTileCache* GvrsTileCacheFree(GvrsTileCache* cache) {
 				cache->tileAllocation[i].data = 0;
 			}
 		}
-		free(cache->tileAllocation);
+		free(cache->head);
+		cache->head = 0;
+		cache->tail = 0;
 		cache->tileAllocation = 0;
 		cache->freeList = 0;
-		cache->tileList = 0;
 		// the following references are managed elsewhere, but are nullified as a diagnostic
 		cache->gvrs = 0;
 		cache->tileDirectory = 0;
