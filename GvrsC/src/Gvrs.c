@@ -29,6 +29,7 @@
 #include "GvrsPrimaryTypes.h"
 #include "GvrsPrimaryIo.h"
 #include "Gvrs.h"
+#include "GvrsInternal.h"
 #include "GvrsError.h"
 #include <math.h>
 
@@ -279,16 +280,19 @@ int GvrsSetTileCacheSize(Gvrs* gvrs, GvrsTileCacheSizeType cacheSize) {
 	default:
 		n = 16;
 	}
-	if (gvrs->tileCache) {
-		if (gvrs->tileCache->maxTileCacheSize == n) {
+	GvrsTileCache* tileCache = (GvrsTileCache *)gvrs->tileCache;
+	gvrs->tileCache = 0;
+	if (tileCache) {
+		if (tileCache->maxTileCacheSize == n) {
 			return 0;
 		}
-		gvrs->tileCache = GvrsTileCacheFree(gvrs->tileCache);
+		GvrsTileCacheFree(tileCache);
 	}
-	gvrs->tileCache = GvrsTileCacheAlloc(gvrs, n);
-	if (gvrs->tileCache) {
+	tileCache = GvrsTileCacheAlloc(gvrs, n);
+	if (tileCache) {
+		gvrs->tileCache = tileCache;
 		for (i = 0; i < gvrs->nElementsInTupple; i++) {
-			gvrs->elements[i]->tileCache = gvrs->tileCache;
+			gvrs->elements[i]->tileCache = tileCache;
 		}
 		return 0;
 	}
@@ -432,7 +436,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 		return fail(gvrs, fp, GVRSERR_EOF);
 	}
 
-	gvrs->elements = calloc(gvrs->nElementsInTupple+1, sizeof(GvrsElement*));
+	gvrs->elements = calloc((size_t)(gvrs->nElementsInTupple+1), sizeof(GvrsElement*));
 	if (!gvrs->elements) {
 		return fail(gvrs, fp, GVRSERR_NOMEM);
 	}

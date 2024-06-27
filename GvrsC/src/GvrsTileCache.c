@@ -29,6 +29,7 @@
 #include "GvrsPrimaryIo.h"
 #include "GvrsError.h"
 #include "Gvrs.h"
+#include "GvrsInternal.h"
 
 // Hash codes:
 //  In development, we experimented with two hash codes.  Thomas Muller's strong hash
@@ -48,8 +49,7 @@
 static uint32_t ihash(uint32_t x) {
 	return x * 2654435761U;
 }
-
-
+ 
 static GvrsTileHashEntry* allocHashBlock() {
 	GvrsTileHashEntry* block = calloc(GVRS_TILE_HASH_BLOCK_SIZE, sizeof(GvrsTileHashEntry));
 	if (block) {
@@ -412,7 +412,6 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 		maxTileCacheSize = 16;
 	}
 	int i;
-	GvrsTile* prior;
 	GvrsTile* node;
 	GvrsTileCache* tc = calloc(1, sizeof(GvrsTileCache));
 	if (!tc) {
@@ -435,43 +434,39 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 	tc->head->tileIndex = -1;
 	tc->tail->tileIndex = -1;
 	tc->head->allocationIndex = -1;
-	tc->tail->allocationIndex = -1;
+	tc->tail->allocationIndex = -(maxTileCacheSize+2);
 
+	// Initially, all nodes go on the free list.  Also initialize
+	// each tile's allocationIndex to allow it to be coordinated with the has table
+	// For all but the last tile in the array, we set its "next" link.
 	tc->tileAllocation = tc->head+2;
 	tc->freeList = tc->tileAllocation;
-
-	// initialize the links for the free list
-    // the firstNode->prior and lastNode->next will be null.
-	prior = tc->freeList;
-	prior->tileIndex = -1;
-	for (i = 1; i < tc->maxTileCacheSize; i++) {
-	    node = tc->freeList+i;
+	int n1 = tc->maxTileCacheSize - 1;
+	for (i = 0; i < tc->maxTileCacheSize; i++) {
+		node = tc->tileAllocation + i;
 		node->tileIndex = -1;
-		node->prior = prior;
-		prior->next = node;
-		prior = node;
+		node->allocationIndex = i;
+		if (i < n1) {
+			node->next = node + 1;
+		}
 	}
 
 	tc->tileDirectory = gvrs->tileDirectory;
  
-	 tc->nRowsInRaster = gvrs->nRowsInRaster;
-	 tc->nColsInRaster = gvrs->nColsInRaster;
-	 tc->nRowsInTile = gvrs->nRowsInTile;
-	 tc->nColsInTile = gvrs->nColsInTile;
-	 tc->nRowsOfTiles = gvrs->nRowsOfTiles;
-	 tc->nColsOfTiles = gvrs->nColsOfTiles;
-	 // GvrsInt nTilesTotal = gvrs->nRowsOfTiles * gvrs->nColsOfTiles;
+	tc->nRowsInRaster = gvrs->nRowsInRaster;
+	tc->nColsInRaster = gvrs->nColsInRaster;
+	tc->nRowsInTile = gvrs->nRowsInTile;
+	tc->nColsInTile = gvrs->nColsInTile;
+	tc->nRowsOfTiles = gvrs->nRowsOfTiles;
+	tc->nColsOfTiles = gvrs->nColsOfTiles;
 
-	 for (i = 0; i < tc->maxTileCacheSize; i++) {
-		 tc->tileAllocation[i].allocationIndex = i;
-	 }
+	tc->hashTable = hashTableAlloc();
+	if (!tc->hashTable) {
+		free(tc->head);
+		free(tc);
+		return 0;
+	}
 
-	 tc->hashTable = hashTableAlloc();
-	 if (!tc->hashTable) {
-		 free(tc->head);
-		 free(tc);
-		 return 0;
-	 }
 	return tc;
 }
  
@@ -480,7 +475,6 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache *tc, int gridRow, int gridColumn,
 	 
 	int nRowsInRaster = tc->nRowsInRaster;
 	int nColsInRaster = tc->nColsInRaster;
-
 
 	if (gridRow < 0 || gridRow >= nRowsInRaster || gridColumn < 0 || gridColumn >= nColsInRaster) {
 		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
@@ -569,6 +563,7 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache *tc, int gridRow, int gridColumn,
 		n->prior = p;
 		node->prior = 0;
 		node->next = tc->freeList;
+		tc->freeList = node;
 		*errCode = status;
 		return 0;
 	}

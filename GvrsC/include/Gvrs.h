@@ -29,7 +29,7 @@
 #include "GvrsCrossPlatform.h"
 #include "GvrsCodec.h"
 #include "GvrsMetadata.h"
-#include "GvrsInternal.h"
+ 
 
 #ifndef GVRS_H
 #define GVRS_H
@@ -145,7 +145,7 @@ typedef struct GvrsElementTag {
 	int fillValueInt;
 	float fillValueFloat;
 
-	GvrsTileCache* tileCache;
+	void* tileCache;
 	void* gvrs;
 
 	// The unit-to-meters conversion factor is optional.  It is intended to support
@@ -216,10 +216,10 @@ typedef struct GvrsTag {
 
 	char* productLabel;
 
-	GvrsTileDirectory* tileDirectory;
-	GvrsTileCache* tileCache;
+	void* tileDirectory;
+	void* tileCache;
 
-	GvrsMetadataDirectory* metadataDirectory;
+	void* metadataDirectory;
 
 } Gvrs;
 

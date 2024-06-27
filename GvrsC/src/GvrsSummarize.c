@@ -28,6 +28,7 @@
 #include "GvrsPrimaryTypes.h"
 #include "GvrsPrimaryIo.h"
 #include "Gvrs.h"
+#include "GvrsInternal.h"
 #include "GvrsError.h"
  
 

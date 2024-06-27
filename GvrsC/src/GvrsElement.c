@@ -28,6 +28,7 @@
 #include "GvrsPrimaryTypes.h"
 #include "GvrsPrimaryIo.h"
 #include "Gvrs.h"
+#include "GvrsInternal.h"
 #include "GvrsError.h"
 
 
@@ -40,7 +41,7 @@ int GvrsElementReadInt(GvrsElement* element, int row, int column, GvrsInt *value
 	}
  
 	int errCode, indexInTile;
-	GvrsTile* tile = GvrsTileCacheFetchTile(element->tileCache, row, column, &indexInTile, &errCode);
+	GvrsTile* tile = GvrsTileCacheFetchTile((GvrsTileCache * )element->tileCache, row, column, &indexInTile, &errCode);
 
  
 	if (tile) {
