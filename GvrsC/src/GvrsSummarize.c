@@ -46,6 +46,8 @@ GvrsGetStringUUID(Gvrs* gvrs, size_t uuidStringSize, char* uuidString) {
 }
 
 static const char* elementTypeStr[] = { "Integer", "Integer-Coded Float", "Float", "Short" };
+
+static const char* tileCacheSizeStr[] = { "Small", "Medium", "Large", "Extra Large" };
  
 static const char* strspec(const char* s) {
 	if (s && *s) {
@@ -165,6 +167,26 @@ GvrsSummarize(Gvrs* gvrs, FILE* fp) {
 	else {
 		fprintf(fp, "Data Compression:  Disabled\n");
 	}
+
+	fprintf(fp, "\n");
+	GvrsTileCache* tc = gvrs->tileCache;
+	long maxTileCacheAllocation = (long)tc->maxTileCacheSize * (long)gvrs->nBytesForTileData;
+
+	fprintf(fp, "----------------------------------------\n");
+	fprintf(fp, "Tile cache size: %s, %4.1f MB\n",
+		tileCacheSizeStr[(int)gvrs->tileCacheSize], maxTileCacheAllocation/1048576.0);
+	fprintf(fp,"Options for standard cache sizes\n");
+	fprintf(fp, "    Size              Max Tiles      Max Memory (MB)\n");
+	for (i = 0; i < 4; i++) {
+		long n = GvrsTileCacheComputeStandardSize(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, (GvrsTileCacheSizeType)i);
+		maxTileCacheAllocation = n * (long)gvrs->nBytesForTileData;
+		fprintf(fp, "    %-12.12s           %4ld            %9.1f\n",
+			tileCacheSizeStr[i],
+			n,
+			maxTileCacheAllocation / 1048576.0);
+	}
+	
+ 
 
 	fprintf(fp, "\n");
 

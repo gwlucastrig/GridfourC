@@ -433,19 +433,19 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 	tc->tail->prior = tc->head;
 	tc->head->tileIndex = -1;
 	tc->tail->tileIndex = -1;
-	tc->head->allocationIndex = -1;
-	tc->tail->allocationIndex = -(maxTileCacheSize+2);
+	tc->head->referenceArrayIndex = -1;
+	tc->tail->referenceArrayIndex = -(maxTileCacheSize+2);
 
 	// Initially, all nodes go on the free list.  Also initialize
-	// each tile's allocationIndex to allow it to be coordinated with the has table
+	// each tile's referenceArrauIndex to allow it to be coordinated with the has table
 	// For all but the last tile in the array, we set its "next" link.
-	tc->tileAllocation = tc->head+2;
-	tc->freeList = tc->tileAllocation;
+	tc->tileReferenceArray = tc->head+2;
+	tc->freeList = tc->tileReferenceArray;
 	int n1 = tc->maxTileCacheSize - 1;
 	for (i = 0; i < tc->maxTileCacheSize; i++) {
-		node = tc->tileAllocation + i;
+		node = tc->tileReferenceArray + i;
 		node->tileIndex = -1;
-		node->allocationIndex = i;
+		node->referenceArrayIndex = i;
 		if (i < n1) {
 			node->next = node + 1;
 		}
@@ -580,15 +580,15 @@ GvrsTileCache* GvrsTileCacheFree(GvrsTileCache* cache) {
 		int i;
 		cache->hashTable = hashTableFree(cache->hashTable);
 		for (i = 0; i < cache->maxTileCacheSize; i++) {
-			if (cache->tileAllocation[i].data) {
-				free(cache->tileAllocation[i].data);
-				cache->tileAllocation[i].data = 0;
+			if (cache->tileReferenceArray[i].data) {
+				free(cache->tileReferenceArray[i].data);
+				cache->tileReferenceArray[i].data = 0;
 			}
 		}
 		free(cache->head);
 		cache->head = 0;
 		cache->tail = 0;
-		cache->tileAllocation = 0;
+		cache->tileReferenceArray = 0;
 		cache->freeList = 0;
 		// the following references are managed elsewhere, but are nullified as a diagnostic
 		cache->gvrs = 0;
@@ -613,3 +613,27 @@ GvrsTileDirectory* GvrsTileDirectoryFree(GvrsTileDirectory* tileDirectory) {
 	}
 	return 0;
 }
+
+
+
+
+
+int GvrsTileCacheComputeStandardSize(int nRowsOfTiles, int nColsOfTiles, GvrsTileCacheSizeType cacheSize) {
+	int nMax = nColsOfTiles > nRowsOfTiles ? nColsOfTiles : nRowsOfTiles;
+	if (nMax < 4) {
+		return 4;
+	}
+	switch (cacheSize) {
+	case GvrsTileCacheSizeSmall:
+		return 4;
+	case GvrsTileCacheSizeMedium:
+		return 9;
+	case GvrsTileCacheSizeLarge:
+		return nMax;
+	case GvrsTileCacheSizeExtraLarge:
+		return nMax * 2;
+	default:
+		return 9;
+	}
+}
+	 

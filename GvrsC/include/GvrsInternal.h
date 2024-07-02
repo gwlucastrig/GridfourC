@@ -72,7 +72,7 @@ extern "C"
 		struct GvrsTileTag* next;
 		struct GvrsTileTag* prior;
 		int tileIndex;
-		int allocationIndex;
+		int referenceArrayIndex;
 		GvrsByte* data;   // these bytes are "typeless" until type cast using a GvrsElement.
 	} GvrsTile;
 
@@ -121,7 +121,7 @@ extern "C"
 		GvrsInt maxTileCacheSize;
 		GvrsInt firstTileIndex;
 		GvrsInt lastReadFailure;
-		GvrsTile* tileAllocation;
+		GvrsTile* tileReferenceArray;
 		GvrsTile* freeList;
 		GvrsTile* head; 
 		GvrsTile* tail;
@@ -164,6 +164,15 @@ extern "C"
 	GvrsTileDirectory* GvrsTileDirectoryRead(FILE *fp, GvrsLong fileOffset, int *errCode);
 	GvrsTileDirectory* GvrsTileDirectoryFree(GvrsTileDirectory* tileDirectory);
 	 
+	/**
+	* Computes the standard maximum capacity for a tile cache based on the number
+	* of tiles in a source raster and the type of size allocation
+	* @param nRowsOfTiles the number of rows of tiles in the raster
+	* @param nColsOfTiles the number of columns of tiles in the raster
+	* @param cacheSize enumeration giving small, medium, large, and extra large.
+	* @return a positive integer
+	*/
+	int GvrsTileCacheComputeStandardSize(int nRowsOfTiles, int nColsOfTiles, GvrsTileCacheSizeType cacheSize);
 
 	GvrsTileCache* GvrsTileCacheAlloc(void* gvrs, int maxTileCacheSize);
 	GvrsTileCache* GvrsTileCacheFree(GvrsTileCache* cache);

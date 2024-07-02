@@ -263,23 +263,13 @@ static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int 
 
 int GvrsSetTileCacheSize(Gvrs* gvrs, GvrsTileCacheSizeType cacheSize) {
 	int i, n;
-	int nMax = gvrs->nColsOfTiles > gvrs->nRowsOfTiles ? gvrs->nColsOfTiles : gvrs->nRowsOfTiles;
-	switch (cacheSize) {
-	case GvrsTileCacheSizeSmall:
-		n = 9;
-		break;
-	case GvrsTileCacheSizeMedium:
-		n = 16;
-		break;
-	case GvrsTileCacheSizeLarge:
-		n = nMax;
-		break;
-	case GvrsTileCacheSizeExtraLarge:
-		n = nMax*2;
-		break;
-	default:
-		n = 16;
+	if (cacheSize < 0 || cacheSize>3) {
+		// improper specification from application code.
+		cacheSize = GvrsTileCacheSizeMedium;
 	}
+	gvrs->tileCacheSize = cacheSize;
+	n = GvrsTileCacheComputeStandardSize(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, cacheSize);
+
 	GvrsTileCache* tileCache = (GvrsTileCache *)gvrs->tileCache;
 	gvrs->tileCache = 0;
 	if (tileCache) {

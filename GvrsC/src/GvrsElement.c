@@ -94,17 +94,17 @@ int GvrsElementReadFloat(GvrsElement* element, int row, int column, GvrsFloat* v
 			*value = (float)(((int*)data)[indexInTile]);
 			return 0;
 		case GvrsElementTypeIntCodedFloat:
-			{
-				GvrsElementSpecIntCodedFloat s = element->elementSpec.intFloatSpec;
-				int i = ((int*)data)[indexInTile];
-				if (i == s.iFillValue) {
-					*value = s.fillValue;
-				}
-				else {
-					*value = i / s.scale + s.offset;
-				}
+		{
+			GvrsElementSpecIntCodedFloat s = element->elementSpec.intFloatSpec;
+			int i = ((int*)data)[indexInTile];
+			if (i == s.iFillValue) {
+				*value = s.fillValue;
 			}
-			return 0;
+			else {
+				*value = i / s.scale + s.offset;
+			}
+		}
+		return 0;
 		case GvrsElementTypeFloat:
 			*value = ((float*)data)[indexInTile];
 			return 0;
@@ -126,6 +126,20 @@ int GvrsElementReadFloat(GvrsElement* element, int row, int column, GvrsFloat* v
 		*value = element->fillValueFloat;
 		return errCode;
 	}
-
-	 
 }
+
+	int GvrsElementIsIntegral(GvrsElement * element) {
+
+		switch (element->elementType) {
+		case GvrsElementTypeInt:
+			return 1;
+		case GvrsElementTypeIntCodedFloat:
+			return 1;
+		case GvrsElementTypeShort:
+			return 1;
+		default:
+			return 0;
+		}
+
+	}
+ 

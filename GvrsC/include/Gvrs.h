@@ -216,6 +216,7 @@ typedef struct GvrsTag {
 
 	char* productLabel;
 
+	GvrsTileCacheSizeType tileCacheSize;
 	void* tileDirectory;
 	void* tileCache;
 
@@ -283,6 +284,14 @@ GvrsElement*  GvrsGetElementByIndex(Gvrs* gvrs, int index);
 * @return if available, a valid array of pointers to GVRS elements.
 */
 GvrsElement** GvrsGetElements(Gvrs* gvrs, int* nElements);
+
+/**
+* Indicates whether an element is of an integral type.
+* Includes types Int, IntCodedFloat, and Short.
+* @param e a valid reference to an element
+* @return non-zero (true) if integral; zero (false) if not.
+*/
+int GvrsElementIsIntegral(GvrsElement* element);
 
 /**
 * Reads an integer value from the GVRS file associated with the specified element.
