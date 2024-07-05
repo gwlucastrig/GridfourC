@@ -173,10 +173,12 @@ GvrsSummarize(Gvrs* gvrs, FILE* fp) {
 	long maxTileCacheAllocation = (long)tc->maxTileCacheSize * (long)gvrs->nBytesForTileData;
 
 	fprintf(fp, "----------------------------------------\n");
-	fprintf(fp, "Tile cache size: %s, %4.1f MB\n",
-		tileCacheSizeStr[(int)gvrs->tileCacheSize], maxTileCacheAllocation/1048576.0);
+	fprintf(fp, "Tile cache size: %s,  %4.1f MiB,    bytes per tile: %ld\n",
+		tileCacheSizeStr[(int)gvrs->tileCacheSize], 
+		maxTileCacheAllocation/1048576.0,
+		(long)gvrs->nBytesForTileData);
 	fprintf(fp,"Options for standard cache sizes\n");
-	fprintf(fp, "    Size              Max Tiles      Max Memory (MB)\n");
+	fprintf(fp, "    Size              Max Tiles      Max Memory (MiB)\n");
 	for (i = 0; i < 4; i++) {
 		long n = GvrsTileCacheComputeStandardSize(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, (GvrsTileCacheSizeType)i);
 		maxTileCacheAllocation = n * (long)gvrs->nBytesForTileData;

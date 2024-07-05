@@ -13,6 +13,11 @@ endif()
 
 add_library(${PROJECT_NAME} STATIC)
 
+if( CMAKE_COMPILER_IS_GNUCC )
+	message(STATUS "Detected GNU CC compiler")
+	target_compile_options(${PROJECT_NAME} PRIVATE -Wall)
+endif()
+
 
 if(ZLIB_FOUND)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE GVRS_ZLIB=1 )
