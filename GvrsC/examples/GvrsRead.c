@@ -77,19 +77,20 @@ int main(int argc, char *argv[]) {
 		if (e->elementType == GvrsElementTypeInt || e->elementType == GvrsElementTypeShort) {
 			long long sumValue = 0;
 			long      nGood = 0;
-			long      nBad = 0;
 			GvrsInt iValue;
-			GvrsInt missingCompressor = 0;
 			GvrsLong time0 = GvrsTimeMS();
 			for (iRow = 0; iRow < nRows; iRow++) {
 				for (iCol = 0; iCol < nCols; iCol++) {
 					int status = GvrsElementReadInt(e, iRow, iCol, &iValue);
 					if (status) {
 						// non-zero indicates an error
-						nBad++;
 						if (status == GVRSERR_COMPRESSION_NOT_IMPLEMENTED) {
-							missingCompressor++;
+							printf("Read test failed due to non-implemented compressor\n");
 						}
+						else {
+							printf("Read test failed on error %d\n", status);
+						}
+						exit(status);
 					}
 					else {
 						nGood++;
@@ -103,25 +104,26 @@ int main(int argc, char *argv[]) {
 				double avgValue = (double)sumValue / (double)nGood;
 				printf("Average value %f on %ld successful queries\n", avgValue, nGood);
 			}
-			if (nBad) {
-				printf("Number of unsuccessful queries %ld, with %ld due to missing compressors\n", nBad, missingCompressor);
-			}
 		}
 		else {
 			double     sumValue = 0;
 			long       nGood = 0;
-			long       nBad = 0;
 			GvrsFloat fValue;
-			GvrsInt missingCompressor = 0;
 			GvrsLong time0 = GvrsTimeMS();
 			for (iRow = 0; iRow < nRows; iRow++) {
 				for (iCol = 0; iCol < nCols; iCol++) {
 					int status = GvrsElementReadFloat(e, iRow, iCol, &fValue);
 					if (status) {
 						// non-zero indicates an error
-						nBad++;
-						if (status == GVRSERR_COMPRESSION_NOT_IMPLEMENTED) {
-							missingCompressor++;
+						if (status) {
+							// non-zero indicates an error
+							if (status == GVRSERR_COMPRESSION_NOT_IMPLEMENTED) {
+								printf("Read test failed due to non-implemented compressor\n");
+							}
+							else {
+								printf("Read test failed on error %d\n", status);
+							}
+							exit(status);
 						}
 					}
 					else {
@@ -135,9 +137,6 @@ int main(int argc, char *argv[]) {
 			if (nGood) {
 				double avgValue = (double)sumValue / (double)nGood;
 				printf("Average value %f on %ld successful queries\n", avgValue, nGood);
-			}
-			if (nBad) {
-				printf("Number of unsuccessful queries %ld, with %ld due to missing compressors\n", nBad, missingCompressor);
 			}
 		}
 	}
