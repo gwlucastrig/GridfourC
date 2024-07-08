@@ -98,7 +98,7 @@ typedef struct LsHeaderTag {
 
  
 // case-sensitive name of codec
-static const char* identification = "GvrsLsop";
+static const char* identification = "LSOP12";
 static const char* description = "Implements the optional LSOP compression";
 
 static GvrsCodec* destroyCodecLsop(struct GvrsCodecTag* codec) {
