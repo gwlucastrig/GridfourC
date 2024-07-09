@@ -470,56 +470,25 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 	return tc;
 }
  
+ 
 
-GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache *tc, int gridRow, int gridColumn, int *indexInTile, int* errCode) {
-	 
-	int nRowsInRaster = tc->nRowsInRaster;
-	int nColsInRaster = tc->nColsInRaster;
+GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileRow, int tileCol, int tileIndex, int* errCode) {
 
-	if (gridRow < 0 || gridRow >= nRowsInRaster || gridColumn < 0 || gridColumn >= nColsInRaster) {
-		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
-		*errCode = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
-		return      0;
-	}
-	GvrsError = 0; // start off optimistic
-	*errCode = 0;
-
-	int nRowsInTile = tc->nRowsInTile;
-	int nColsInTile = tc->nColsInTile;
-	int nColsOfTiles = tc->nColsOfTiles;
-	int tileRow = gridRow / nRowsInTile;
-	int tileCol = gridColumn / nColsInTile;
-	int tileIndex = tileRow * nColsOfTiles + tileCol;
-	int rowInTile = gridRow - tileRow * nRowsInTile;
-	int colInTile = gridColumn - tileCol * nColsInTile;
-	*indexInTile = rowInTile * nColsInTile + colInTile;
-	// *indexInTile = (gridRow - tileRow * nRowsInTile) * nColsInTile + (gridColumn - tileCol * nColsInTile);
-
-
-	tc->nFetches++;
-	if (tileIndex == tc->firstTileIndex) {
-		return tc->firstTile; // return the first node in the list
-	}
-
-
-	// Since the first tile in the list is not the target tile,
-	// search the tile list for a matching index. There is a special case
-	// if a tile has never been accessed, the tile list will be empty
-	// and the tileList reference will be null.
 	tc->nCacheSearches++;
-	GvrsTile *node= hashTableLookup(tc, tileIndex);
+	GvrsTile* node = hashTableLookup(tc, tileIndex);
 	if (node) {
 		// the node is already in the cache
 		moveTileToHeadOfMainList(tc, node); // will also set firstTile and firstTileIndex
 		return node;
 	}
- 
- 
+
+
 
 	// The tile does not exist in the cache.  It will need to be read
 	// from the source file.  Check to see if it is populated at all.
 	GvrsLong tileOffset = getFilePositionByRowColumn(tc->tileDirectory, tileRow, tileCol);
 	if (!tileOffset) {
+		*errCode = 0;
 		return 0; // tile not found
 	}
 
@@ -538,7 +507,8 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache *tc, int gridRow, int gridColumn,
 		node->tileIndex = tileIndex;
 		tc->firstTileIndex = tileIndex;
 		tc->firstTile = node;
-	}else{
+	}
+	else {
 		// all tiles are already committed.  we need to remove the
 		// least-recently-used tile from the cache. 
 		node = tc->tail->prior; // last tile in queue
@@ -546,13 +516,14 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache *tc, int gridRow, int gridColumn,
 		node->tileIndex = tileIndex;
 		moveTileToHeadOfMainList(tc, node); // will also set firstTile and firstTileIndex
 	}
- 
+
 
 	tc->nTileReads++;
 	int status = readTile(tc->gvrs, tileOffset, node);
 	if (status) {
 		// The read operation failed
 		// Restore the node to the free list for future use
+		*errCode = status;
 		node->tileIndex = -1;
 		tc->firstTileIndex = -1;
 		tc->firstTile = 0;
@@ -573,6 +544,8 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache *tc, int gridRow, int gridColumn,
 	hashTablePut(tc, node);
 	return node;
 }
+
+
 
 
 GvrsTileCache* GvrsTileCacheFree(GvrsTileCache* cache) {

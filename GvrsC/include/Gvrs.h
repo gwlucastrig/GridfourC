@@ -122,7 +122,7 @@ typedef struct GvrsElmSpecShortTag {
 
 
 /**
-* Provides specifications for a GVRS element.
+* Provides run-time data and specifications for a GVRS element structure.
 */
 typedef struct GvrsElementTag {
 	GvrsElementType elementType;
@@ -288,7 +288,7 @@ GvrsElement** GvrsGetElements(Gvrs* gvrs, int* nElements);
 /**
 * Indicates whether an element is of an integral type.
 * Includes types Int, IntCodedFloat, and Short.
-* @param e a valid reference to an element
+* @param element a valid reference to an element
 * @return non-zero (true) if integral; zero (false) if not.
 */
 int GvrsElementIsIntegral(GvrsElement* element);

@@ -186,15 +186,16 @@ extern "C"
 	* If a tile is available then the index into its array(s) of data values is computed
 	* from the grid row and column values.
 	* @param tc a pointer to a valid tile cache instance
-	* @param gridRow the row within the overall grid for the raster data cell of interest.
-	* @param gridColumn the column within the overall grid for the raster data cell of interest.
-	* @param indexInTile a pointer to a storage location to receive the computed index within the
-	* tile's data array(s) for the raster data value of interest.
+	* @param tileRow the row of tiles within the overall grid that contains the raster data cell of interest.
+	* @param tileColumn the column of tiles within the overall grid that contains the raster data cell of interest.
+	* @param tileIndex the index for the tile of interest. 
 	* @param errCode a pointer to a storage location to receive the error code in case of a failure
 	* to obtain a tile.
 	* @return if successful, a pointer to a storage location for the tile of interest; otherwise, a null.
 	*/
-	GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int gridRow, int gridColumn, int* indexInTile, int* errCode);
+ 
+	GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileRow, int tileColumn, int tileIndex, int* errCode);
+
 
 	GvrsMetadataDirectory* GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDir, int *errCode);
 	GvrsMetadataDirectory* GvrsMetadataDirectoryFree(GvrsMetadataDirectory* dir);
