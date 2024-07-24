@@ -64,7 +64,6 @@ int GvrsReadASCII(FILE* fp, size_t n, size_t bufferSize, char * buffer)
 	}
 		
 	return 0;
- 
 }
 
 
@@ -75,7 +74,8 @@ int  GvrsReadByte(FILE * fp, GvrsByte * value)
 
 int  GvrsReadByteArray(FILE* fp, int nValues, GvrsByte * values)
 {
-	return fread(values, 1, nValues, fp) < (size_t)nValues ? errCode(fp) : 0;
+	size_t status = fread(values, 1, nValues, fp);
+	return status < (size_t)nValues ? errCode(fp) : 0;
 }
 
 
@@ -225,4 +225,130 @@ int GvrsSetFilePosition(FILE* fp, GvrsLong fileOffset) {
 	}
 	return fseek(fp, (long)fileOffset, SEEK_SET);
 }
+ 
 
+int GvrsWriteASCII(FILE* fp, size_t bufferSize, const char* buffer)
+{
+	size_t k = fwrite(buffer, 1, bufferSize, fp);
+	if (k != bufferSize) {
+		return k == 0 ? -1 : (int)k;
+	}
+	return 0;
+}
+
+
+int GvrsWriteBoolean(FILE* fp, GvrsBoolean  value) {
+	if (value) {
+		return GvrsWriteByte(fp, 1);
+	}
+	else {
+		return GvrsWriteByte(fp, 0);
+	}
+}
+
+int  GvrsWriteByte(FILE* fp, GvrsByte value)
+{
+	GvrsByte b = value;
+	return fwrite(&b, 1, 1, fp) < 1 ? errCode(fp) : 0;
+}
+
+int GvrsWriteByteArray(FILE* fp, int nValues, GvrsByte *values) {
+	return fwrite(values, 1, nValues, fp) < nValues ? errCode(fp) : 0;
+}
+
+
+int GvrsWriteDouble(FILE* fp, GvrsDouble value)
+{
+	GvrsDouble d = value;
+	return fwrite(&d, 8, 1, fp) < 1 ? errCode(fp) : 0;
+}
+
+int GvrsWriteFloat(FILE* fp, GvrsFloat value)
+{
+	GvrsFloat f = value;
+	return fwrite(&f, 4, 1, fp) < 1 ? errCode(fp) : 0;
+}
+
+
+
+int GvrsWriteInt(FILE* fp, GvrsInt value)
+{
+	GvrsInt i = value;
+	return fwrite(&i, 4, 1, fp) < 1 ? errCode(fp) : 0;
+}
+
+int GvrsWriteLong(FILE* fp, GvrsLong value)
+{
+	GvrsLong i = value;
+	return fwrite(&i, 8, 1, fp) < 1 ? errCode(fp) : 0;
+}
+
+int GvrsWriteShort(FILE* fp, GvrsShort value)
+{
+	GvrsShort i = value;
+	return fwrite(&i, 2, 1, fp) < 1 ? errCode(fp) : 0;
+}
+
+int GvrsWriteUnsignedShort(FILE* fp, GvrsUnsignedShort value)
+{
+	GvrsUnsignedShort i = value;
+	return fwrite(&i, 2, 1, fp) < 1 ? errCode(fp) : 0;
+}
+
+
+
+int GvrsWriteString(FILE* fp, const char *string)
+{
+	uint16_t len = 0;
+	if (!string || !*string) {
+		len = 0;
+	}
+	else {
+		size_t lstr = strlen(string);
+		if (lstr >= UINT16_MAX) {
+			return GVRSERR_FILE_ACCESS;
+		}
+		len = (uint16_t)lstr;
+	}
+	size_t status = fwrite(&len, 2, 1, fp);
+	if (status < 1) {
+		return errCode(fp);
+	}
+
+	status = fwrite(string, 1, len, fp);
+	if (status < len) {
+		return errCode(fp);
+	}
+	return 0;
+}
+
+
+int GvrsWriteZeroes(FILE* fp, int nZeroes) {
+	unsigned char zeroes[4096];
+	int k = 0;
+	int n = (int)sizeof(zeroes);
+	memset(zeroes, 0, n);
+	if (nZeroes > sizeof(zeroes)) {
+		int nBlock = nZeroes / n;
+		int k = 0;
+		int i, status;
+		for (i = 0; i < nBlock; i++) {
+			status = (int)fwrite(zeroes, 1, sizeof(zeroes),  fp);
+			if (status < sizeof(zeroes)) {
+				return errCode(fp);
+			}
+			k += (int)sizeof(zeroes);
+		}
+	}
+	 
+	// writeSize will always be smaller than sizeof(zeroes).  But we check anyway
+	// to satisfy Visual Studio's code analysis which will otherwise report an error.
+	int writeSize = nZeroes - k;
+	if (writeSize > 0 && writeSize<sizeof(zeroes)) {
+		int  status = (int)fwrite(zeroes, 1, (size_t)writeSize, fp);
+		if (status < writeSize) {
+			return errCode(fp);
+		}
+	}
+	return 0;
+}

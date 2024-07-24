@@ -33,11 +33,15 @@ our [GridfourC wiki](https://github.com/gwlucastrig/GridfourC/wiki).  Got someth
 Let us know.
 
 We are now turning our attention to implementing the ability for the C API to write data to a GVRS data store.
+The new GvrsBuilder functions provide a partial implementation of the ability to write files.
+Currently, they are limited to non-compressed formats and do not yet support metadata.  
 When that task is complete, the GVRS C API will be fully functional.
+
+We are also in the process of adding doxygen-style documentation to our primary header files.
 
 ## Documentation
 
-Please see our Wiki page for more information on the C API.
+Please see our Wiki page for more information on the C API.  
 
 For the Gridfour project in general, we have two main documentation pages:
 

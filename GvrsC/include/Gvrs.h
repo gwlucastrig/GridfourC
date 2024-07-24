@@ -39,6 +39,9 @@ extern "C"
 {
 #endif
 
+
+#define GVRS_VERSION 1
+#define GVRS_SUB_VERSION 4
 /**
 * Defines parametrs for a 2D affine transform using a 2-by-3 matrix
 */
@@ -192,6 +195,7 @@ typedef struct GvrsTag {
 	GvrsInt nColsInTile;
 	GvrsInt nRowsOfTiles;
 	GvrsInt nColsOfTiles;
+	GvrsInt nCellsInTile;
 
 	GvrsDouble x0;
 	GvrsDouble y0;
@@ -221,6 +225,8 @@ typedef struct GvrsTag {
 	void* tileCache;
 
 	void* metadataDirectory;
+
+	void* fileSpaceManager;
 
 } Gvrs;
 
@@ -294,7 +300,9 @@ GvrsElement** GvrsGetElements(Gvrs* gvrs, int* nElements);
 int GvrsElementIsIntegral(GvrsElement* element);
 
 /**
-* Reads an integer value from the GVRS file associated with the specified element.
+* Reads an integer value from GVRS. May access the file associated with the specified element.
+* For integer-coded-float elements, this method will access the integer value directly rather than
+* converting it. To obtain the corresponding floating-point value, use GvrsElementReadFloat.
 * @param element a valid instance associated with an open GVRS file.
 * @param row the row index for a grid cell within the GVRS file.
 * @param column the column index for a grid cell within the GVRS file.
@@ -304,7 +312,7 @@ int GvrsElementIsIntegral(GvrsElement* element);
 int GvrsElementReadInt(GvrsElement* element, int row, int column, GvrsInt* value);
 
 /**
-* Reads a floating-point value from the GVRS file associated with the specified element.
+* Reads a floating-point value from GVRS.  May access file associated with the specified element.
 * @param element a valid instance associated with an open GVRS file.
 * @param row the row index for a grid cell within the GVRS file.
 * @param column the column index for a grid cell within the GVRS file.
@@ -312,6 +320,24 @@ int GvrsElementReadInt(GvrsElement* element, int row, int column, GvrsInt* value
 * @return if successful, a zero; otherwise an error code.
 */
 int GvrsElementReadFloat(GvrsElement* element, int row, int column, GvrsFloat* value);
+
+
+/**
+* Writes an integer value to the GVRS store. May access the file associated with the specified
+* element.   For integer-coded-float elements, this method will stored the specified integer
+* value directly.  If will be converted to its corresponding floating-point value when accessed
+* via the GvrsElementReadFloat routine.
+* @param element a valid instance associated with an open GVRS file.
+* @param row the row index for a grid cell within the GVRS file.
+* @param column the column index for a grid cell within the GVRS file.
+* @param value an interger value to be stored in the file
+* @return if successful, a zero; otherwise an error code.
+*/
+int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt value);
+int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, GvrsFloat value);
+
+
+
 
 /**
 * Transforms (maps) the specified row and column coordinates to their corresponding

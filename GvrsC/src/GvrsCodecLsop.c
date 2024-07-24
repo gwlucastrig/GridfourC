@@ -63,7 +63,7 @@ static GvrsInt unpackInteger(GvrsByte input[], int offset) {
 }
 
 static GvrsFloat unpackFloat(GvrsByte input[], int offset) {
-	GvrsFloat f;
+	GvrsFloat f=0;
 	GvrsInt* p = (GvrsInt *)(&f);
 	*p = (input[offset] & 0xff)
 		| ((input[offset + 1] & 0xff) << 8)

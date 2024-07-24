@@ -43,6 +43,17 @@ extern "C"
 {
 #endif
 
+
+
+
+static const long FILEPOS_OFFSET_TO_HEADER_RECORD = 16;
+static const long FILEPOS_MODIFICATION_TIME = 40;
+static const long FILEPOS_OFFSET_TO_FREESPACE_DIR = 56;
+static const long FILEPOS_OFFSET_TO_METADATA_DIR = 64;
+static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
+
+
+
 // Macro to adjust an integer value to be a multiple of 4
 #define GVRS_MULTI_4(A)  (((A) + 3) & 0x7ffffffc)
 
@@ -73,6 +84,10 @@ extern "C"
 		struct GvrsTileTag* prior;
 		int tileIndex;
 		int referenceArrayIndex;
+
+		int writePending;
+		GvrsLong filePosition;  // zero if not written to file
+
 		GvrsByte* data;   // these bytes are "typeless" until type cast using a GvrsElement.
 	} GvrsTile;
 
@@ -84,6 +99,7 @@ extern "C"
 		GvrsInt nRows;
 		GvrsInt nCols;
 		GvrsInt nRowsOfTiles;
+		GvrsInt nColsOfTiles;
 		// one of the following pointers should be set.  iOffsets when
 		// compact references are used.  lOffsets for extended references.
 		GvrsUnsignedInt* iOffsets;
@@ -131,13 +147,16 @@ extern "C"
 		GvrsLong nCacheSearches;
 		GvrsLong nNotFound;
 
-
-		GvrsInt nRowsInRaster;
-		GvrsInt nColsInRaster;
+		// The rows/columns counts for the raster are stored as unsigned integers
+		// to facilitate range checking in GvrsElement Read/Write functions.
+		unsigned int nRowsInRaster;
+		unsigned int nColsInRaster;
 		GvrsInt nRowsInTile;
 		GvrsInt nColsInTile;
 		GvrsInt nRowsOfTiles;
 		GvrsInt nColsOfTiles;
+		GvrsInt nCellsInTile;
+
 		GvrsTileDirectory* tileDirectory;
 		GvrsTileHashTable* hashTable;
 	}GvrsTileCache;
@@ -158,11 +177,34 @@ extern "C"
 	}GvrsMetadataDirectory;
 
 
+	typedef struct GvrsFileSpaceManagerTag {
+		GvrsLong recentRecordPosition;
+		GvrsLong recentStartOfContent;
+		GvrsInt  recentRecordSize;
+		GvrsRecordType recentRecordType;
+	}GvrsFileSpaceManager;
+
 	const char* GvrsGetRecordTypeName(int index);
 	GvrsRecordType  GvrsGetRecordType(int index);
 	 
-	GvrsTileDirectory* GvrsTileDirectoryRead(FILE *fp, GvrsLong fileOffset, int *errCode);
+	GvrsTileDirectory* GvrsTileDirectoryAllocEmpty(int nRowsOfTiles, int nColsOfTiles, int* errCode);
+	GvrsTileDirectory* GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong fileOffset, int *errCode);
 	GvrsTileDirectory* GvrsTileDirectoryFree(GvrsTileDirectory* tileDirectory);
+	GvrsLong GvrsTileDirectoryGetFilePositionByRowColumn(GvrsTileDirectory* tileDir, int tileRow, int tileCol);
+	GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIndex);
+	GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode);
+
+	/**
+	* Sets the file position for a tile in the GVRS tile directory. The GVRS specification requires that
+	* file positions for all records (including tile records) always be a multiple of 8. This approach
+	* allows file positions for files of size up to 32 GiB to be stored in 4-byte unsigned integers.
+	* @param td a pointer to a valid tile directory structure
+	* @param tileIndex a positive integer
+	* @param filePosition the offset in the file at which the tile is stored.
+	*/
+	int GvrsTileDirectorySetFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition);
+
+	GvrsLong GvrsFileSpaceAlloc(Gvrs* gvrs, GvrsRecordType recordType, int sizeOfContent);
 	 
 	/**
 	* Computes the standard maximum capacity for a tile cache based on the number
@@ -176,6 +218,7 @@ extern "C"
 
 	GvrsTileCache* GvrsTileCacheAlloc(void* gvrs, int maxTileCacheSize);
 	GvrsTileCache* GvrsTileCacheFree(GvrsTileCache* cache);
+	int GvrsTileCacheWritePendingTiles(GvrsTileCache* tc);
 
 	/**
 	* Fetches a tile from the tile cache, if available.  This function is intended to support
@@ -193,14 +236,17 @@ extern "C"
 	* to obtain a tile.
 	* @return if successful, a pointer to a storage location for the tile of interest; otherwise, a null.
 	*/
- 
-	GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileRow, int tileColumn, int tileIndex, int* errCode);
+	GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileIndex, int* errCode);
 
+	GvrsTile* GvrsTileCacheStartNewTile(GvrsTileCache* tc,  int tileIndex, int* errCode);
 
 	GvrsMetadataDirectory* GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDir, int *errCode);
 	GvrsMetadataDirectory* GvrsMetadataDirectoryFree(GvrsMetadataDirectory* dir);
 
-
+	void GvrsElementFillData(GvrsElement* element, GvrsByte* data, int nCells);
+	int  GvrsFileSpaceFinish(Gvrs* gvrs, GvrsLong contentPos);
+	GvrsFileSpaceManager* GvrsFileSpaceManagerAlloc();
+	GvrsFileSpaceManager* GvrsFileSpaceManagerFree(GvrsFileSpaceManager*);
 
 #ifdef __cplusplus
 }

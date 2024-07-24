@@ -276,6 +276,10 @@ int GvrsSetTileCacheSize(Gvrs* gvrs, GvrsTileCacheSizeType cacheSize) {
 		if (tileCache->maxTileCacheSize == n) {
 			return 0;
 		}
+		int status = GvrsTileCacheWritePendingTiles(tileCache);
+		if (status) {
+			return status;
+		}
 		GvrsTileCacheFree(tileCache);
 	}
 	tileCache = GvrsTileCacheAlloc(gvrs, n);
@@ -295,6 +299,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 	errno = 0;
 	int status;
 	int iElement;
+ 
 	Gvrs* gvrs = 0;
 	FILE* fp = fopen(path, "rb+");
 
@@ -308,6 +313,15 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 		return fail(gvrs, fp, GVRSERR_FILE_ERROR);
 	}
 
+	int openedForWriting = 0;
+	const char* p = accessMode;
+	while (p && *p) {
+		if (*p == 'w' || *p == 'W') {
+			openedForWriting = 1;
+			break;
+		}
+		p++;
+	}
  
 
 	// As this function is reading the file, it checks the return status
@@ -374,6 +388,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 	GvrsReadInt(fp, &gvrs->nColsInTile);
 	gvrs->nRowsOfTiles = (gvrs->nRowsInRaster + gvrs->nRowsInTile - 1) / gvrs->nRowsInTile;
 	gvrs->nColsOfTiles = (gvrs->nColsInRaster + gvrs->nColsInTile - 1) / gvrs->nColsInTile;
+	gvrs->nCellsInTile = gvrs->nRowsInTile * gvrs->nColsInTile;
 
 	GvrsSkipBytes(fp, 8);
 	GvrsByte scratch;
@@ -509,7 +524,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 
 	gvrs->productLabel = GvrsReadString(fp, &status);
 
-	gvrs->tileDirectory = GvrsTileDirectoryRead(fp, gvrs->filePosTileDirectory, &status);
+	gvrs->tileDirectory = GvrsTileDirectoryRead(gvrs, gvrs->filePosTileDirectory, &status);
 	if (status) {
 		return fail(gvrs, fp, status);
 	}
@@ -528,47 +543,17 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 		gvrs->elements[iElement]->tileCache = gvrs->tileCache;
 	}
 	
+	if (openedForWriting) {
+		gvrs->timeOpenedForWritingMS = GvrsTimeMS();
+		GvrsSetFilePosition(fp, FILEPOS_MODIFICATION_TIME+8);
+		GvrsWriteLong(fp, gvrs->timeOpenedForWritingMS);  // the modification time
+		gvrs->fileSpaceManager = GvrsFileSpaceManagerAlloc();
+	}
 	return gvrs;
 
 
 }
 
-
-Gvrs* GvrsClose(Gvrs* gvrs) {
-	if (gvrs) {
-		int i;
-		gvrs->path = freeString(gvrs->path);
-		if (gvrs->fp) {
-			int status = fclose(gvrs->fp);
-			if (status) {
-				GvrsError = GVRSERR_FILE_ERROR;
-			}
-			gvrs->fp = 0;
-		}
-		gvrs->productLabel = freeString(gvrs->productLabel);
-		for (i = 0; i < gvrs->nElementsInTupple; i++) {
-			gvrs->elements[i] = freeElement(gvrs->elements[i]);
-		}
-		free(gvrs->elements);
-		gvrs->elements = 0;
-		gvrs->tileCache = GvrsTileCacheFree(gvrs->tileCache);
-		gvrs->tileDirectory = GvrsTileDirectoryFree(gvrs->tileDirectory);
-		gvrs->metadataDirectory = GvrsMetadataDirectoryFree(gvrs->metadataDirectory);
-
-		if (gvrs->dataCompressionCodecs) {
-			for (i = 0; i < gvrs->nDataCompressionCodecs; i++) {
-				GvrsCodec* codec = gvrs->dataCompressionCodecs[i];
-				if (codec) {
-					gvrs->dataCompressionCodecs[i] = codec->destroyCodec(codec);
-				}
-			}
-			free(gvrs->dataCompressionCodecs);
-			gvrs->dataCompressionCodecs = 0;
-		}
-		free(gvrs);
-	}
-	return 0;
-}
 
 
 GvrsElement* GvrsGetElementByName(Gvrs* gvrs, const char *name) {
@@ -676,3 +661,122 @@ GvrsRegisterCodec(Gvrs* gvrs, GvrsCodec* codec) {
 }
 
 
+static int writeChecksumForHeader(Gvrs* gvrs) {
+	if (!gvrs->checksumEnabled) {
+		// nothing to do
+		return 0;
+	}
+	int status;
+	FILE* fp = gvrs->fp;
+	fflush(fp);
+	GvrsInt sizeOfHeaderInBytes;
+	GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_HEADER_RECORD);
+	status = GvrsReadInt(fp, &sizeOfHeaderInBytes);
+	if (status) {
+		GvrsError = status;
+		return status;
+	}
+	GvrsByte* b = malloc(sizeOfHeaderInBytes);
+	if (!b) {
+		GvrsError = GVRSERR_NOMEM;
+		return GVRSERR_NOMEM;
+	}
+
+	status = GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_HEADER_RECORD);
+	status = GvrsReadByteArray(fp, sizeOfHeaderInBytes-4, b);
+	if (status == 0) {
+		unsigned long crc = 0;
+		crc = GvrsChecksumUpdateArray(b, 0, sizeOfHeaderInBytes - 4, crc);
+		// The windows API requires us to set file position between reading and writing.
+		// even though the file position should already be a the correct location.
+		// It was probably written by an unpaid intern.
+		GvrsSetFilePosition(fp, (GvrsLong)(FILEPOS_OFFSET_TO_HEADER_RECORD + sizeOfHeaderInBytes - 4));
+		status = GvrsWriteInt(fp, (GvrsInt)(crc & 0xFFFFFFFFL));
+	}
+	if (status) {
+		GvrsError = status;
+	}
+	return status;
+
+
+}
+static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
+	int status = GvrsTileCacheWritePendingTiles(gvrs->tileCache);
+	if (status) {
+		GvrsError = status;
+		return status;
+	}
+	if (gvrs->tileDirectory) {
+		GvrsLong tileDirectoryPos = GvrsTileDirectoryWrite(gvrs, &status);
+		if (status) {
+			GvrsError = status;
+			return status;
+		}
+		GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_TILE_DIR);
+		status = GvrsWriteLong(fp, tileDirectoryPos);
+		if (status) {
+			GvrsError = status;
+			return status;
+		}
+	}
+
+	GvrsSetFilePosition(fp, FILEPOS_MODIFICATION_TIME);
+	GvrsWriteLong(fp, GvrsTimeMS());
+	status = GvrsWriteLong(fp, 0);
+	if (status) {
+		GvrsError = status;
+		return status;
+	}
+ 	status = writeChecksumForHeader(gvrs);
+	if (status) {
+		GvrsError = status;
+		return status;
+	}
+	return 0;
+}
+
+Gvrs* GvrsClose(Gvrs* gvrs) {
+	if(gvrs){
+		int status, status1;
+		if (gvrs->fp) {
+			if (gvrs->timeOpenedForWritingMS) {
+				status = writeClosingElements(gvrs, gvrs->fp);
+			}
+			status = fflush(gvrs->fp);
+			status1 = fclose(gvrs->fp);
+			if (status || status1) {
+				GvrsError = GVRSERR_FILE_ERROR;
+			}
+			gvrs->fp = 0;
+		}
+
+		// Free resources ------------------------
+		int i;
+		gvrs->path = freeString(gvrs->path);
+	
+		gvrs->productLabel = freeString(gvrs->productLabel);
+		for (i = 0; i < gvrs->nElementsInTupple; i++) {
+			gvrs->elements[i] = freeElement(gvrs->elements[i]);
+		}
+		free(gvrs->elements);
+		gvrs->elements = 0;
+		gvrs->tileCache = GvrsTileCacheFree(gvrs->tileCache);
+		gvrs->tileDirectory = GvrsTileDirectoryFree(gvrs->tileDirectory);
+		gvrs->metadataDirectory = GvrsMetadataDirectoryFree(gvrs->metadataDirectory);
+
+		if (gvrs->dataCompressionCodecs) {
+			for (i = 0; i < gvrs->nDataCompressionCodecs; i++) {
+				GvrsCodec* codec = gvrs->dataCompressionCodecs[i];
+				if (codec) {
+					gvrs->dataCompressionCodecs[i] = codec->destroyCodec(codec);
+				}
+			}
+			free(gvrs->dataCompressionCodecs);
+			gvrs->dataCompressionCodecs = 0;
+		}
+
+		gvrs->fileSpaceManager = GvrsFileSpaceManagerFree(gvrs->fileSpaceManager);
+		free(gvrs);
+	}
+	return 0;
+}

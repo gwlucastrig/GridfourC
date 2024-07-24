@@ -102,6 +102,41 @@ char* GvrsReadString(FILE* fp, int *errCode);
 */
 int GvrsReadIdentifier(FILE* fp, size_t bufferSize, char* buffer);
 
+
+/**
+* Write the specified number of bytes to the file.  The buffer is not required
+* to include a null terminator, though it is good practice to include one.
+* Note that this call is different from GvrsReadString and GvrsWriteString in that
+* it does not begin the output with a string-length value.
+* @param fp a valid output stream or file.
+* @param bufferSize the number of characters to be written
+* @param buffer an array containing the characters to be written.
+* @return if successful, a zero; otherwise, an error code.
+*/
+int GvrsWriteASCII(FILE* fp, size_t bufferSize, const char* buffer);
+
+int GvrsWriteBoolean(FILE* fp, GvrsBoolean  value);
+
+int  GvrsWriteByte(FILE* fp, GvrsByte value);
+
+int GvrsWriteByteArray(FILE* fp, int nValues, GvrsByte* values);
+
+int GvrsWriteDouble(FILE* fp, GvrsDouble value);
+
+int GvrsWriteFloat(FILE* fp, GvrsFloat value);
+
+int GvrsWriteInt(FILE* fp, GvrsInt value);
+
+int GvrsWriteLong(FILE* fp, GvrsLong value);
+
+int GvrsWriteShort(FILE* fp, GvrsShort value);
+
+int GvrsWriteString(FILE* fp, const char* string);
+
+int GvrsWriteUnsignedShort(FILE* fp, GvrsUnsignedShort value);
+
+int GvrsWriteZeroes(FILE* fp, int nZeroes);
+
 #ifdef __cplusplus
 }
 #endif

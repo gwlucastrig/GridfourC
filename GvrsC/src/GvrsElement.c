@@ -31,6 +31,20 @@
 //   code could affect run-times.  At present, the two functions do include some
 //   redundant code.  When investigating ways of consolidating this code, be sure
 //   to test for performance under expected operational conditions.
+// 
+//  Because valid row and column specifications are always positive integers, this
+//  read and write functions use unsigned arithmetic to reduce the number of comparisons
+//  they must make when bounds checking.   Recall that when a negative signed integer is cast
+//  to an unsigned integer, it becomes a very large value. Thus the code below compactly tests
+//  for row/column values being in range.   To make this work, the tc->nRowsInRaster and tc->nColsInRaster
+//  are both declared as type unsigned int.
+// 
+// 	  (unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster)
+// 
+// When reading a large, non-compressed data set under windows, this approach yielded
+// a 4 percent overall improvement over the the conventional range-test shown below: 
+// 
+//      gridRow<0 || gridRow >= tc->nRowsInRaster [etc.]
 //
 
 #include "GvrsFramework.h"
@@ -39,6 +53,7 @@
 #include "Gvrs.h"
 #include "GvrsInternal.h"
 #include "GvrsError.h"
+#include <math.h>
  
 
  
@@ -49,10 +64,8 @@ int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsIn
 	}
 
 	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
-	int nRowsInRaster = tc->nRowsInRaster;
-	int nColsInRaster = tc->nColsInRaster;
 
-	if (gridRow < 0 || gridRow >= nRowsInRaster || gridColumn < 0 || gridColumn >= nColsInRaster) {
+	if ((unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster){
 		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 		return GvrsError;
 	}
@@ -73,7 +86,7 @@ int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsIn
 		tile = tc->firstTile;
 	}
 	else {
-		 tile = GvrsTileCacheFetchTile(tc, tileRow, tileCol, tileIndex, &errCode);
+		 tile = GvrsTileCacheFetchTile(tc,tileIndex, &errCode);
 		 if (!tile) {
 			 // The tile reference is null. Usually, a null indicate that the grid cell
 			// for the input row and column is not-populated (or populated with fill values).
@@ -114,10 +127,7 @@ int  GvrsElementReadFloat(GvrsElement* element, int gridRow, int gridColumn, Gvr
 	}
 
 	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
-	int nRowsInRaster = tc->nRowsInRaster;
-	int nColsInRaster = tc->nColsInRaster;
-
-	if (gridRow < 0 || gridRow >= nRowsInRaster || gridColumn < 0 || gridColumn >= nColsInRaster) {
+	if ((unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster) {
 		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 		return GvrsError;
 	}
@@ -138,7 +148,7 @@ int  GvrsElementReadFloat(GvrsElement* element, int gridRow, int gridColumn, Gvr
 		tile = tc->firstTile;
 	}
 	else {
-		tile = GvrsTileCacheFetchTile(tc, tileRow, tileCol, tileIndex, &errCode);
+		tile = GvrsTileCacheFetchTile(tc,  tileIndex, &errCode);
 		if (!tile) {
 			// The tile reference is null. Usually, a null indicate that the grid cell
 		   // for the input row and column is not-populated (or populated with fill values).
@@ -192,4 +202,223 @@ int GvrsElementIsIntegral(GvrsElement * element) {
 		return 0;
 	}
 }
+
+
+void
+GvrsElementFillData(GvrsElement* element, GvrsByte* data, int nCells) {
+	//GvrsByte* data = tile->data + element->dataOffset;
+	int i;
+	switch (element->elementType) {
+	case GvrsElementTypeInt: {
+		int iFillValue = element->elementSpec.intSpec.fillValue;
+		int* iData = (int*)data;
+		for (i = 0; i < nCells; i++) {
+			iData[i] = iFillValue;
+		}
+		return;
+	}
+	case GvrsElementTypeIntCodedFloat: {
+		int iFillValue = element->elementSpec.intFloatSpec.iFillValue;
+		int* iData = (int*)data;
+		for (i = 0; i < nCells; i++) {
+			iData[i] = iFillValue;
+		}
+		return;
+	}
+	case GvrsElementTypeFloat: {
+		float fFillValue = element->elementSpec.floatSpec.fillValue;
+		float* fData = (float*)data;
+		for (i = 0; i < nCells; i++) {
+			fData[i] = fFillValue;
+		}
+		return;
+	}
+	case GvrsElementTypeShort: {
+		short sFillValue = element->elementSpec.shortSpec.fillValue;
+		short* sData = (short*)data;
+		for (i = 0; i < nCells; i++) {
+			sData[i] = sFillValue;
+		}
+		return;
+	}
+	default:
+		return; // we should never get here!
+	}
+}
  
+
+
+
+int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt value) {
+	if (!element) {
+		GvrsError = GVRSERR_NULL_POINTER;
+		return GVRSERR_NULL_POINTER;
+	}
+
+	Gvrs* gvrs = element->gvrs;
+	if (gvrs) {
+		if (!gvrs->timeOpenedForWritingMS) {
+			GvrsError = GVRSERR_NOT_OPENED_FOR_WRITING;
+			return GVRSERR_NOT_OPENED_FOR_WRITING;
+		}
+	}
+	else {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+
+	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
+	if ((unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster) {
+		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
+		return GvrsError;
+	}
+
+	int nRowsInTile = tc->nRowsInTile;
+	int nColsInTile = tc->nColsInTile;
+	int nColsOfTiles = tc->nColsOfTiles;
+	int tileRow = gridRow / nRowsInTile;
+	int tileCol = gridColumn / nColsInTile;
+	int tileIndex = tileRow * nColsOfTiles + tileCol;
+	int rowInTile = gridRow - tileRow * nRowsInTile;
+	int colInTile = gridColumn - tileCol * nColsInTile;
+	int indexInTile = rowInTile * nColsInTile + colInTile;
+
+	int errCode;
+	GvrsTile* tile;
+	if (tc->firstTileIndex == tileIndex) {
+		tile = tc->firstTile;
+	}
+	else {
+		tile = GvrsTileCacheFetchTile(tc,  tileIndex, &errCode);
+		if (!tile) {
+			// The tile reference is null. Usually, a null indicate that the grid cell
+			// for the input row and column is not-populated (or populated with fill values).
+			// In such cases, the errCode will be zero.  The appropriate action is to
+			// populate the *value argument with the integer fill value.
+			// In the uncommon event of an error, the error code will be set to a non-zero value
+			// an the appropriate action is to just return it to the calling function.
+			if (errCode != 0) {
+				return errCode;
+			}
+			tile = GvrsTileCacheStartNewTile(tc, tileIndex, &errCode);
+			if (errCode) {
+				return errCode;
+			}
+
+		}
+	}
+
+	tile->writePending = 1;
+	GvrsByte* data = tile->data + element->dataOffset;
+	switch (element->elementType) {
+	case GvrsElementTypeInt:
+	     ((int*)data)[indexInTile] = value;
+		 return 0;
+	case GvrsElementTypeIntCodedFloat:
+		// NOTE when we write a float, we need to convert it to an integer value,
+		// but when we write an integer, we simply replace the integer-coded value
+	    ((int*)data)[indexInTile] = value;
+		return 0;
+	case GvrsElementTypeFloat:
+		 ((float*)data)[indexInTile] = (float)value;
+		return 0;
+	case GvrsElementTypeShort:
+		((short*)data)[indexInTile] = (short)value;
+		return 0;
+	default:
+		return GVRSERR_FILE_ERROR;
+	}
+}
+
+
+
+int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, float value) {
+	if (!element) {
+		GvrsError = GVRSERR_NULL_POINTER;
+		return GVRSERR_NULL_POINTER;
+	}
+
+	Gvrs* gvrs = element->gvrs;
+	if (gvrs) {
+		if (!gvrs->timeOpenedForWritingMS) {
+			GvrsError = GVRSERR_NOT_OPENED_FOR_WRITING;
+			return GVRSERR_NOT_OPENED_FOR_WRITING;
+		}
+	}
+	else {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+
+	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
+
+	if ((unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster) {
+		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
+		return GvrsError;
+	}
+
+	int nRowsInTile = tc->nRowsInTile;
+	int nColsInTile = tc->nColsInTile;
+	int nColsOfTiles = tc->nColsOfTiles;
+	int tileRow = gridRow / nRowsInTile;
+	int tileCol = gridColumn / nColsInTile;
+	int tileIndex = tileRow * nColsOfTiles + tileCol;
+	int rowInTile = gridRow - tileRow * nRowsInTile;
+	int colInTile = gridColumn - tileCol * nColsInTile;
+	int indexInTile = rowInTile * nColsInTile + colInTile;
+
+	int errCode;
+	GvrsTile* tile;
+	if (tc->firstTileIndex == tileIndex) {
+		tile = tc->firstTile;
+	}
+	else {
+		tile = GvrsTileCacheFetchTile(tc,  tileIndex, &errCode);
+		if (!tile) {
+			// The tile reference is null. Usually, a null indicate that the grid cell
+			// for the input row and column is not-populated (or populated with fill values).
+			// In such cases, the errCode will be zero.  The appropriate action is to
+			// populate the *value argument with the integer fill value.
+			// In the uncommon event of an error, the error code will be set to a non-zero value
+			// an the appropriate action is to just return it to the calling function.
+			if (errCode != 0) {
+				return errCode;
+			}
+			tile = GvrsTileCacheStartNewTile(tc, tileIndex, &errCode);
+			if (errCode) {
+				return errCode;
+			}
+
+		}
+	}
+
+	tile->writePending = 1;
+	GvrsByte* data = tile->data + element->dataOffset;
+	switch (element->elementType) {
+	case GvrsElementTypeInt:
+		((int*)data)[indexInTile] = (int)value;
+		return 0;
+	case GvrsElementTypeIntCodedFloat:
+	{
+		int i;
+		GvrsElementSpecIntCodedFloat s = element->elementSpec.intFloatSpec;
+		if (isnan(value) && isnan(s.fillValue)) {
+			i = s.iFillValue;
+		}
+		else {
+			i = (int)(value * s.scale - s.offset);
+		}
+		((int*)data)[indexInTile] = i;
+		return 0;
+	}
+	case GvrsElementTypeFloat:
+		((float*)data)[indexInTile] = value;
+		return 0;
+	case GvrsElementTypeShort:
+		((short*)data)[indexInTile] = (short)value;
+		return 0;
+	default:
+		return GVRSERR_FILE_ERROR;
+	}
+}
+

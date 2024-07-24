@@ -215,79 +215,6 @@ static int hashTableRemove(GvrsTileCache* tc, GvrsTile* tile) {
 }
 
 
-static GvrsTileDirectory* readFailed(GvrsTileDirectory* td, int status, int* errCode) {
-	GvrsTileDirectoryFree(td);
-	*errCode = status;
-	GvrsError = status;
-	return 0;
-}
-
-GvrsTileDirectory* GvrsTileDirectoryRead(FILE* fp, GvrsLong filePosTileDirectory, int* errCode){
-	*errCode = 0;
-	GvrsTileDirectory* td = 0;
-	int status = GvrsSetFilePosition(fp, filePosTileDirectory);
-	if (status) {
-		return readFailed(td, status, errCode);
-	}
-	// the first element in the tile directory is a set of 8 bytes:
-	//    0:        directory format, currently always set to zero
-	//    1:        boolean indicating if extended file offsets are used
-	//    2 to 7:   Reservd for future use
-
-	GvrsByte tileDirectoryFormat;
-	GvrsBoolean useExtendedFileOffset;
-	GvrsReadByte(fp, &tileDirectoryFormat);
-	GvrsReadBoolean(fp, &useExtendedFileOffset);
-	if (tileDirectoryFormat != 0) {
-		*errCode = GVRSERR_INVALID_FILE;
-		return 0;
-	}
-	GvrsSkipBytes(fp, 6); // reserved for future use
-	td = calloc(1, sizeof(GvrsTileDirectory));
-	if (!td) {
-		return readFailed(td, GVRSERR_NOMEM, errCode);
-	}
-
-	GvrsReadInt(fp, &td->row0);
-	GvrsReadInt(fp, &td->col0);
-	GvrsReadInt(fp, &td->nRows);
-	GvrsReadInt(fp, &td->nCols);
-	td->row1 = td->row0 + td->nRows - 1;
-	td->col1 = td->col0 + td->nCols - 1;
-	int nTilesInTable = td->nRows * td->nCols;
-
-	if (useExtendedFileOffset) {
-		td->lOffsets = calloc(nTilesInTable, sizeof(GvrsLong));
-		if (!td->iOffsets) {
-			return readFailed(td, GVRSERR_NOMEM, errCode);
-		}
-		status = GvrsReadLongArray(fp, nTilesInTable, td->lOffsets);
-	}
-	else {
-		td->iOffsets = calloc(nTilesInTable, sizeof(GvrsUnsignedInt));
-		if (!td->iOffsets) {
-			return readFailed(td, GVRSERR_NOMEM, errCode);
-		}
-		status = GvrsReadUnsignedIntArray(fp, nTilesInTable, td->iOffsets);
-	}
-
-	return td;
-}
-
-
-static GvrsLong getFilePositionByRowColumn(GvrsTileDirectory* tileDir, int tileRow, int tileCol) {
-	int iRow = tileRow - tileDir->row0;
-	int iCol = tileCol - tileDir->col0;
-	int tileIndex = iRow * tileDir->nCols + iCol;
-	if (tileDir->iOffsets) {
-		GvrsLong t = (GvrsLong)(tileDir->iOffsets[tileIndex]);
-		return t << 3;
-	}
-	else {
-		return tileDir->lOffsets[tileIndex];
-	}
-
-}
 
 static int readAndDecomp(Gvrs *gvrs, GvrsInt n, GvrsElement* element, GvrsByte* data) {
 	GvrsByte* packing = (GvrsByte*)malloc(n);
@@ -354,12 +281,6 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 		return GVRSERR_FILE_ERROR;
 	}
 
-	// TO DO:  handle other elements, etc.  Lot's of stuff needed here.
-
-	// The tile "objects" from the cache are reused.  If this one was already used,
-	// then the data pointer will be populated with a reference to the previously
-	// allocated memory.  In that case, we just reuse the existing memory.
-	// Otherwise, we need to allocate memory.
 	if (!tile->data) {
 		tile->data = calloc(1, gvrs->nBytesForTileData);
 		if (!tile->data) {
@@ -459,6 +380,7 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 	tc->nColsInTile = gvrs->nColsInTile;
 	tc->nRowsOfTiles = gvrs->nRowsOfTiles;
 	tc->nColsOfTiles = gvrs->nColsOfTiles;
+	tc->nCellsInTile = gvrs->nCellsInTile;
 
 	tc->hashTable = hashTableAlloc();
 	if (!tc->hashTable) {
@@ -469,30 +391,77 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 
 	return tc;
 }
- 
- 
 
-GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileRow, int tileCol, int tileIndex, int* errCode) {
-
-	tc->nCacheSearches++;
-	GvrsTile* node = hashTableLookup(tc, tileIndex);
-	if (node) {
-		// the node is already in the cache
-		moveTileToHeadOfMainList(tc, node); // will also set firstTile and firstTileIndex
-		return node;
+static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
+	// TO DO: this will change a bit when we implement compression because
+	//        the tile size will be smaller than the uncompressed size and, also,
+	//        may be subject to growth as the content (and complexity) of the tile changes.
+	Gvrs* gvrs = tc->gvrs;
+	FILE* fp = gvrs->fp;
+	int tileIndex = tile->tileIndex;
+	GvrsLong filePosition;
+	int status;
+	// standard data size, plus one integer per each element, plus the tile index
+	int nBytesRequired = gvrs->nBytesForTileData + gvrs->nElementsInTupple * 4 + 4;
+	if (tile->filePosition) {
+		// the tile is already written to backing storage, re-use the space
+		filePosition = tile->filePosition;
+		status = GvrsSetFilePosition(fp, filePosition+4); // skip the tile index, which is already written
+	}
+	else {
+		// This tile has never been written before.  Allocate space for it
+		// and update the tile directory.  Note that the file-space alloction function
+		// sets the file position to the indicate position
+		filePosition = GvrsFileSpaceAlloc(gvrs, GvrsRecordTypeTile, nBytesRequired);
+		if (filePosition == 0) {
+			return GvrsError;
+		}
+		GvrsTileDirectorySetFilePosition(gvrs->tileDirectory, tileIndex, filePosition);
+		status = GvrsWriteInt(fp, tileIndex);
 	}
 
-
-
-	// The tile does not exist in the cache.  It will need to be read
-	// from the source file.  Check to see if it is populated at all.
-	GvrsLong tileOffset = getFilePositionByRowColumn(tc->tileDirectory, tileRow, tileCol);
-	if (!tileOffset) {
-		*errCode = 0;
-		return 0; // tile not found
+	if (status) {
+		// TO DO:  Mark the directory cell as zero to reflect the failure
+		return status;
+	}
+	
+	for (int iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
+		GvrsElement* element = gvrs->elements[iElement];
+		int n = element->dataSize;
+		GvrsWriteInt(fp, n);
+		status = GvrsWriteByteArray(fp, n, tile->data + element->dataOffset);
+		if (status) {
+			return status;
+		}
 	}
 
-	// The target tile is not in the cache
+ 
+	return GvrsFileSpaceFinish(gvrs, filePosition);
+}
+
+int
+GvrsTileCacheWritePendingTiles(GvrsTileCache* tc) {
+	GvrsTile* tile = tc->firstTile;
+	while (tile) {
+		if (tile->writePending) {
+			int status = writeTile(tc, tile);
+			tile->writePending = 0;
+			if (status) {
+				return status;
+			}
+		}
+		tile = tile->next;
+	}
+	return 0;
+}
+
+// Get an uncommitted tile from the tile cache and place it at
+// the head of the priority queue.  If there is a tile on the free list,
+// use it. Otherwise, discard the least-recently used tile on the priority queue.
+// If tile-writing is enabled, the content of the discarded tile may be written
+// to the backing file.
+static GvrsTile* getWorkingTile(GvrsTileCache* tc, int tileIndex, int *errorCode) {
+	GvrsTile* node;
 	if (tc->freeList) {
 		// take a node from the free list
 		node = tc->freeList;
@@ -513,10 +482,81 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileRow, int tileCol, in
 		// least-recently-used tile from the cache. 
 		node = tc->tail->prior; // last tile in queue
 		hashTableRemove(tc, node);
+		// Process any pending data, re-assign the tile index
+		// TO DO: if a write is pending, write the tile to the backing storage
+		if (node->writePending) {
+			writeTile(tc, node);
+		}
+		node->filePosition = 0;
+		node->writePending = 0;
 		node->tileIndex = tileIndex;
 		moveTileToHeadOfMainList(tc, node); // will also set firstTile and firstTileIndex
 	}
 
+	// The tile "objects" from the cache are reused.  If this one was already used,
+	// then the data pointer will be populated with a reference to the previously
+	// allocated memory.  In that case, we just reuse the existing memory.
+	// Otherwise, we need to allocate memory.
+	if (!node->data) {
+		Gvrs* gvrs = tc->gvrs;
+		node->data = calloc(1, gvrs->nBytesForTileData);
+		if (!node->data) {
+			GvrsError = GVRSERR_NOMEM;
+			*errorCode = GvrsError; 
+			return 0;
+		}
+	}
+
+	return node;
+}
+
+GvrsTile* GvrsTileCacheStartNewTile(GvrsTileCache* tc, int tileIndex, int* errCode) {
+	// the code assumes that this function is called ONLY when the specified tile does not
+	// exist in the backing file store.  A previous call to GvrsTileCacheFetchTile will have
+	// returned a null reference.
+	//   Note that the tile->filePosition will remain zero and write pending will be set to "false" (zero)
+	Gvrs* gvrs = tc->gvrs;
+	GvrsTile* tile = getWorkingTile(tc, tileIndex, errCode);
+	// a failure will be rare... only when memory is exhaused or corrupted.
+	if (tile) {
+		int i;
+		for (i = 0; i < gvrs->nElementsInTupple; i++) {
+			GvrsElement* element = gvrs->elements[i];
+			GvrsByte* data = tile->data + element->dataOffset;
+			GvrsElementFillData(element, data, gvrs->nCellsInTile);
+		}
+		// The content was sucessfully read into the target node.
+		// Add it to the hash table
+		hashTablePut(tc, tile);
+	}
+
+	return tile; 
+}
+
+GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileIndex, int* errCode) {
+
+	tc->nCacheSearches++;
+	GvrsTile* node = hashTableLookup(tc, tileIndex);
+	if (node) {
+		// the node is already in the cache
+		moveTileToHeadOfMainList(tc, node); // will also set firstTile and firstTileIndex
+		return node;
+	}
+
+ 
+	// The tile does not exist in the cache.  It will need to be read
+	// from the source file.  Check to see if it is populated at all.
+	GvrsLong tileOffset = GvrsTileDirectoryGetFilePosition(tc->tileDirectory, tileIndex);
+	if (!tileOffset) {
+		*errCode = 0;
+		return 0; // tile not found
+	}
+
+	// The target tile is not in the cache.  We need to take a tile from the
+	// free list or repurpose a tile that is in the cache. In either case,
+	// the "working" tile will be placed at the head of the queue.
+	node = getWorkingTile(tc, tileIndex, errCode);
+ 
 
 	tc->nTileReads++;
 	int status = readTile(tc->gvrs, tileOffset, node);
@@ -568,21 +608,6 @@ GvrsTileCache* GvrsTileCacheFree(GvrsTileCache* cache) {
 		cache->tileDirectory = 0;
 
 		free(cache);
-	}
-	return 0;
-}
-
-GvrsTileDirectory* GvrsTileDirectoryFree(GvrsTileDirectory* tileDirectory) {
-	if (tileDirectory) {
-		if(tileDirectory->iOffsets){
-			free(tileDirectory->iOffsets);
-			tileDirectory->iOffsets = 0;
-		}
-		else if (tileDirectory->lOffsets) {
-			free(tileDirectory->lOffsets);
-			tileDirectory->lOffsets = 0;
-		}
-		free(tileDirectory);
 	}
 	return 0;
 }
