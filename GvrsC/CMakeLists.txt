@@ -42,6 +42,7 @@ if(ZLIB_FOUND)
 	src/GvrsRecordManager.c
 	src/GvrsSummarize.c
 	src/GvrsTileCache.c
+	src/GvrsTileDirectory.c
 	)
 else()
 	target_sources(${PROJECT_NAME} PRIVATE
@@ -61,6 +62,7 @@ else()
 	src/GvrsRecordManager.c
 	src/GvrsSummarize.c
 	src/GvrsTileCache.c
+	src/GvrsTileDirectory.c
 	)
 endif()
 
