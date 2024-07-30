@@ -406,7 +406,7 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
  
 
 
-static clearOutputBlock(GvrsTileCache *tc) {
+static void clearOutputBlock(GvrsTileCache *tc) {
 	GvrsTileOutputBlock* blocks = tc->outputBlocks;
 	int i;
 	for (i = 0; i < tc->nElementsInTupple; i++) {
@@ -561,11 +561,9 @@ static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
 	// with appropriate information.  For those blocks that were not compressed,
 	// assign the appropriate pointers and tabluate the size based on the uncompressed data size.
 	int nBytesForOutput = gvrs->nElementsInTupple * 4 + 4;
-	int outputIsCompressed = 0;
 	GvrsTileOutputBlock* blocks = tc->outputBlocks;
 	for (int iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
 		if (blocks[iElement].compressed) {
-			outputIsCompressed = 1;
 			nBytesForOutput += blocks[iElement].nBytesInOutput;
 		}
 		else {
