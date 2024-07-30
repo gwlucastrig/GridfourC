@@ -35,6 +35,8 @@
 static const char* identification = "GvrsFloat";
 static const char* description = "Implements the standard GVRS compression for floating-point data";
 
+GvrsCodec* GvrsCodecFloatAlloc();
+
 static GvrsCodec* destroyCodecFloat(struct GvrsCodecTag* codec) {
 	if (codec) {
 		if (codec->description) {
@@ -46,6 +48,9 @@ static GvrsCodec* destroyCodecFloat(struct GvrsCodecTag* codec) {
 	return 0;
 }
 
+static GvrsCodec* allocateCodecFloat(struct GvrsCodecTag* codec) {
+	return GvrsCodecFloatAlloc();
+}
 
 static GvrsInt unpackInteger(GvrsByte input[], int offset) {
 	return (input[offset] & 0xff)
@@ -199,6 +204,7 @@ GvrsCodec* GvrsCodecFloatAlloc() {
 	codec->description = GVRS_STRDUP(description);
 	codec->decodeFloat = decodeFloat;
 	codec->destroyCodec = destroyCodecFloat;
+	codec->allocateNewCodec = allocateCodecFloat;
 	return codec;
 }
 

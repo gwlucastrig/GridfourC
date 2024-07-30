@@ -32,6 +32,7 @@
 #include "GvrsCodec.h"
 #include "zlib.h"
 
+GvrsCodec* GvrsCodecLsopAlloc();
 
 /**
  * A code value indicating that the post-prediction code sequence was
@@ -111,7 +112,9 @@ static GvrsCodec* destroyCodecLsop(struct GvrsCodecTag* codec) {
 	}
 	return 0;
 }
-
+static GvrsCodec* allocateCodecLsop(struct GvrsCodecTag* codec) {
+	return GvrsCodecLsopAlloc();
+}
  
 static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
 	*errCode = 0;
@@ -579,5 +582,6 @@ GvrsCodec* GvrsCodecLsopAlloc() {
     codec->description = GVRS_STRDUP(description);
     codec->decodeInt = decodeInt;
 	codec->destroyCodec = destroyCodecLsop;
+	codec->allocateNewCodec = allocateCodecLsop;
 	return codec;
 }

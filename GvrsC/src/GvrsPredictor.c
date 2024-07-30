@@ -48,9 +48,6 @@ void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* ou
 		}
 
 	}
-
-
-
 }
 
 
@@ -110,4 +107,125 @@ void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* ou
 		}
 	}
 
+}
+
+
+
+// Simple differencing
+GvrsM32* GvrsPredictor1encode(int nRows, int nColumns, GvrsInt *values, GvrsInt *encodedSeed, int* errCode) {
+	*errCode = 0;
+	GvrsM32* m32 = GvrsM32AllocForOutput();
+	if (!m32) {
+		*errCode = GVRSERR_NOMEM;
+		return 0;
+	}
+ 
+	*encodedSeed = values[0];
+	int prior = *encodedSeed;
+	for (int i = 1; i < nColumns; i++) {
+		int test = values[i];
+		int delta = test - prior;
+		GvrsM32AppendSymbol(m32, delta);
+		prior = test;
+	}
+
+	for (int iRow = 1; iRow < nRows; iRow++) {
+		int index = iRow * nColumns;
+		prior = values[index - nColumns];
+		for (int i = 0; i < nColumns; i++) {
+			int test = values[index++];
+			int delta = test - prior;
+			GvrsM32AppendSymbol(m32, delta);
+			prior = test;
+		}
+	}
+
+	return m32;
+}
+
+
+GvrsM32* GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt* encodedSeed, int* errCode) {
+	*errCode = 0;
+	GvrsM32* m32 = GvrsM32AllocForOutput();
+	if (!m32) {
+		*errCode = GVRSERR_NOMEM;
+		return 0;
+	}
+
+	*encodedSeed = values[0];
+	long delta, test;
+	long prior = values[0];
+	delta = (long)values[1] - prior;
+	GvrsM32AppendSymbol(m32, (int)delta);
+	for (int iRow = 1; iRow < nRows; iRow++) {
+		int index = iRow * nColumns;
+		test = values[index];
+		delta = test - prior;
+		GvrsM32AppendSymbol(m32, (int)delta);
+		prior = test;
+
+		test = values[index + 1];
+		delta = test - prior;
+		GvrsM32AppendSymbol(m32, (int)delta);
+	}
+
+	for (int iRow = 0; iRow < nRows; iRow++) {
+		int index = iRow * nColumns;
+		long a = values[index];
+		long b = values[index + 1];
+		//accumulate second differences starting at column 2
+		for (int iCol = 2; iCol < nColumns; iCol++) {
+			int c = values[index + iCol];
+			int prediction = (int)(2L * b - a);
+			int residual = c - prediction;
+			GvrsM32AppendSymbol(m32, residual);
+			a = b;
+			b = c;
+		}
+	}
+
+	return m32;
+}
+
+
+GvrsM32* GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt* encodedSeed, int* errCode) {
+	*errCode = 0;
+	GvrsM32* m32 = GvrsM32AllocForOutput();
+	if (!m32) {
+		*errCode = GVRSERR_NOMEM;
+		return 0;
+	}
+
+	 *encodedSeed = values[0];
+	 long prior = *encodedSeed;
+        for (int i = 1; i < nColumns; i++) {
+            long test = values[i];
+            long delta = test - prior;
+			GvrsM32AppendSymbol(m32, (int)delta);
+            prior = test;
+        }
+
+        prior = *encodedSeed;
+        for (int i = 1; i < nRows; i++) {
+            long test = values[i * nColumns];
+            long delta = test - prior;
+			GvrsM32AppendSymbol(m32, (int)delta);
+            prior = test;
+        }
+
+        // populate the rest of the grid using the triangle-predictor model
+        for (int iRow = 1; iRow < nRows; iRow++) {
+            int k1 = iRow * nColumns;
+            int k0 = k1 - nColumns;
+            for (int i = 1; i < nColumns; i++) {
+                long za = values[k0++];
+                long zb = values[k1++];
+                long zc = values[k0];
+                int prediction = (int) (zc + zb - za);
+                int residual = values[k1] - prediction;
+				GvrsM32AppendSymbol(m32, residual);
+            }
+        }
+
+	return m32;
 }

@@ -53,10 +53,34 @@ typedef struct GvrsCodecTag {
 	GvrsByte* (*encodeInt)(int nRow, int nColumn, GvrsInt* data, int index, int* packingLength, int *errCode, void *appInfo);
 	GvrsByte* (*encodeFloat)(int nRow, int nColumn, GvrsFloat* data, int index, int* packingLength, int* errCode, void *appInfo);
 
-	// We expect that some codecs may include unique elements that must be managed
-	// by the specific implementation.  So we require that codecs supply their own
-	// clean-up function.
-	struct GvrsCodecTag* (*destroyCodec)(struct GvrsCodecTag*);
+	/**
+	* Free any memory associated with the codec and otherwise dispose of resources.
+	* It is expected that some codecs may include unique elements that must be managed
+	* by the specific implementation.  So the GVRS API requires that codecs supply
+	* their own clean-up functions.
+	* @param a valid codec; implementatins should include handling to ignore a null reference.
+	* @return a null reference.
+	*/
+	struct GvrsCodecTag* (*destroyCodec)(struct GvrsCodecTag* codec);
+
+	/**
+	* Allocate a new instance of a codec, initializing all internal elements as appropriate.
+	* This function is intended for use in the GvrsBuilder implementation when initializing
+	* a new GVRS instance.  This approach is necessary because each GVRS instance must have 
+	* a unique and independent set of elements.  Some codecs may maintain state information.
+	* This function allows specific implementations to create new instances of compressors
+	* that manage their own internal information as necessary.
+	* <p>
+	* For example, the zlib API (Deflate algorithm) allows a compressor to specify the
+	* level of compression. The default compression level is 6, but applications requiring
+	* a higher compression level could specify a level of 9 (the maxiumum).  In such a case,
+	* an application could create its own instance of a deflate codec and pass it in to
+	* the GvrsBuilder.  The GvrsBuilder would then duplicate the information in the codec
+	* when it allocates a new codec to be included in the GVRS object.
+	* @param a valid codec; implementatins should include handling to ignore a null reference.
+	* @return a valid reference to a codec.
+	*/
+	struct GvrsCodecTag* (*allocateNewCodec)(struct GvrsCodecTag* codec);
 
 	void* appInfo;
 }GvrsCodec;
@@ -66,7 +90,7 @@ typedef struct GvrsM32Tag {
 	GvrsByte* buffer;
 	GvrsInt   bufferLimit;
 	GvrsInt   offset;
-	
+	int       bufferIsManaged;
 }GvrsM32;
 
 typedef struct GvrsBitInputTag {
@@ -77,9 +101,31 @@ typedef struct GvrsBitInputTag {
 	int scratch;
 }GvrsBitInput;
 
+/**
+* Wraps the input in an M32 structure.
+* <p>
+* When a M32 structure is initialized using this call, the management of the memory
+* for the buffer is assumed to be under the control of the calling application.
+* When the M32 structure is freed, the buffer will not be modified.
+* Note that this behavior is different than that of the alloc-for-output function.
+* @param buffer an array of bytes supplying a sequence of one or more M32 codes.
+* @param bufferLength the number of bytes in the buffer; because some M32 codes have
+* multi-byte counts, this value may be larger than the number of symbols in the sequence.
+* @return if successful, a valid reference; otherwise, a null reference.
+*/
 GvrsM32* GvrsM32Alloc(GvrsByte* buffer, GvrsInt bufferLength);
 GvrsM32* GvrsM32Free(GvrsM32*);
 GvrsInt  GvrsM32GetNextSymbol(GvrsM32*);
+
+/**
+* Allocates a M32 structure, including internal buffer.  The internal buffer is assumed
+* to be under the management of the GvrsM32 functions.  When the allocated M32 structure is
+* freed, its buffer will also be freed.  Note that this behavior is different than that of the
+* alternate alloc function.
+* @return if successful, a valid reference; otherwise, a null.
+*/
+GvrsM32* GvrsM32AllocForOutput();
+int GvrsM32AppendSymbol(GvrsM32* m32, int symbol);
 
 GvrsBitInput* GvrsBitInputAlloc( GvrsByte* text, size_t nBytesInText);
 GvrsBitInput* GvrsBitInputFree(GvrsBitInput* input);
@@ -90,6 +136,10 @@ int GvrsBitInputGetPosition(GvrsBitInput* input);
 void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);
 void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);
 void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);
+
+GvrsM32* GvrsPredictor1encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, int* errCode);
+GvrsM32* GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, int* errCode);
+GvrsM32* GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, int* errCode);
 
 #ifdef __cplusplus
 }

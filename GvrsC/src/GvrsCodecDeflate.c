@@ -37,6 +37,8 @@
 static const char* identification = "GvrsDeflate";
 static const char* description = "Implements the standard GVRS compression using Deflate";
 
+GvrsCodec* GvrsCodecDeflateAlloc();
+
 static GvrsCodec* destroyCodecDeflate(struct GvrsCodecTag* codec) {
 	if (codec) {
 		if (codec->description) {
@@ -48,6 +50,10 @@ static GvrsCodec* destroyCodecDeflate(struct GvrsCodecTag* codec) {
 	return 0;
 }
  
+static GvrsCodec* allocateCodecDeflate(struct GvrsCodecTag* codec) {
+	return GvrsCodecDeflateAlloc();
+}
+
 static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo) {
 
 	// int compressorIndex = (int)packing[0];
@@ -114,6 +120,125 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 	return status;
 }
 
+
+static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32, int* packingLength, int* errCode){
+	int nBytesToCompress = m32->offset;
+	int nBytesForPacking = nBytesToCompress + 1024;
+	GvrsByte* packing = malloc(nBytesForPacking*sizeof(GvrsByte));
+	if (!packing) {
+		*errCode =  GVRSERR_NOMEM;
+		return 0;
+	}
+	
+	z_stream strm;
+	strm.zalloc = Z_NULL;
+	strm.zfree = Z_NULL;
+	strm.opaque = Z_NULL;
+	int status = deflateInit(&strm, 6);
+	if (status != Z_OK) {
+		free(packing);
+		 *errCode = GVRSERR_COMPRESSION_FAILED;
+		 return 0;
+	}
+
+	strm.avail_in = m32->offset;
+	strm.next_in = m32->buffer;
+	strm.avail_out = nBytesForPacking - 10;
+	strm.next_out = packing+10;
+	status = deflate(&strm, Z_FINISH);
+	if (status == Z_STREAM_ERROR) {
+		free(packing);
+		*errCode = GVRSERR_COMPRESSION_FAILED;
+		return 0;
+	}
+	if (status != Z_STREAM_END || (int)strm.total_out>=nBytesToCompress) {
+		// The packing wasn't large enough to store the full compression
+		// or this compressed format was larger than the input.
+		// This would happen if the data was essentially non-compressible.
+		free(packing);
+		*errCode = GVRSERR_COMPRESSION_FAILED;
+		return 0;
+	}
+
+	status = deflateEnd(&strm);
+    
+	*packingLength = strm.total_out+10;
+	packing[0] = (GvrsByte)codecIndex;
+	packing[1] = (GvrsByte)predictorIndex;
+	packing[2] = (GvrsByte)(seed & 0xff);
+	packing[3] = (GvrsByte)((seed >> 8) & 0xff);
+	packing[4] = (GvrsByte)((seed >> 16) & 0xff);
+	packing[5] = (GvrsByte)((seed >> 24) & 0xff);
+	packing[6] = (GvrsByte)((nBytesToCompress & 0xff));
+	packing[7] = (GvrsByte)((nBytesToCompress >> 8) & 0xff);
+	packing[8] = (GvrsByte)((nBytesToCompress >> 16) & 0xff);
+	packing[9] = (GvrsByte)((nBytesToCompress >> 24) & 0xff);
+
+	return packing;
+}
+
+
+static GvrsByte* encodeInt(int nRow, int nColumn,
+	GvrsInt* data,
+	int index,
+	int* packingLength,
+	int* errCode, void* appInfo) {
+	*errCode = 0;
+	*packingLength = 0;
+	GvrsByte* packing = 0;
+	GvrsInt seed;
+
+
+	for (int iPack = 1; iPack <= 3; iPack++) {
+		GvrsM32* m32 = 0;
+		if (iPack == 1) {
+			m32 = GvrsPredictor1encode(nRow, nColumn, data, &seed, errCode);
+		}
+		else if (iPack == 2) {
+			m32 = GvrsPredictor2encode(nRow, nColumn, data, &seed, errCode);
+		}
+		else {
+			m32 = GvrsPredictor3encode(nRow, nColumn, data, &seed, errCode);
+		}
+		if (*errCode || !m32) {
+			GvrsM32Free(m32);
+			if (packing) {
+				free(packing);
+				*packingLength = 0;
+			}
+			return 0;
+		}
+
+		int bLen;
+		GvrsByte* b = pack(index, iPack, seed, m32, &bLen, errCode);
+		GvrsM32Free(m32);
+		if (!b || *errCode) {
+			if (packing) {
+				free(packing);
+				*packingLength = 0;
+			}
+			return 0;
+		}
+		if (packing) {
+			if (bLen < *packingLength) {
+				free(packing);
+				packing = b;
+				*packingLength = bLen;
+			}
+			else {
+				free(b);
+			}
+		}
+		else {
+			packing = b;
+			*packingLength = bLen;
+		}
+	}
+	
+	return packing;
+}
+
+
 GvrsCodec* GvrsCodecDeflateAlloc() {
     GvrsCodec* codec = calloc(1, sizeof(GvrsCodec));
 	if (!codec) {
@@ -123,6 +248,8 @@ GvrsCodec* GvrsCodecDeflateAlloc() {
     GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
     codec->description = GVRS_STRDUP(description);
     codec->decodeInt = decodeInt;
+	codec->encodeInt = encodeInt;
 	codec->destroyCodec = destroyCodecDeflate;
+	codec->allocateNewCodec = allocateCodecDeflate;
 	return codec;
 }

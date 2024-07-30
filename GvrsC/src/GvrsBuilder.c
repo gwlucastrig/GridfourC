@@ -31,6 +31,12 @@
 #include <errno.h>
 #include <sys/stat.h>
  
+GvrsCodec* GvrsCodecHuffmanAlloc();
+#ifdef GVRS_ZLIB
+GvrsCodec* GvrsCodecDeflateAlloc();
+GvrsCodec* GvrsCodecFloatAlloc();
+GvrsCodec* GvrsCodecLsopAlloc();
+#endif
 
 
 
@@ -123,6 +129,9 @@ static GvrsElementSpec* addElementSpec(GvrsBuilder* builder, GvrsElementType eTy
 	else {
 		int n = builder->nElementSpecs + 1;
 		specs = (GvrsElementSpec**)realloc(builder->elementSpecs, n * sizeof(GvrsElementSpec*));
+		if (specs) {
+			specs[builder->nElementSpecs] = 0;
+		}
 	}
 	if (!specs) {
 		if (builder->elementSpecs) {
@@ -131,6 +140,7 @@ static GvrsElementSpec* addElementSpec(GvrsBuilder* builder, GvrsElementType eTy
 		recordStatus(builder, GVRSERR_NOMEM);
 		return 0;
 	}
+	
 	builder->elementSpecs = specs;
 	GvrsElementSpec* eSpec = calloc(1, sizeof(GvrsElementSpec));
 	if (!eSpec) {
@@ -349,15 +359,49 @@ void GvrsBuilderSetChecksumEnabled(GvrsBuilder* builder, int checksumEnabled)
 	}
 }
 
+static void freeCodecs(GvrsBuilder* builder) {
+	if (builder->nDataCompressionCodecs) {
+		for (int i = 0; i < builder->nDataCompressionCodecs; i++) {
+			builder->dataCompressionCodecs[i]->destroyCodec(builder->dataCompressionCodecs[i]);
+			builder->dataCompressionCodecs[i] = 0;
+		}
+		free(builder->dataCompressionCodecs);
+	}
+	builder->nDataCompressionCodecs = 0;
+	builder->dataCompressionCodecs = 0;
+}
 
 GvrsBuilder* GvrsBuilderFree(GvrsBuilder* builder) {
 	if (builder) {
 		int i;
 		if (builder->nElementSpecs) {
 			for (i = 0; i < builder->nElementSpecs; i++) {
-				free(builder->elementSpecs[i]);  // TO DO:  there are more pieces to this
+				GvrsElementSpec* spec = builder->elementSpecs[i];
+				if (spec) {
+					// The name is a fixed length string and not malloc'd.
+					// Other strings are malloc'd.
+					if (spec->description) {
+						free(spec->description);
+					}
+					if (spec->unitOfMeasure) {
+						free(spec->unitOfMeasure);
+					}
+					if (spec->label) {
+						free(spec->label);
+					}
+					free(spec);
+				}
 			}
 			free(builder->elementSpecs);
+		}
+		if (builder->nDataCompressionCodecs) {
+			for (i = 0; i < builder->nDataCompressionCodecs; i++) {
+				GvrsCodec* c = builder->dataCompressionCodecs[i];
+				if (c) {
+					c->destroyCodec(c);
+				}
+			}
+			free(builder->dataCompressionCodecs);
 		}
 		memset(builder, 0, sizeof(GvrsBuilder));  // a debugging aid
 		free(builder);
@@ -530,8 +574,9 @@ char* optstrdup(const char* s) {
 
 static int writeHeader(Gvrs *gvrs);
 
-Gvrs *
-GvrsBuilderOpen(GvrsBuilder* builder, const char* path) {
+
+Gvrs*
+GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path) {
 	int i;
 	GvrsError = 0;
 	if (!builder || !path || !path[0]) {
@@ -697,6 +742,25 @@ GvrsBuilderOpen(GvrsBuilder* builder, const char* path) {
 	}
 	gvrs->nBytesForTileData = offsetWithinTileData;
 
+	gvrs->nDataCompressionCodecs = builder->nDataCompressionCodecs;
+	if (gvrs->nDataCompressionCodecs >0) {
+		gvrs->dataCompressionCodecs = calloc(gvrs->nDataCompressionCodecs, sizeof(GvrsCodec*));
+		if (!gvrs->dataCompressionCodecs) {
+			GvrsError = GVRSERR_NOMEM;
+			return 0;
+		}
+		for (i = 0; i < gvrs->nDataCompressionCodecs; i++) {
+			GvrsCodec* codec = builder->dataCompressionCodecs[i];
+			if (codec) {
+				gvrs->dataCompressionCodecs[i] = codec->allocateNewCodec(codec);
+				if (!gvrs->dataCompressionCodecs[i]) {
+					GvrsError = GVRSERR_NOMEM;
+					return 0;
+				}
+			}
+		}
+	}
+
 	status = writeHeader(gvrs);
 	if (status) {
 		// the write action failed
@@ -833,9 +897,12 @@ static int writeSpec(Gvrs* gvrs) {
 		status = padMultipleOf4(fp);
 	}
 
-	// TO DO: write compression codecs
-	status = GvrsWriteInt(fp, 0);  // n compression codecs
-
+	// write compression codecs
+	int i;
+	status = GvrsWriteInt(fp, gvrs->nDataCompressionCodecs); 
+	for (i = 0; i < gvrs->nDataCompressionCodecs; i++) {
+		GvrsWriteString(fp, gvrs->dataCompressionCodecs[i]->identification);
+	}
 
 	status = GvrsWriteString(fp, gvrs->productLabel);
 	return 0;
@@ -844,7 +911,6 @@ static int writeSpec(Gvrs* gvrs) {
 
 static int writeHeader(Gvrs* gvrs) {
 	
-
 	int status;
 	FILE* fp = gvrs->fp;
 
@@ -918,5 +984,72 @@ static int writeHeader(Gvrs* gvrs) {
 		return status;
 	}
 
+	return 0;
+}
+
+int
+GvrsBuilderRegisterStandardDataCompressionCodecs(GvrsBuilder* builder) {
+	freeCodecs(builder);
+
+#ifdef GVRS_ZLIB
+	builder->nDataCompressionCodecs = 4;
+	builder->dataCompressionCodecs = calloc(4, sizeof(GvrsCodec*));
+	if (builder->dataCompressionCodecs) {
+		builder->dataCompressionCodecs[0] = GvrsCodecHuffmanAlloc();
+		builder->dataCompressionCodecs[1] = GvrsCodecDeflateAlloc();
+		builder->dataCompressionCodecs[2] = GvrsCodecFloatAlloc();
+		builder->dataCompressionCodecs[3] = GvrsCodecLsopAlloc();
+	}
+	else {
+		return GVRSERR_NOMEM;
+	}
+#else
+	if (builder->dataCompressionCodecs) {
+		builder->nDataCompressionCodecs = 1;
+		builder->dataCompressionCodecs = calloc(4, sizeof(GvrsCodec*));
+		builder->dataCompressionCodecs[0] = GvrsCodecHuffmanAlloc();
+	}
+	else {
+		return GVRSERR_NOMEM;
+	}
+#endif
+
+	int i;
+	for (i = 0; i < builder->nDataCompressionCodecs; i++) {
+		if (!builder->dataCompressionCodecs[i]) {
+			return GVRSERR_NOMEM;
+		}
+	}
+	return 0;
+}
+
+
+int GvrsBuilderRegisterDataCompressionCodec(GvrsBuilder* builder, GvrsCodec* codec)
+{
+	int i;
+	for (i = 0; i < builder->nDataCompressionCodecs; i++) {
+		GvrsCodec* c = builder->dataCompressionCodecs[i];
+		if (strcmp(c->identification, codec->identification) == 0) {
+			c->destroyCodec(c);
+			builder->dataCompressionCodecs[i] = codec;
+			return 0;
+		}
+	}
+
+	if (builder->nDataCompressionCodecs == 0) {
+		builder->dataCompressionCodecs = malloc(sizeof(GvrsCodec*));
+		if (!builder->dataCompressionCodecs) {
+			return GVRSERR_NOMEM;
+		}
+	}
+	else {
+		int n = builder->nDataCompressionCodecs + 1;
+		GvrsCodec** p = realloc(builder->dataCompressionCodecs, n * sizeof(GvrsCodec*));
+		if (!p) {
+			return GVRSERR_NOMEM;
+		}
+		builder->dataCompressionCodecs = p;
+	}
+	builder->dataCompressionCodecs[builder->nDataCompressionCodecs++] = codec;
 	return 0;
 }

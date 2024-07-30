@@ -31,6 +31,8 @@
 #include "Gvrs.h"
 #include "GvrsInternal.h"
 
+ 
+
 // Hash codes:
 //  In development, we experimented with two hash codes.  Thomas Muller's strong hash
 //  and Knuth's basic hash.   While Muller's is more powerful in the general case, either works.
@@ -389,20 +391,199 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 		return 0;
 	}
 
+	tc->nElementsInTupple = gvrs->nElementsInTupple;
+	tc->outputBlocks = calloc(gvrs->nElementsInTupple, sizeof(GvrsTileOutputBlock));
+	if (!tc->outputBlocks) {
+		GvrsError = GVRSERR_NOMEM;
+		hashTableFree(tc->hashTable);
+		free(tc->head);
+		free(tc);
+		return 0;
+	}
+
 	return tc;
+}
+ 
+
+
+static clearOutputBlock(GvrsTileCache *tc) {
+	GvrsTileOutputBlock* blocks = tc->outputBlocks;
+	int i;
+	for (i = 0; i < tc->nElementsInTupple; i++) {
+		if (blocks[i].compressed && blocks[i].output) {
+			free(blocks[i].output);
+		}
+	}
+	memset(blocks, 0, tc->nElementsInTupple * sizeof(GvrsTileOutputBlock));
+	 
+}
+static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
+	GvrsTileCache* tc = gvrs->tileCache;
+	if (gvrs->nDataCompressionCodecs == 0) {
+		return 0;
+	}
+	int nRows = gvrs->nRowsInTile;
+	int nCols = gvrs->nColsInTile;
+	int nCells = nRows * nCols;
+
+	GvrsTileOutputBlock* blocks = tc->outputBlocks;
+
+	int errCode = 0;
+
+	for (int iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
+		GvrsElement* element = gvrs->elements[iElement];
+		if (GvrsElementIsIntegral(element)) {
+			GvrsInt* iData = 0;
+			GvrsShort* sData = 0;
+			if (element->elementType == GvrsElementTypeShort) {
+				iData = calloc(nCells, sizeof(GvrsInt));
+				if (!iData) {
+					GvrsError = GVRSERR_NOMEM;
+					return GVRSERR_NOMEM;
+				}
+			    sData = (GvrsShort *)(tile->data + element->dataOffset);
+				for (int iCell = 0; iCell < nCells; iCell++) {
+					iData[iCell] = sData[iCell];
+				}
+			}
+			else {
+				iData = (GvrsInt *)(tile->data + element->dataOffset);
+			}
+			int packingLength = 0;
+			GvrsByte* packing = 0;
+
+			for (int i = 0; i < gvrs->nDataCompressionCodecs; i++) {
+				GvrsCodec* c = gvrs->dataCompressionCodecs[i];
+				if (c->encodeInt) {
+					int bLen = 0;
+					GvrsByte* b = c->encodeInt(nRows, nCols, iData, i, &bLen, &errCode, c->appInfo);
+					if (!b) {
+						if (sData) {
+							free(sData);
+						}
+						return errCode;
+					}
+					if (packing) {
+						if (bLen < packingLength) {
+							free(packing);
+							packing = b;
+							packingLength = bLen;
+						}
+						else {
+							free(b);
+						}
+					}
+					else {
+						packing = b;
+						packingLength = bLen;
+					}
+				}
+			}
+			if (packingLength > 0) {
+				blocks[iElement].compressed = 1;
+				blocks[iElement].nBytesInOutput = packingLength;
+				blocks[iElement].output = packing;
+			}
+			if (sData) {
+				free(iData);
+			}
+		}
+		else if (GvrsElementIsFloat(element)) {
+			GvrsFloat* fData = (GvrsFloat*)(tile->data + element->dataOffset);
+			int packingLength = 0;
+			GvrsByte* packing = 0;
+
+			for (int i = 0; i < gvrs->nDataCompressionCodecs; i++) {
+				GvrsCodec* c = gvrs->dataCompressionCodecs[i];
+				if (c->encodeFloat) {
+					int bLen = 0;
+					GvrsByte* b = c->encodeFloat(nRows, nCols, fData, i, &bLen, &errCode, c->appInfo);
+					if (!b) {
+						return errCode;
+					}
+					if (packing) {
+						if (bLen < packingLength) {
+							free(packing);
+							packing = b;
+							packingLength = bLen;
+						}
+						else {
+							free(b);
+						}
+					}
+					else {
+						packing = b;
+						packingLength = bLen;
+					}
+				}
+			}
+			if (packingLength > 0) {
+				blocks[iElement].compressed = 1;
+				blocks[iElement].nBytesInOutput = packingLength;
+				blocks[iElement].output = packing;
+			}
+		}
+	}
+
+	return 0;
 }
 
 static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
 	// TO DO: this will change a bit when we implement compression because
 	//        the tile size will be smaller than the uncompressed size and, also,
 	//        may be subject to growth as the content (and complexity) of the tile changes.
+	// TO DO: If the tile is entirely populated with fill values, there is no need
+	//        to store it in the file.  If this is the first time the tile is being
+	//        written to the backing storage device, there is no reason to save it.
+	//        If the tile has already been written to the storage device, we need
+	//        to perform deletion sequences:
+	//             remove existing tile reference from the tile directory
+	//             register the file space previously occupied by tile to the free list
+
 	Gvrs* gvrs = tc->gvrs;
 	FILE* fp = gvrs->fp;
 	int tileIndex = tile->tileIndex;
 	GvrsLong filePosition;
 	int status;
+
+
+	clearOutputBlock(tc);
+
+	if (gvrs->nDataCompressionCodecs) {
+		status = compressElements(gvrs, tile);
+		if (status) {
+			return status;
+		}
+	}
+
+	// Tabulate the number of bytes required for output.
+	// If data compression was performed, some or all of the output blocks will be populated
+	// with appropriate information.  For those blocks that were not compressed,
+	// assign the appropriate pointers and tabluate the size based on the uncompressed data size.
+	int nBytesForOutput = gvrs->nElementsInTupple * 4 + 4;
+	int outputIsCompressed = 0;
+	GvrsTileOutputBlock* blocks = tc->outputBlocks;
+	for (int iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
+		if (blocks[iElement].compressed) {
+			outputIsCompressed = 1;
+			nBytesForOutput += blocks[iElement].nBytesInOutput;
+		}
+		else {
+			GvrsElement* e = gvrs->elements[iElement];
+			nBytesForOutput += e->dataSize;
+			blocks[iElement].nBytesInOutput = e->dataSize;
+			blocks[iElement].output = tile->data + e->dataOffset;
+		}
+	}
+
+
 	// standard data size, plus one integer per each element, plus the tile index
-	int nBytesRequired = gvrs->nBytesForTileData + gvrs->nElementsInTupple * 4 + 4;
+	if (tile->filePosition && nBytesForOutput!=tile->fileRecordContentSize) {
+		printf("TO DO:  Must de-allocate file record space\n");
+		tile->fileRecordContentSize = 0;
+		tile->filePosition = 0;
+	}
+
 	if (tile->filePosition) {
 		// the tile is already written to backing storage, re-use the space
 		filePosition = tile->filePosition;
@@ -412,7 +593,7 @@ static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
 		// This tile has never been written before.  Allocate space for it
 		// and update the tile directory.  Note that the file-space alloction function
 		// sets the file position to the indicate position
-		filePosition = GvrsFileSpaceAlloc(gvrs, GvrsRecordTypeTile, nBytesRequired);
+		filePosition = GvrsFileSpaceAlloc(gvrs, GvrsRecordTypeTile, nBytesForOutput);
 		if (filePosition == 0) {
 			return GvrsError;
 		}
@@ -421,15 +602,16 @@ static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
 	}
 
 	if (status) {
-		// TO DO:  Mark the directory cell as zero to reflect the failure
+		// Mark the directory cell as zero to reflect the failure
+		GvrsTileDirectorySetFilePosition(gvrs->tileDirectory, tileIndex, 0);
 		return status;
 	}
 	
 	for (int iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
-		GvrsElement* element = gvrs->elements[iElement];
-		int n = element->dataSize;
+		GvrsTileOutputBlock* block = tc->outputBlocks + iElement;
+		int n = block->nBytesInOutput;
 		GvrsWriteInt(fp, n);
-		status = GvrsWriteByteArray(fp, n, tile->data + element->dataOffset);
+		status = GvrsWriteByteArray(fp, n, block->output);
 		if (status) {
 			return status;
 		}
@@ -599,6 +781,11 @@ GvrsTileCache* GvrsTileCacheFree(GvrsTileCache* cache) {
 			}
 		}
 		free(cache->head);
+
+;
+		clearOutputBlock(cache);
+		free(cache->outputBlocks);
+		
 		cache->head = 0;
 		cache->tail = 0;
 		cache->tileReferenceArray = 0;

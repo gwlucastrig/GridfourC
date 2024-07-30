@@ -125,6 +125,9 @@ extern "C"
 		int nElementSpecs;
 		GvrsElementSpec** elementSpecs;
 
+		GvrsInt nDataCompressionCodecs;
+		GvrsCodec** dataCompressionCodecs;
+
 	}GvrsBuilder;
 
 
@@ -147,7 +150,30 @@ extern "C"
 	int GvrsElementSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax);
 	int GvrsElementSetFillInt(GvrsElementSpec* eSpec, GvrsInt iFill);
 
-	Gvrs* GvrsBuilderOpen(GvrsBuilder* builder, const char* path);
+	/**
+	* Instructs the builder to enable data compression and configure the initial set
+	* of compressors to the standard codecs.  Any previously established compressors will be de-allocated.
+	* Note that all compressors stored in a builder are treated as under the management
+	* of the builder and should not be modified.
+	* @param builder a valid reference to a builder.
+	* @return if successful, a zero; otherwise an error code.
+	*/
+	int GvrsBuilderRegisterStandardDataCompressionCodecs(GvrsBuilder* builder);
+
+	/**
+	* Stores the specified codec in the builders configuration.  Any previously registered
+	* codecs with the same identification string as the input codec will be replaced.
+	* Note that all compressors stored in a builder are treated as under the management
+	* of the builder and should not be modified.
+	* @param builder a reference to a builder.  
+	* @param codec a valid reference to a codec.
+	* @return if successful, a zero; otherwise an error code.
+	*/
+	int GvrsBuilderRegisterDataCompressionCodec(GvrsBuilder* builder, GvrsCodec* codec);
+
+
+
+	Gvrs* GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path);
 
 
 #ifdef __cplusplus

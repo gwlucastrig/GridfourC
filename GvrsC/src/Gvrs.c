@@ -126,7 +126,10 @@ static GvrsElement* freeElement(GvrsElement* element) {
 		// the following references are managed elsewhere, but are nullified as a diagnostic.
 		element->tileCache = 0;
 		element->gvrs = 0;
-
+		// We are going to free the element.  even so, we zero it out as a diagnostic.
+		// Some external code may hold references to the elements.  Zero it out to prevent
+		// an external function from accidentally using trying to access the element
+		memset(element, 0, sizeof(GvrsElement));
 		free(element);
 	}
 	return 0;
@@ -693,6 +696,7 @@ static int writeChecksumForHeader(Gvrs* gvrs) {
 		GvrsSetFilePosition(fp, (GvrsLong)(FILEPOS_OFFSET_TO_HEADER_RECORD + sizeOfHeaderInBytes - 4));
 		status = GvrsWriteInt(fp, (GvrsInt)(crc & 0xFFFFFFFFL));
 	}
+	free(b);
 	if (status) {
 		GvrsError = status;
 	}
@@ -776,6 +780,10 @@ Gvrs* GvrsClose(Gvrs* gvrs) {
 		}
 
 		gvrs->fileSpaceManager = GvrsFileSpaceManagerFree(gvrs->fileSpaceManager);
+
+		// we zero out the content of the GVRS structure as a diagnostic to help detect
+		// cases where any external code attempts to access it after the close.  
+		memset(gvrs, 0, sizeof(Gvrs));
 		free(gvrs);
 	}
 	return 0;

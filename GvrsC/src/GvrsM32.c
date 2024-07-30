@@ -43,6 +43,9 @@ GvrsM32* GvrsM32Alloc(GvrsByte* input, GvrsInt inputLength) {
 
 GvrsM32* GvrsM32Free(GvrsM32* m32) {
 	if (m32) {
+		if (m32->bufferIsManaged) {
+			free(m32->buffer);
+		}
 		m32->buffer = 0;
 		free(m32);
 	}
@@ -109,3 +112,104 @@ int GvrsM32GetNextSymbol(GvrsM32 *m32) {
 	}
 	return 0;
 }
+
+GvrsM32*
+GvrsM32AllocForOutput() {
+	GvrsM32* m32 = calloc(1, sizeof(GvrsM32));
+	if (m32) {
+		m32->buffer = malloc(8192);
+		if (!m32->buffer) {
+			free(m32);
+			return 0;
+		}
+		m32->bufferLimit = 8192;
+		m32->bufferIsManaged = 1;
+	}
+	return m32;
+}
+
+
+static const int loMask = 0b01111111; // 0x7f
+static const int hiBit = 0b10000000;  // 0x80
+
+
+int
+GvrsM32AppendSymbol(GvrsM32* m32, int symbol) {
+	//  Bytes required for range of values
+	//    1             0           126
+	//    2           127           254
+	//    3           255         16638
+	//    4         16639       2113790
+	//    5       2113791     270549246
+	//    6     270549247    2147483647
+	//
+
+	// The max length of a symbol encoding is 6. Make sure that there is at least enough room
+	// remaining in the buffer to hold 6 bytes.
+	if (m32->offset + 6 >= m32->bufferLimit) {
+		m32->bufferLimit += 8192;
+		GvrsByte* b = realloc(m32->buffer, m32->bufferLimit);
+		if (!b) {
+			// malloc failed, do nothing
+			return -1;
+		}
+		m32->buffer = b;
+
+	}
+	GvrsByte* buffer = m32->buffer;
+	int absValue;
+	if (symbol < 0) {
+		if (symbol == INT_MIN) {
+			buffer[m32->offset++] = (GvrsByte)(-128);   // 0x80
+			return 0;
+		}
+		else if (symbol > -127) {
+			buffer[m32->offset++] = (GvrsByte)symbol;
+			return 0;
+		}
+		buffer[m32->offset++] = (GvrsByte)(-127);
+		absValue = -symbol;
+	}
+	else {
+		if (symbol < 127) {
+			buffer[m32->offset++] = (GvrsByte)symbol;
+			return 0;
+		}
+		buffer[m32->offset++] = (GvrsByte)127;
+		absValue = symbol;
+	}
+
+	if (absValue <= 254) {
+		int delta = absValue - 127;
+		buffer[m32->offset++] = (GvrsByte)delta;
+	}
+	else if (absValue <= 16638) {
+		int delta = absValue - 255;
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 7) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(delta & loMask);
+	}
+	else if (absValue <= 2113790) {
+		int delta = absValue - 16639;
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 14) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 7) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(delta & loMask);
+	}
+	else if (absValue <= 270549246) {
+		int delta = absValue - 2113791;
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 21) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 14) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 7) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(delta & loMask);
+	}
+	else {
+		int delta = absValue - 270549247;
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 28) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 21) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 14) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(((delta >> 7) & loMask) | hiBit);
+		buffer[m32->offset++] = (GvrsByte)(delta & loMask);
+	}
+	return 0;
+}
+
+ 

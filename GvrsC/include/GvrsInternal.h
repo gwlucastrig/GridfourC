@@ -86,6 +86,7 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 		int referenceArrayIndex;
 
 		int writePending;
+		GvrsInt fileRecordContentSize;
 		GvrsLong filePosition;  // zero if not written to file
 
 		GvrsByte* data;   // these bytes are "typeless" until type cast using a GvrsElement.
@@ -132,6 +133,13 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	}GvrsTileHashTable;
 
 
+
+	typedef struct GvrsTileOutputBlockTag {
+		int compressed;
+		int nBytesInOutput;
+		GvrsByte* output;
+	}GvrsTileOutputBlock;
+
 	typedef struct GvrsTileCacheTag {
 		void* gvrs;
 		GvrsInt maxTileCacheSize;
@@ -159,6 +167,9 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 
 		GvrsTileDirectory* tileDirectory;
 		GvrsTileHashTable* hashTable;
+
+		int nElementsInTupple;
+		GvrsTileOutputBlock* outputBlocks;
 	}GvrsTileCache;
 
 

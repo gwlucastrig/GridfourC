@@ -299,6 +299,8 @@ GvrsElement** GvrsGetElements(Gvrs* gvrs, int* nElements);
 */
 int GvrsElementIsIntegral(GvrsElement* element);
 
+int GvrsElementIsFloat(GvrsElement* element);
+
 /**
 * Reads an integer value from GVRS. May access the file associated with the specified element.
 * For integer-coded-float elements, this method will access the integer value directly rather than

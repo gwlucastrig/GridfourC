@@ -54,6 +54,7 @@ extern "C"
 #define GVRSERR_BAD_ELEMENT_SPEC            -17
 #define GVRSERR_NULL_ARGUMENT               -18
 #define GVRSERR_NOT_OPENED_FOR_WRITING      -19
+#define GVRSERR_COMPRESSION_FAILED          -20
 
 extern int GvrsError;
 

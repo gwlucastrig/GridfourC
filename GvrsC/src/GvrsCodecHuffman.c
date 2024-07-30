@@ -30,6 +30,8 @@
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 
+GvrsCodec* GvrsCodecHuffmanAlloc();
+
 
 typedef struct huffmanAppInfoTag {
 	GvrsInt nDecoded; // both uniform and non-uniform tiles
@@ -71,6 +73,9 @@ static GvrsCodec* destroyCodecHuffman(struct GvrsCodecTag* codec) {
 	return 0;
 }
 
+static GvrsCodec* allocateCodecHuffman(struct GvrsCodecTag* codec) {
+	return GvrsCodecHuffmanAlloc();
+}
  
 static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
 	*errCode = 0;
@@ -336,7 +341,6 @@ GvrsCodec* GvrsCodecHuffmanAlloc() {
     codec->description = GVRS_STRDUP(description);
     codec->decodeInt = decodeInt;
 	codec->destroyCodec = destroyCodecHuffman;
-
-
+	codec->allocateNewCodec = allocateCodecHuffman;
 	return codec;
 }
