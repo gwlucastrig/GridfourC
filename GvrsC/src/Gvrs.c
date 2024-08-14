@@ -733,30 +733,43 @@ static int writeChecksums(Gvrs* gvrs) {
 		crc = GvrsChecksumUpdateValue((GvrsByte)0, crc);
 		crc = GvrsChecksumUpdateValue((GvrsByte)0, crc);
 	
-		GvrsSetFilePosition(fp, recordFilePos+8L);
-		GvrsByte* b = malloc(recordSize);
-		if (!b) {
-			GvrsError = GVRSERR_NOMEM;
-			return GVRSERR_NOMEM;
-		}
+		// because the content of a free-space record doesn't matter, it is not
+		// computed as part of the checksum.  However, for information assurance purposes
+		// the space is filled with zeroes (to eliminate any obsolete data and facilitate
+		// file-reconstruction in the unfortunate event that it becomes necessary to do so).
+		GvrsSetFilePosition(fp, recordFilePos + 8L);
 		int contentSize = recordSize - 12;
-		status = GvrsReadByteArray(fp, contentSize, b);
-		if (status == 0) {
-			crc = GvrsChecksumUpdateArray(b, 0, contentSize, crc);
-			// The windows API requires us to set file position between reading and writing.
-			// even though the file position should already be a the correct location.
-			// It was probably written by an unpaid intern.
-			GvrsSetFilePosition(fp, (GvrsLong)(recordFilePos + recordSize - 4));
-			status = GvrsWriteInt(fp, (GvrsInt)(crc & 0xFFFFFFFFL));
-			fflush(fp);
-			free(b);
+		if (b1 == GvrsRecordTypeFreespace) {
+			GvrsWriteZeroes(fp, contentSize);
 		}
 		else {
-			free(b);
+			GvrsByte* b = malloc(recordSize);
+			if (!b) {
+				GvrsError = GVRSERR_NOMEM;
+				return GVRSERR_NOMEM;
+			}
+
+			status = GvrsReadByteArray(fp, contentSize, b);
+			if (status == 0) {
+				crc = GvrsChecksumUpdateArray(b, 0, contentSize, crc);
+				// The windows API requires us to set file position between reading and writing.
+				// even though the file position should already be a the correct location.
+				// It was probably written by an unpaid intern.
+				free(b);
+			}
+			else {
+				free(b);
+				GvrsError = status;
+				return status;
+			}
+		}
+		GvrsSetFilePosition(fp, (GvrsLong)(recordFilePos + recordSize - 4));
+		status = GvrsWriteInt(fp, (GvrsInt)(crc & 0xFFFFFFFFL));
+		if (status) {
 			GvrsError = status;
 			return status;
 		}
- 
+		fflush(fp);
 		recordFilePos += recordSize;
 		k++;
 	}
