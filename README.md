@@ -34,8 +34,8 @@ Let us know.
 
 We are now turning our attention to implementing the ability for the C API to write data to a GVRS data store.
 The new GvrsBuilder functions provide a partial implementation of the ability to write files.
-Currently, they are limited to non-compressed formats and do not yet support metadata.  
-When that task is complete, the GVRS C API will be fully functional.
+Currently, they are limited to only some compression formats and do not yet support metadata.  
+When we have added those features, the GVRS C API will be fully functional and on par with the Java implementation.
 
 We are also in the process of adding doxygen-style documentation to our primary header files.
 

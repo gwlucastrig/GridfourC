@@ -69,10 +69,3 @@ GvrsRecordType GvrsGetRecordType(int index)
 	}
 	return recordTypeIndex[index];
 }
-
-// round value up to nearest multiple of 8.  if already a multiple of 8, return value.
-static int multipleOf8(int value) {
-	return (value + 7) & 0x7ffffff8;
-}
-
- 
