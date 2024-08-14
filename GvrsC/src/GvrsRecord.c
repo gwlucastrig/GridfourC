@@ -23,45 +23,56 @@
  * THE SOFTWARE.
  * ---------------------------------------------------------------------
  */
-
-#ifndef GVRS_ERROR_H
-#define GVRS_ERROR_H
-
-#include <errno.h>
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+ 
+#include "GvrsFramework.h"
+#include "GvrsPrimaryTypes.h"
+#include "GvrsPrimaryIo.h"
+#include "Gvrs.h"
+#include "GvrsInternal.h"
+#include "GvrsError.h"
+ 
 
 
-#define GVRSERR_FILENOTFOUND          -1
-#define GVRSERR_FILE_ACCESS           -2
-#define GVRSERR_INVALID_FILE           -3
-#define GVRSERR_VERSION_NOT_SUPPORTED -4
-#define GVRSERR_EXCLUSIVE_OPEN        -5   // opened for exclusive access by other process
-#define GVRSERR_NOMEM                 -6   // malloc error
-#define GVRSERR_EOF                   -7   // premature EOF
-#define GVRSERR_FILE_ERROR            -8   // general file errors
-#define GVRSERR_NULL_POINTER          -9   // application passed a null argument to GVRS
-#define GVRSERR_ELEMENT_NOT_FOUND    -10
-#define GVRSERR_COORDINATE_OUT_OF_BOUNDS    -11
-#define GVRSERR_COMPRESSION_NOT_IMPLEMENTED -12
-#define GVRSERR_BAD_COMPRESSION_FORMAT      -13
-#define GVRSERR_BAD_RASTER_SPECIFICATION    -14
-#define GVRSERR_BAD_NAME_SPECIFICATION      -15
-#define GVRSERR_BAD_ICF_PARAMETERS          -16
-#define GVRSERR_BAD_ELEMENT_SPEC            -17
-#define GVRSERR_NULL_ARGUMENT               -18
-#define GVRSERR_NOT_OPENED_FOR_WRITING      -19
-#define GVRSERR_COMPRESSION_FAILED          -20
-#define GVRSERR_INTERNAL_ERROR              -21
+static char* recordTypeNames[] = {
+	"Freespace",
+	"Metadata",
+	"Tile",
+	"FilespaceDir",
+	"MetadataDir",
+	"TileDir",
+	"Header"
+};
 
-extern int GvrsError;
+// the following is an array of VALID record types
+static GvrsRecordType recordTypeIndex[] = {
+	GvrsRecordTypeFreespace,
+	GvrsRecordTypeMetadata,
+	GvrsRecordTypeTile ,
+	GvrsRecordTypeFilespaceDir,
+	GvrsRecordTypeMetadataDir,
+	GvrsRecordTypeTileDir,
+	GvrsRecordTypeHeader
+};
 
-#ifdef __cplusplus
+
+const char* GvrsGetRecordTypeName(int index) {
+	if (index < 0 || index >= sizeof(recordTypeNames) / sizeof(char*)) {
+		return "Undefined";
+	}
+	return recordTypeNames[index];
 }
-#endif
 
+GvrsRecordType GvrsGetRecordType(int index)
+{
+	if (index < 0 || index >= GVRS_RECORD_TYPE_COUNT) {
+		return GvrsRecordTypeUndefined;
+	}
+	return recordTypeIndex[index];
+}
 
-#endif
+// round value up to nearest multiple of 8.  if already a multiple of 8, return value.
+static int multipleOf8(int value) {
+	return (value + 7) & 0x7ffffff8;
+}
+
+ 

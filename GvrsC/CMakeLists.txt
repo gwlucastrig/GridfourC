@@ -10,6 +10,9 @@ if(ZLIB_FOUND)
 	message(STATUS "This project has ZLIB")
 endif()
 
+ 
+
+
 
 add_library(${PROJECT_NAME} STATIC)
 
@@ -26,6 +29,7 @@ if(ZLIB_FOUND)
 	src/Gvrs.c
 	src/GvrsBitInput.c
 	src/GvrsBspline.c
+	src/GvrsBuilder.c
 	src/GvrsChecksum.c
 	src/GvrsCodecDeflate.c
 	src/GvrsCodecFloat.c
@@ -34,12 +38,13 @@ if(ZLIB_FOUND)
 	src/GvrsCrossPlatform.c
 	src/GvrsElement.c
 	src/GvrsError.c
+	src/GvrsFileSpaceManager.c
 	src/GvrsInterpolation.c
 	src/GvrsM32.c
 	src/GvrsMetadata.c
 	src/GvrsPredictor.c
 	src/GvrsPrimaryIo.c
-	src/GvrsRecordManager.c
+	src/GvrsRecord.c
 	src/GvrsSummarize.c
 	src/GvrsTileCache.c
 	src/GvrsTileDirectory.c
@@ -49,17 +54,19 @@ else()
 	src/Gvrs.c
 	src/GvrsBitInput.c
 	src/GvrsBspline.c
+	src/GvrsBuilder.c
 	src/GvrsChecksum.c
 	src/GvrsCodecHuffman.c
 	src/GvrsCrossPlatform.c
 	src/GvrsElement.c
 	src/GvrsError.c
+	src/GvrsFileSpaceManager.c
 	src/GvrsInterpolation.c
 	src/GvrsM32.c
 	src/GvrsMetadata.c
 	src/GvrsPredictor.c
 	src/GvrsPrimaryIo.c
-	src/GvrsRecordManager.c
+	src/GvrsRecord.c
 	src/GvrsSummarize.c
 	src/GvrsTileCache.c
 	src/GvrsTileDirectory.c

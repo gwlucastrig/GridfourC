@@ -148,6 +148,10 @@ static GvrsElementSpec* addElementSpec(GvrsBuilder* builder, GvrsElementType eTy
 		return 0;
 	}
 	eSpec->builder = builder;
+	eSpec->description = 0;
+	eSpec->unitOfMeasure = 0;
+	eSpec->label = 0;
+	eSpec->unitsToMeters = 1;
 	GvrsStrncpy(eSpec->name, sizeof(eSpec->name), name);
 	eSpec->elementType = eType;
 	specs[builder->nElementSpecs++] = eSpec;
@@ -374,7 +378,7 @@ static void freeCodecs(GvrsBuilder* builder) {
 GvrsBuilder* GvrsBuilderFree(GvrsBuilder* builder) {
 	if (builder) {
 		int i;
-		if (builder->nElementSpecs) {
+		if (builder->elementSpecs) {
 			for (i = 0; i < builder->nElementSpecs; i++) {
 				GvrsElementSpec* spec = builder->elementSpecs[i];
 				if (spec) {
@@ -772,7 +776,7 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path) {
 	}
 
 	GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
-	gvrs->fileSpaceManager = GvrsFileSpaceManagerAlloc();
+	gvrs->fileSpaceManager = GvrsFileSpaceManagerAlloc(fp);
 	fflush(fp);
 	return gvrs;
 }
@@ -972,6 +976,7 @@ static int writeHeader(Gvrs* gvrs) {
 	GvrsInt sizeOfHeaderInBytes = (int)(filePosContent - FILEPOS_OFFSET_TO_HEADER_RECORD);
 	GvrsInt padding = (int)(filePosContent - filePos);
 	GvrsWriteZeroes(fp, padding);
+	fflush(fp);
 
 	  status = GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_HEADER_RECORD);
 	  status = GvrsWriteInt(fp, sizeOfHeaderInBytes);

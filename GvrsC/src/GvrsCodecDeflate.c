@@ -54,6 +54,47 @@ static GvrsCodec* allocateCodecDeflate(struct GvrsCodecTag* codec) {
 	return GvrsCodecDeflateAlloc();
 }
 
+#ifdef GVRS_TEST_UNPACK
+static int testUnpack(GvrsByte* packing, int packingLength, GvrsM32* m32) {
+	int nM32 = m32->offset;
+
+	unsigned char* input = packing + 10;
+	unsigned char* output = (unsigned char*)malloc(nM32);
+	if (!output) {
+		return GVRSERR_NOMEM;
+	}
+	z_stream zs;
+	memset(&zs, 0, sizeof(zs));
+	zs.zalloc = Z_NULL;
+	zs.zfree = Z_NULL;
+	zs.opaque = Z_NULL;
+	zs.avail_in = packingLength - 10;
+	zs.next_in = (Bytef*)input;
+	zs.avail_out = (uInt)nM32;
+	zs.next_out = (Bytef*)output;
+
+	inflateInit2(&zs, MAX_WBITS);
+	int status = inflate(&zs, Z_FINISH);
+	int inflatedLength = zs.total_out;
+	int status1 = inflateEnd(&zs);
+
+	if (status != Z_STREAM_END || status1!=Z_OK) {
+		printf("Internal pack, unpack round-trip failed with status != Z_STREAM_END");
+		exit(1);
+	}
+	for (int i = 0; i < nM32; i++) {
+		if (output[i] != (unsigned char)(m32->buffer[i])) {
+			printf("Internal pack, unpack round-trip failed to match values");
+			exit(1);
+		}
+	}
+	
+	free(output);
+	return 0;
+}
+#endif
+
+
 static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo) {
 
 	// int compressorIndex = (int)packing[0];
@@ -83,17 +124,20 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 	zs.avail_out = (uInt)nM32;
 	zs.next_out = (Bytef*)output;
 
-	inflateInit2(&zs, 15);
+	inflateInit2(&zs, MAX_WBITS);
 	int status = inflate(&zs, Z_FINISH);
-	int inflatedLength = zs.total_out;
-	inflateEnd(&zs);
 	if (status != Z_STREAM_END) {
+		free(output);
+		return GVRSERR_BAD_COMPRESSION_FORMAT;
+	}
+	int inflatedLength = zs.total_out;
+	int status1 = inflateEnd(&zs);
+	if (status1!=Z_OK) {
 		free(output);
 		return GVRSERR_BAD_COMPRESSION_FORMAT;
 	}
 
  
-
 	status = 0;
 	GvrsM32* m32 = GvrsM32Alloc(output, inflatedLength);
 	switch (predictorIndex) {
@@ -131,6 +175,7 @@ static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32
 	}
 	
 	z_stream strm;
+	memset(&strm, 0, sizeof(z_stream));
 	strm.zalloc = Z_NULL;
 	strm.zfree = Z_NULL;
 	strm.opaque = Z_NULL;
@@ -161,6 +206,11 @@ static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32
 	}
 
 	status = deflateEnd(&strm);
+	if (status != Z_OK) {
+		free(packing);
+		*errCode = GVRSERR_COMPRESSION_FAILED;
+		return 0;
+	}
     
 	*packingLength = strm.total_out+10;
 	packing[0] = (GvrsByte)codecIndex;
@@ -173,6 +223,13 @@ static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32
 	packing[7] = (GvrsByte)((nBytesToCompress >> 8) & 0xff);
 	packing[8] = (GvrsByte)((nBytesToCompress >> 16) & 0xff);
 	packing[9] = (GvrsByte)((nBytesToCompress >> 24) & 0xff);
+	 
+
+	//int testStatus = testUnpack(packing, *packingLength, m32);
+	//if (testStatus != 0) {
+	//	printf("back test for unpacking failed\n");
+	//	exit(1);
+	//}
 
 	return packing;
 }

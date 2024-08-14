@@ -330,7 +330,6 @@ int GvrsWriteZeroes(FILE* fp, int nZeroes) {
 	memset(zeroes, 0, n);
 	if (nZeroes > sizeof(zeroes)) {
 		int nBlock = nZeroes / n;
-		int k = 0;
 		int i, status;
 		for (i = 0; i < nBlock; i++) {
 			status = (int)fwrite(zeroes, 1, sizeof(zeroes),  fp);

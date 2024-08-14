@@ -69,6 +69,7 @@ int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsIn
 		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 		return GvrsError;
 	}
+	tc->nRasterReads++;
 
 	int nRowsInTile = tc->nRowsInTile;
 	int nColsInTile = tc->nColsInTile;
@@ -131,6 +132,7 @@ int  GvrsElementReadFloat(GvrsElement* element, int gridRow, int gridColumn, Gvr
 		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 		return GvrsError;
 	}
+	tc->nRasterReads++;
 
 	int nRowsInTile = tc->nRowsInTile;
 	int nColsInTile = tc->nColsInTile;
@@ -276,7 +278,7 @@ int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsI
 		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 		return GvrsError;
 	}
-
+	tc->nRasterWrites++;
 	int nRowsInTile = tc->nRowsInTile;
 	int nColsInTile = tc->nColsInTile;
 	int nColsOfTiles = tc->nColsOfTiles;
@@ -360,6 +362,7 @@ int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, flo
 		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 		return GvrsError;
 	}
+	tc->nRasterWrites++;
 
 	int nRowsInTile = tc->nRowsInTile;
 	int nColsInTile = tc->nColsInTile;

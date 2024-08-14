@@ -88,7 +88,7 @@ extern "C"
 
 		GvrsLong timeOpenedForWritingMS;
 
-		GvrsLong filePosFreeSpaceDirectory;
+		GvrsLong filePosFileSpaceDirectory;
 		GvrsLong filePosMetadataDirectory;
 		GvrsLong filePosTileDirectory;
 

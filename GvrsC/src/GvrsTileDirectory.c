@@ -198,22 +198,20 @@ GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode) {
 	GvrsTileDirectory* td = gvrs->tileDirectory;
 	int nTileCells = td->nRows * td->nCols;
 	int cellSize;
+	GvrsBoolean extendedAddressSpace;
 	if (td->iOffsets) {
+		extendedAddressSpace = 0;
 		cellSize = 4;
 	}
 	else {
+		extendedAddressSpace = 1;
 		cellSize = 8;
 	}
-	int sizeTileDirectory = 16 + nTileCells * cellSize + 8;
-	GvrsLong posToStore = GvrsFileSpaceAlloc(gvrs, GvrsRecordTypeTileDir, sizeTileDirectory);
+	int sizeTileDirectory = 8 + 16 + nTileCells * cellSize;
+	GvrsLong posToStore = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTileDir, sizeTileDirectory);
 	GvrsWriteByte(fp, 0);  // Version of tile directory, currently only zero is implemented
-	GvrsWriteBoolean(fp, 0); // extended address space
-	GvrsWriteByte(fp, 0);
-	GvrsWriteByte(fp, 0);
-	GvrsWriteByte(fp, 0);
-	GvrsWriteByte(fp, 0);
-	GvrsWriteByte(fp, 0);
-	GvrsWriteByte(fp, 0);
+	GvrsWriteBoolean(fp, extendedAddressSpace); // extended address space
+	GvrsWriteZeroes(fp, 6); // reserved for future use
 
 	GvrsWriteInt(fp, td->row0);
 	GvrsWriteInt(fp, td->col0);
@@ -236,13 +234,16 @@ GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode) {
 		}
 	}
 
-	GvrsFileSpaceFinish(gvrs, posToStore);
+	if (GvrsFileSpaceFinish(gvrs->fileSpaceManager, posToStore)) {
+		*errorCode = GVRSERR_FILE_ERROR;
+		return 0;
+	}
 
 	return posToStore;
 }
 
 
-int GvrsTileDirectorySetFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition) {
+int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition) {
 	// TO DO: test for offset greater than 32 GB threshold that is to big for iOffset and requires lOffset  
 	int row = tileIndex / td->nColsOfTiles;
 	int col = tileIndex - row * td->nColsOfTiles;

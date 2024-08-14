@@ -48,7 +48,8 @@ extern "C"
 
 static const long FILEPOS_OFFSET_TO_HEADER_RECORD = 16;
 static const long FILEPOS_MODIFICATION_TIME = 40;
-static const long FILEPOS_OFFSET_TO_FREESPACE_DIR = 56;
+static const long FILEPOS_OPENED_FOR_WRITING_TIME = 48;
+static const long FILEPOS_OFFSET_TO_FILESPACE_DIR = 56;
 static const long FILEPOS_OFFSET_TO_METADATA_DIR = 64;
 static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 
@@ -150,8 +151,10 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 		GvrsTile* head; 
 		GvrsTile* tail;
 		GvrsTile* firstTile;
-		GvrsLong nFetches;
+		GvrsLong nRasterReads;
+		GvrsLong nRasterWrites;
 		GvrsLong nTileReads;
+		GvrsLong nTileWrites;
 		GvrsLong nCacheSearches;
 		GvrsLong nNotFound;
 
@@ -188,11 +191,27 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	}GvrsMetadataDirectory;
 
 
+	typedef struct GvrsFileSpaceNodeTag {
+		struct GvrsFileSpaceNodeTag* next;
+		GvrsInt blockSize;
+		GvrsLong filePos;
+	}GvrsFileSpaceNode;
+
 	typedef struct GvrsFileSpaceManagerTag {
+		GvrsLong expectedFileSize;
+		GvrsLong lastRecordPosition;
 		GvrsLong recentRecordPosition;
 		GvrsLong recentStartOfContent;
 		GvrsInt  recentRecordSize;
 		GvrsRecordType recentRecordType;
+
+		GvrsFileSpaceNode* freeList;
+		FILE* fp;
+		int checksumEnabled;
+
+		GvrsLong nAllocations;
+		GvrsLong nDeallocations;
+		GvrsLong nFinish;
 	}GvrsFileSpaceManager;
 
 	const char* GvrsGetRecordTypeName(int index);
@@ -213,10 +232,10 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	* @param tileIndex a positive integer
 	* @param filePosition the offset in the file at which the tile is stored.
 	*/
-	int GvrsTileDirectorySetFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition);
+	int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition);
 
-	GvrsLong GvrsFileSpaceAlloc(Gvrs* gvrs, GvrsRecordType recordType, int sizeOfContent);
-	 
+	GvrsLong GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent);
+	int GvrsFileSpaceDealloc(GvrsFileSpaceManager* manager, GvrsLong contentPosition);
 	/**
 	* Computes the standard maximum capacity for a tile cache based on the number
 	* of tiles in a source raster and the type of size allocation
@@ -255,9 +274,11 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	GvrsMetadataDirectory* GvrsMetadataDirectoryFree(GvrsMetadataDirectory* dir);
 
 	void GvrsElementFillData(GvrsElement* element, GvrsByte* data, int nCells);
-	int  GvrsFileSpaceFinish(Gvrs* gvrs, GvrsLong contentPos);
-	GvrsFileSpaceManager* GvrsFileSpaceManagerAlloc();
+	int  GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, GvrsLong contentPos);
+	GvrsFileSpaceManager* GvrsFileSpaceManagerAlloc(FILE *fp);
 	GvrsFileSpaceManager* GvrsFileSpaceManagerFree(GvrsFileSpaceManager*);
+	GvrsFileSpaceManager* GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong freeSpaceDirectoryPosition, int* errCode);
+	int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition);
 
 #ifdef __cplusplus
 }

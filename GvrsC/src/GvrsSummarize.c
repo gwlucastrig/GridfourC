@@ -195,13 +195,14 @@ GvrsSummarize(Gvrs* gvrs, FILE* fp) {
 	fprintf(fp, "Metadata ----------------------------------------\n");
 	fprintf(fp, "     Name                           Record ID    Type\n");
 	GvrsMetadataDirectory* md = gvrs->metadataDirectory;
-	for (i = 0; i < md->nMetadataRecords; i++) {
-		GvrsMetadataReference* m = md->records + i;
-		const char* typeName = GvrsMetadataGetTypeName(m->metadataType);
-		printf("%2d.  %-32.32s  %6d    %-12.12s\n", i, m->name, m->recordID, typeName);
+	if (md) {
+		for (i = 0; i < md->nMetadataRecords; i++) {
+			GvrsMetadataReference* m = md->records + i;
+			const char* typeName = GvrsMetadataGetTypeName(m->metadataType);
+			printf("%2d.  %-32.32s  %6d    %-12.12s\n", i, m->name, m->recordID, typeName);
+		}
 	}
 	fprintf(fp, "\n");
-
 	return 0;
 }
 
@@ -214,14 +215,31 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 	}
 
 	GvrsTileCache* tc = gvrs->tileCache;
-	GvrsLong nAccessToCurrentTile = tc->nFetches - tc->nCacheSearches;
+	GvrsLong nReadsAndWrites = tc->nRasterReads + tc->nRasterWrites;
+	GvrsLong nAccessToCurrentTile = nReadsAndWrites - tc->nCacheSearches;
 	fprintf(fp, "\n");
 	fprintf(fp, "Access statistics ------------------------------\n");
-	fprintf(fp, "Number of Queries:      %12lld\n", (long long)tc->nFetches);
+	fprintf(fp, "Number of Reads:        %12lld\n", (long long)tc->nRasterReads);
+	fprintf(fp, "Number of Writes:       %12lld\n", (long long)tc->nRasterWrites);
 	fprintf(fp, "Met by current tile:    %12lld\n", (long long)nAccessToCurrentTile);
 	fprintf(fp, "Cache searches:         %12lld\n", (long long)tc->nCacheSearches);
 	fprintf(fp, "Number not-found:       %12lld\n", (long long)tc->nNotFound);
 	fprintf(fp, "Number of tile reads:   %12lld\n", (long long)tc->nTileReads);
+	fprintf(fp, "Number of tile writes:  %12lld\n", (long long)tc->nTileWrites);
 
+	if (gvrs->fileSpaceManager) {
+		GvrsFileSpaceManager* fsm = gvrs->fileSpaceManager;
+		GvrsInt nFreeRecords = 0;
+		GvrsLong sizeFreeRecords = 0;
+		GvrsFileSpaceNode* node = fsm->freeList;
+		while (node) {
+			nFreeRecords++;
+			sizeFreeRecords += node->blockSize;
+			node = node->next;
+		}
+		fprintf(fp, "\nFile space management\n");
+		fprintf(fp, "    Number of free blocks:  %8d\n", nFreeRecords);
+		fprintf(fp, "    Unused file space:      %8lld\n", (long long)sizeFreeRecords);
+	}
 	return 0;
 }

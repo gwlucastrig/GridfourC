@@ -373,7 +373,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 	}
 
  
-	GvrsReadLong(fp, &gvrs->filePosFreeSpaceDirectory);
+	GvrsReadLong(fp, &gvrs->filePosFileSpaceDirectory);
 	GvrsReadLong(fp, &gvrs->filePosMetadataDirectory);
 
 	GvrsShort nLevels = 0;
@@ -548,9 +548,38 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 	
 	if (openedForWriting) {
 		gvrs->timeOpenedForWritingMS = GvrsTimeMS();
-		GvrsSetFilePosition(fp, FILEPOS_MODIFICATION_TIME+8);
-		GvrsWriteLong(fp, gvrs->timeOpenedForWritingMS);  // the modification time
-		gvrs->fileSpaceManager = GvrsFileSpaceManagerAlloc();
+		GvrsSetFilePosition(fp, FILEPOS_OPENED_FOR_WRITING_TIME);
+		status = GvrsWriteLong(fp, gvrs->timeOpenedForWritingMS);  // the modification time
+		if (status) {
+			return fail(gvrs, fp, status);
+		}
+		gvrs->fileSpaceManager = GvrsFileSpaceDirectoryRead(gvrs, gvrs->filePosFileSpaceDirectory, &status);
+		// TO DO:  dealloc the file space for:
+		//            file-space manager directory  (done)
+		//            tile directory (done)
+		//            metadata directory ?
+		if (status) {
+			return fail(gvrs, fp, status);
+		}
+		if (gvrs->filePosFileSpaceDirectory) {
+			GvrsFileSpaceDealloc(gvrs->fileSpaceManager, gvrs->filePosFileSpaceDirectory);
+			gvrs->filePosFileSpaceDirectory = 0;
+			GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_FILESPACE_DIR);
+			status = GvrsWriteLong(fp, 0);
+			if (status) {
+				return fail(gvrs, fp, status);
+			}
+		}
+		if (gvrs->filePosTileDirectory) {
+			GvrsFileSpaceDealloc(gvrs->fileSpaceManager, gvrs->filePosTileDirectory);
+			gvrs->filePosTileDirectory = 0;
+			GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_TILE_DIR);
+			status = GvrsWriteLong(fp, 0);
+			if (status) {
+				return fail(gvrs, fp, status);
+			}
+		}
+		fflush(fp);
 	}
 	return gvrs;
 
@@ -664,7 +693,7 @@ GvrsRegisterCodec(Gvrs* gvrs, GvrsCodec* codec) {
 }
 
 
-static int writeChecksumForHeader(Gvrs* gvrs) {
+static int writeChecksums(Gvrs* gvrs) {
 	if (!gvrs->checksumEnabled) {
 		// nothing to do
 		return 0;
@@ -672,44 +701,77 @@ static int writeChecksumForHeader(Gvrs* gvrs) {
 	int status;
 	FILE* fp = gvrs->fp;
 	fflush(fp);
-	GvrsInt sizeOfHeaderInBytes;
-	GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_HEADER_RECORD);
-	status = GvrsReadInt(fp, &sizeOfHeaderInBytes);
-	if (status) {
-		GvrsError = status;
-		return status;
-	}
-	GvrsByte* b = malloc(sizeOfHeaderInBytes);
-	if (!b) {
-		GvrsError = GVRSERR_NOMEM;
-		return GVRSERR_NOMEM;
-	}
+	GvrsInt recordSize;
+	
+	GvrsLong recordFilePos = FILEPOS_OFFSET_TO_HEADER_RECORD;
+	int k = 0;
+	while (1) {
+		GvrsSetFilePosition(fp, recordFilePos);
+		status = GvrsReadInt(fp, &recordSize);
+		if (status) {
+			if (feof(fp)) {
+				// end of file, all is well
+				return 0;
+			}
+			GvrsError = status;
+			return status;
+		}
+	
 
-	status = GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_HEADER_RECORD);
-	status = GvrsReadByteArray(fp, sizeOfHeaderInBytes-4, b);
-	if (status == 0) {
 		unsigned long crc = 0;
-		crc = GvrsChecksumUpdateArray(b, 0, sizeOfHeaderInBytes - 4, crc);
-		// The windows API requires us to set file position between reading and writing.
-		// even though the file position should already be a the correct location.
-		// It was probably written by an unpaid intern.
-		GvrsSetFilePosition(fp, (GvrsLong)(FILEPOS_OFFSET_TO_HEADER_RECORD + sizeOfHeaderInBytes - 4));
-		status = GvrsWriteInt(fp, (GvrsInt)(crc & 0xFFFFFFFFL));
+		crc = GvrsChecksumUpdateValue((GvrsByte)(recordSize & 0xff), crc);
+		crc = GvrsChecksumUpdateValue((GvrsByte)((recordSize >> 8) & 0xff), crc);
+		crc = GvrsChecksumUpdateValue((GvrsByte)((recordSize >> 16) & 0xff), crc);
+		crc = GvrsChecksumUpdateValue((GvrsByte)((recordSize >> 24) & 0xff), crc);
+		GvrsByte b1;
+		status = GvrsReadByte(fp, &b1);
+		if (status) {
+			return status;
+		}
+		crc = GvrsChecksumUpdateValue(b1, crc);
+		crc = GvrsChecksumUpdateValue((GvrsByte)0, crc);
+		crc = GvrsChecksumUpdateValue((GvrsByte)0, crc);
+		crc = GvrsChecksumUpdateValue((GvrsByte)0, crc);
+	
+		GvrsSetFilePosition(fp, recordFilePos+8L);
+		GvrsByte* b = malloc(recordSize);
+		if (!b) {
+			GvrsError = GVRSERR_NOMEM;
+			return GVRSERR_NOMEM;
+		}
+		int contentSize = recordSize - 12;
+		status = GvrsReadByteArray(fp, contentSize, b);
+		if (status == 0) {
+			crc = GvrsChecksumUpdateArray(b, 0, contentSize, crc);
+			// The windows API requires us to set file position between reading and writing.
+			// even though the file position should already be a the correct location.
+			// It was probably written by an unpaid intern.
+			GvrsSetFilePosition(fp, (GvrsLong)(recordFilePos + recordSize - 4));
+			status = GvrsWriteInt(fp, (GvrsInt)(crc & 0xFFFFFFFFL));
+			fflush(fp);
+			free(b);
+		}
+		else {
+			free(b);
+			GvrsError = status;
+			return status;
+		}
+ 
+		recordFilePos += recordSize;
+		k++;
 	}
-	free(b);
-	if (status) {
-		GvrsError = status;
-	}
-	return status;
-
-
+	return 0;
 }
+
+ 
+
 static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 	int status = GvrsTileCacheWritePendingTiles(gvrs->tileCache);
 	if (status) {
 		GvrsError = status;
 		return status;
 	}
+ 
 	if (gvrs->tileDirectory) {
 		GvrsLong tileDirectoryPos = GvrsTileDirectoryWrite(gvrs, &status);
 		if (status) {
@@ -724,6 +786,18 @@ static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 		}
 	}
 
+	if (gvrs->fileSpaceManager) {
+		GvrsLong freeSpaceDirectoryPos;
+		status = GvrsFileSpaceDirectoryWrite(gvrs, &freeSpaceDirectoryPos);
+		if (!status && freeSpaceDirectoryPos) {
+			GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_FILESPACE_DIR);
+			status = GvrsWriteLong(fp, freeSpaceDirectoryPos);
+			if (status) {
+				GvrsError = status;
+				return status;
+			}
+		}
+	}
 	GvrsSetFilePosition(fp, FILEPOS_MODIFICATION_TIME);
 	GvrsWriteLong(fp, GvrsTimeMS());
 	status = GvrsWriteLong(fp, 0);
@@ -731,13 +805,16 @@ static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 		GvrsError = status;
 		return status;
 	}
- 	status = writeChecksumForHeader(gvrs);
+
+ 	status = writeChecksums(gvrs);
 	if (status) {
 		GvrsError = status;
 		return status;
 	}
 	return 0;
 }
+
+
 
 Gvrs* GvrsClose(Gvrs* gvrs) {
 	if(gvrs){

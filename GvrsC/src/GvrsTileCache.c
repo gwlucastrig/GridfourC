@@ -267,6 +267,9 @@ static int readAndDecomp(Gvrs *gvrs, GvrsInt n, GvrsElement* element, GvrsByte* 
 
 }
 
+ 
+
+
 static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 	int i;
 	FILE* fp = gvrs->fp;
@@ -277,7 +280,8 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 	}
 	GvrsSetFilePosition(fp, tileOffset);
 	GvrsInt tileIndexFromFile;
-	int status = GvrsReadInt(fp, &tileIndexFromFile); // a diagnostic
+	GvrsInt totalBytes = 4; // the tile index from file
+	int status = GvrsReadInt(fp, &tileIndexFromFile); 
 	if (status) {
 		GvrsError = GVRSERR_FILE_ERROR;
 		return GVRSERR_FILE_ERROR;
@@ -291,10 +295,13 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 		}
 	}
 	
+
 	for (i = 0; i < gvrs->nElementsInTupple; i++) {
 		GvrsElement* element = gvrs->elements[i];
 		GvrsInt n;
 		GvrsReadInt(fp, &n);  // this will tell us if it's compressed or not
+		totalBytes += 4;
+		totalBytes += n;
 		if (n < element->dataSize) {
 			// a compressed segment
 			status = readAndDecomp(gvrs, n, element, tile->data + element->dataOffset);
@@ -306,6 +313,9 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 			return status;
 		}
 	}
+
+	tile->filePosition = tileOffset;
+	tile->fileRecordContentSize = totalBytes;
 
 	return 0;
 }
@@ -408,14 +418,17 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 
 static void clearOutputBlock(GvrsTileCache *tc) {
 	GvrsTileOutputBlock* blocks = tc->outputBlocks;
-	int i;
-	for (i = 0; i < tc->nElementsInTupple; i++) {
-		if (blocks[i].compressed && blocks[i].output) {
-			free(blocks[i].output);
+	if (blocks) {
+		int i;
+		for (i = 0; i < tc->nElementsInTupple; i++) {
+			if (blocks[i].compressed && blocks[i].output) {
+				free(blocks[i].output);
+				blocks[i].output = 0;
+				blocks[i].compressed = 0;
+			}
 		}
+		memset(blocks, 0, tc->nElementsInTupple * sizeof(GvrsTileOutputBlock));
 	}
-	memset(blocks, 0, tc->nElementsInTupple * sizeof(GvrsTileOutputBlock));
-	 
 }
 static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 	GvrsTileCache* tc = gvrs->tileCache;
@@ -528,24 +541,24 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 	return 0;
 }
 
+ 
 static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
-	// TO DO: this will change a bit when we implement compression because
-	//        the tile size will be smaller than the uncompressed size and, also,
-	//        may be subject to growth as the content (and complexity) of the tile changes.
 	// TO DO: If the tile is entirely populated with fill values, there is no need
 	//        to store it in the file.  If this is the first time the tile is being
 	//        written to the backing storage device, there is no reason to save it.
 	//        If the tile has already been written to the storage device, we need
 	//        to perform deletion sequences:
-	//             remove existing tile reference from the tile directory
-	//             register the file space previously occupied by tile to the free list
+	//             a. remove existing tile reference from the tile directory
+	//             b. register the file space previously occupied by tile to the free list
+	
+	tc->nTileWrites++;
 
 	Gvrs* gvrs = tc->gvrs;
 	FILE* fp = gvrs->fp;
+
 	int tileIndex = tile->tileIndex;
 	GvrsLong filePosition;
 	int status;
-
 
 	clearOutputBlock(tc);
 
@@ -574,37 +587,45 @@ static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
 		}
 	}
 
-
 	// standard data size, plus one integer per each element, plus the tile index
-	if (tile->filePosition && nBytesForOutput!=tile->fileRecordContentSize) {
-		printf("TO DO:  Must de-allocate file record space\n");
+	if (tile->filePosition && nBytesForOutput != tile->fileRecordContentSize) {
+		GvrsFileSpaceDealloc(gvrs->fileSpaceManager, tile->filePosition);
 		tile->fileRecordContentSize = 0;
 		tile->filePosition = 0;
 	}
 
+	int allocated = 0;
 	if (tile->filePosition) {
 		// the tile is already written to backing storage, re-use the space
 		filePosition = tile->filePosition;
 		status = GvrsSetFilePosition(fp, filePosition+4); // skip the tile index, which is already written
+		if (status) {
+			return status;
+		}
 	}
 	else {
 		// This tile has never been written before.  Allocate space for it
 		// and update the tile directory.  Note that the file-space alloction function
 		// sets the file position to the indicate position
-		filePosition = GvrsFileSpaceAlloc(gvrs, GvrsRecordTypeTile, nBytesForOutput);
+		filePosition = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTile, nBytesForOutput);
+		allocated = 1;
+		//filePosition = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTile, gvrs->nBytesForTileData+32);
 		if (filePosition == 0) {
 			return GvrsError;
 		}
-		GvrsTileDirectorySetFilePosition(gvrs->tileDirectory, tileIndex, filePosition);
+		tile->filePosition = filePosition;
+		tile->fileRecordContentSize = nBytesForOutput;
+		GvrsTileDirectoryRegisterFilePosition(gvrs->tileDirectory, tileIndex, filePosition);
 		status = GvrsWriteInt(fp, tileIndex);
 	}
 
 	if (status) {
 		// Mark the directory cell as zero to reflect the failure
-		GvrsTileDirectorySetFilePosition(gvrs->tileDirectory, tileIndex, 0);
+		GvrsTileDirectoryRegisterFilePosition(gvrs->tileDirectory, tileIndex, 0);
 		return status;
 	}
-	
+	 
+
 	for (int iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
 		GvrsTileOutputBlock* block = tc->outputBlocks + iElement;
 		int n = block->nBytesInOutput;
@@ -615,8 +636,11 @@ static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
 		}
 	}
 
- 
-	return GvrsFileSpaceFinish(gvrs, filePosition);
+	if (allocated) {
+		  GvrsFileSpaceFinish(gvrs->fileSpaceManager, filePosition);
+	}
+
+	return 0;
 }
 
 int
@@ -714,7 +738,6 @@ GvrsTile* GvrsTileCacheStartNewTile(GvrsTileCache* tc, int tileIndex, int* errCo
 }
 
 GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileIndex, int* errCode) {
-
 	tc->nCacheSearches++;
 	GvrsTile* node = hashTableLookup(tc, tileIndex);
 	if (node) {
@@ -736,7 +759,6 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileIndex, int* errCode)
 	// free list or repurpose a tile that is in the cache. In either case,
 	// the "working" tile will be placed at the head of the queue.
 	node = getWorkingTile(tc, tileIndex, errCode);
- 
 
 	tc->nTileReads++;
 	int status = readTile(tc->gvrs, tileOffset, node);

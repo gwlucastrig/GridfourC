@@ -177,7 +177,7 @@ typedef struct GvrsTag {
 
 	GvrsLong timeOpenedForWritingMS;
 
-	GvrsLong filePosFreeSpaceDirectory;
+	GvrsLong filePosFileSpaceDirectory;
 	GvrsLong filePosMetadataDirectory;
 	GvrsLong filePosTileDirectory;
 
@@ -234,7 +234,6 @@ typedef struct GvrsTag {
 /**
  * Open an existing GVRS file as a virtual raster store.
  *
- * Write access is not yet implemented.
  * 
  * This function creates a virtual raster store that includes allocated memory
  * and an open file pointer.  When a program is done using the virtual raster store,
@@ -242,8 +241,16 @@ typedef struct GvrsTag {
  * If an error is encountered while processing the file, a null pointer will
  * be returned and the global GvrsError variable will be set with an appropriate
  * integer error code.
+ * <p>
+ * Although the acces-mode resembles the traditional specification for the C-language's
+ * fopen() function, it is limited to either "read-only" or "read-write". The GvrsOpen
+ * function cannot be used to create a new GVRS data file (to do so, use the GvrsBuilder
+ * functions).  A file that is opened for writing must already exist and must not currently
+ * be opened by another program or application thread (writing requires exclusive access).
+ * However, a file that is opened for read-only can be accessed by muliple processes simultaneously.
+ * When a file is opened for writing it may be either read or write.  
  * @param path the file specification.
- * @param accessMode  the mode of access; r for read; w for write; rw for both.
+ * @param accessMode  the mode of access; r for read; w for write.
  * @return if successful, a pointer to a valid virtual raster store; otherwise, a null.
  */
 Gvrs* GvrsOpen(const char* path, const char* accessMode);
