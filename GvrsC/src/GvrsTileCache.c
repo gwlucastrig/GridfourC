@@ -164,13 +164,11 @@ static int hashTablePut(GvrsTileCache* tc, GvrsTile* tile) {
 				table->allocationBlocks,
 				(size_t)(table->nAllocationBlocks+1) * sizeof(GvrsTileHashEntry*));
 			if (!allocationBlocks) {
-				GvrsError = GVRSERR_NOMEM;
 				return GVRSERR_NOMEM;
 			}
 			table->allocationBlocks = allocationBlocks;
 			GvrsTileHashEntry* block = allocHashBlock();
 			if (!block) {
-				GvrsError = GVRSERR_NOMEM;
 				return GVRSERR_NOMEM;
 			}
 			table->allocationBlocks[table->nAllocationBlocks] = block;
@@ -221,7 +219,6 @@ static int hashTableRemove(GvrsTileCache* tc, GvrsTile* tile) {
 static int readAndDecomp(Gvrs *gvrs, GvrsInt n, GvrsElement* element, GvrsByte* data) {
 	GvrsByte* packing = (GvrsByte*)malloc(n);
 	if (!packing) {
-		GvrsError = GVRSERR_NOMEM;
 		return GVRSERR_NOMEM;
 	}
 	int status = GvrsReadByteArray(gvrs->fp, n, packing);
@@ -275,7 +272,6 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 	FILE* fp = gvrs->fp;
 
 	if (tileOffset == 0) {
-		GvrsError = GVRSERR_FILE_ACCESS;
 		return GVRSERR_FILE_ERROR;
 	}
 	GvrsSetFilePosition(fp, tileOffset);
@@ -283,14 +279,12 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 	GvrsInt totalBytes = 4; // the tile index from file
 	int status = GvrsReadInt(fp, &tileIndexFromFile); 
 	if (status) {
-		GvrsError = GVRSERR_FILE_ERROR;
 		return GVRSERR_FILE_ERROR;
 	}
 
 	if (!tile->data) {
 		tile->data = calloc(1, gvrs->nBytesForTileData);
 		if (!tile->data) {
-			GvrsError = GVRSERR_NOMEM;
 			return GVRSERR_NOMEM;
 		}
 	}
@@ -348,7 +342,7 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize, int *
 	GvrsTile* node;
 	GvrsTileCache* tc = calloc(1, sizeof(GvrsTileCache));
 	if (!tc) {
-		GvrsError = GVRSERR_NOMEM;
+		*status = GVRSERR_NOMEM;
 		return 0;
 	}
 	tc->gvrs = gvrs;
@@ -452,7 +446,6 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 			if (element->elementType == GvrsElementTypeShort) {
 				iData = calloc(nCells, sizeof(GvrsInt));
 				if (!iData) {
-					GvrsError = GVRSERR_NOMEM;
 					return GVRSERR_NOMEM;
 				}
 			    sData = (GvrsShort *)(tile->data + element->dataOffset);
@@ -608,11 +601,11 @@ static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
 		// This tile has never been written before.  Allocate space for it
 		// and update the tile directory.  Note that the file-space alloction function
 		// sets the file position to the indicate position
-		filePosition = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTile, nBytesForOutput);
+		filePosition = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTile, nBytesForOutput, &status);
 		allocated = 1;
 		//filePosition = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTile, gvrs->nBytesForTileData+32);
 		if (filePosition == 0) {
-			return GvrsError;
+			return status;
 		}
 		tile->filePosition = filePosition;
 		tile->fileRecordContentSize = nBytesForOutput;
@@ -706,8 +699,7 @@ static GvrsTile* getWorkingTile(GvrsTileCache* tc, int tileIndex, int *errorCode
 		Gvrs* gvrs = tc->gvrs;
 		node->data = calloc(1, gvrs->nBytesForTileData);
 		if (!node->data) {
-			GvrsError = GVRSERR_NOMEM;
-			*errorCode = GvrsError; 
+			*errorCode = GVRSERR_NOMEM;
 			return 0;
 		}
 	}

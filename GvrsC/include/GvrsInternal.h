@@ -234,7 +234,8 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	*/
 	int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition);
 
-	GvrsLong GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent);
+
+	GvrsLong GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent, int *status);
 	int GvrsFileSpaceDealloc(GvrsFileSpaceManager* manager, GvrsLong contentPosition);
 	/**
 	* Computes the standard maximum capacity for a tile cache based on the number
@@ -255,12 +256,8 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	* data queries from the calling application.  It is generally invoked by a GVRS element
 	* function. If the tile of interest is not currently in the cache,
 	* but is included in the source GVRS file, this function reads the tile from the source file
-	* and stores it in the cache. The tile of interest is identified by the grid row and column.
-	* If a tile is available then the index into its array(s) of data values is computed
-	* from the grid row and column values.
-	* @param tc a pointer to a valid tile cache instance
-	* @param tileRow the row of tiles within the overall grid that contains the raster data cell of interest.
-	* @param tileColumn the column of tiles within the overall grid that contains the raster data cell of interest.
+	* and stores it in the cache.
+	* @param tc a pointer to a valid tile cache instance.
 	* @param tileIndex the index for the tile of interest. 
 	* @param errCode a pointer to a storage location to receive the error code in case of a failure
 	* to obtain a tile.
@@ -268,6 +265,16 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	*/
 	GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileIndex, int* errCode);
 
+	/**
+	* Initializes a tile in the tile cache assigning it the specified tile index.
+	* Intended for writing data to a GVRS file.  If the tile cache is full, the oldest
+	* tile in the cache will be removed and potentially written.
+	* @param tc a pointer to a valid tile cache instance.
+	* @param tileIndex the index for the tile of interest. 
+	* @param errCode a pointer to a storage location to receive the error code in case of a failure
+	* to obtain a tile.
+	* @return if successful, a pointer to a storage location for the tile of interest; otherwise, a null.
+	*/
 	GvrsTile* GvrsTileCacheStartNewTile(GvrsTileCache* tc,  int tileIndex, int* errCode);
 
 	GvrsMetadataDirectory* GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDir, int *errCode);

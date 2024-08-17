@@ -239,10 +239,10 @@ typedef struct GvrsTag {
  * and an open file pointer.  When a program is done using the virtual raster store,
  * it should clean up the resources using a call to GvrsClose.
  * If an error is encountered while processing the file, a null pointer will
- * be returned and the global GvrsError variable will be set with an appropriate
+ * be returned and the status variable will be set with an appropriate
  * integer error code.
  * <p>
- * Although the acces-mode resembles the traditional specification for the C-language's
+ * Although the access-mode resembles the traditional specification for the C-language's
  * fopen() function, it is limited to either "read-only" or "read-write". The GvrsOpen
  * function cannot be used to create a new GVRS data file (to do so, use the GvrsBuilder
  * functions).  A file that is opened for writing must already exist and must not currently
@@ -343,8 +343,8 @@ int GvrsElementReadFloat(GvrsElement* element, int row, int column, GvrsFloat* v
 * value directly.  If will be converted to its corresponding floating-point value when accessed
 * via the GvrsElementReadFloat routine.
 * @param element a valid instance associated with an open GVRS file.
-* @param row the row index for a grid cell within the GVRS file.
-* @param column the column index for a grid cell within the GVRS file.
+* @param gridRow the row index for a grid cell within the GVRS file.
+* @param gridColumn the column index for a grid cell within the GVRS file.
 * @param value an interger value to be stored in the file
 * @return if successful, a zero; otherwise an error code.
 */

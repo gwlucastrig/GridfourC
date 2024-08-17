@@ -39,13 +39,6 @@ GvrsCodec* GvrsCodecLsopAlloc();
 #endif
 
 
-
-static int recordNullArgument() {
-	GvrsError = GVRSERR_NULL_ARGUMENT;
-	return GvrsError;
-}
-
-
 // This method records an error condition as part of the builder.
 // For compactness, it may also be used in a return statement
 static int recordStatus(GvrsBuilder* builder, int errorCode) {
@@ -59,7 +52,6 @@ static int recordStatus(GvrsBuilder* builder, int errorCode) {
 
 static GvrsBuilder* allocFail(GvrsBuilder* builder, int errorCode) {
 	GvrsBuilderFree(builder);
-	GvrsError = errorCode;
 	return 0; // a null pointer to a builder
 }
 
@@ -185,13 +177,16 @@ static void  computeAndStoreInternalTransforms(GvrsBuilder* b) {
 }
 
 
-GvrsBuilder* GvrsBuilderInit(int nRows, int nColumns) {
+GvrsBuilder* GvrsBuilderInit(int nRows, int nColumns, int *status) {
+	*status = 0;
+
 	if (nRows < 1 || nColumns < 1) {
-		GvrsError = GVRSERR_BAD_RASTER_SPECIFICATION;
+		*status = GVRSERR_BAD_RASTER_SPECIFICATION;
 		return 0;
 	}
 	GvrsBuilder* builder = calloc(1, sizeof(GvrsBuilder));
 	if (!builder) {
+		*status = GVRSERR_NOMEM;
 		return allocFail(builder, GVRSERR_NOMEM);
 	}
   
@@ -225,13 +220,11 @@ GvrsBuilder* GvrsBuilderInit(int nRows, int nColumns) {
 	builder->nRowsInTile = nRowsInTile;
 	builder->nColsInTile = nColsInTile;
 	builder->nCellsInTile = nRowsInTile * nColsInTile;
-	int status = checkNumberOfTiles(builder);
-	if (status) {
-		return allocFail(builder, status);
+	int status1 = checkNumberOfTiles(builder);
+	if (status1) {
+		*status = status1;
+		return allocFail(builder, status1);
 	}
-
-
-
 
 
 	builder->x0 = 0;
@@ -461,7 +454,7 @@ GvrsElementSpec* GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder,
 	GvrsFloat offset) 
 {
 	if (scale == 0 || isnan(scale) || isnan(offset)){
-		GvrsError = GVRSERR_BAD_ICF_PARAMETERS;
+		recordStatus(builder, GVRSERR_BAD_ICF_PARAMETERS);
 		return 0;
 	}
 
@@ -488,7 +481,7 @@ GvrsElementSpec* GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder,
 int
 GvrsElementSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax) {
 	if (!eSpec) {
-		return recordNullArgument();
+		return GVRSERR_NULL_ARGUMENT;
 	}
 	if (iMin > iMax) {
 		return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
@@ -529,7 +522,7 @@ GvrsElementSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax) {
 int
 GvrsElementSetFillInt(GvrsElementSpec* eSpec, GvrsInt iFill) {
 	if (!eSpec) {
-		return recordNullArgument();
+		return GVRSERR_NULL_ARGUMENT;
 	}
 
 	switch (eSpec->elementType) {
@@ -563,11 +556,11 @@ static Gvrs* gvrsFail(GvrsBuilder* builder, Gvrs* gvrs, int errorCode) {
 	return GvrsDisposeOfResources(gvrs);
 }
 
-char* optstrdup(const char* s) {
+static char* optstrdup(const char* s, int *status) {
 	if (s && *s) {
 		char *t = GVRS_STRDUP(s);
 		if (!t) {
-			GvrsError = GVRSERR_NOMEM;
+			*status = GVRSERR_NOMEM;
 			return 0;
 		}
 		return t;
@@ -581,7 +574,7 @@ static int writeHeader(Gvrs *gvrs);
 Gvrs*
 GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 	int i;
-	GvrsError = 0;
+	 
 	if (!builder || !path || !path[0]) {
 		*status = GVRSERR_NULL_ARGUMENT;
 		return 0;
@@ -593,6 +586,7 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 		return  0;
 	}
 
+	*status = 0;
 
 	// step 1:  test for internal completeness of the specification -------------
 	if (builder->nElementSpecs == 0) {
@@ -719,9 +713,9 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 		offsetWithinTileData += e->dataSize;
 
 		memcpy(&e->elementSpec, &eSpec->elementSpec, sizeof(eSpec->elementSpec));
-		e->label = optstrdup(eSpec->label);
-		e->description = optstrdup(eSpec->description);
-		e->unitOfMeasure = optstrdup(eSpec->unitOfMeasure);
+		e->label = optstrdup(eSpec->label, &builder->errorCode);
+		e->description = optstrdup(eSpec->description, &builder->errorCode);
+		e->unitOfMeasure = optstrdup(eSpec->unitOfMeasure, &builder->errorCode);
 		e->unitsToMeters = eSpec->unitsToMeters;
 		switch (eSpec->elementType) {
 		case GvrsElementTypeInt:
@@ -750,7 +744,7 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 	if (gvrs->nDataCompressionCodecs >0) {
 		gvrs->dataCompressionCodecs = calloc(gvrs->nDataCompressionCodecs, sizeof(GvrsCodec*));
 		if (!gvrs->dataCompressionCodecs) {
-			GvrsError = GVRSERR_NOMEM;
+			*status = GVRSERR_NOMEM;
 			return 0;
 		}
 		for (i = 0; i < gvrs->nDataCompressionCodecs; i++) {
@@ -758,7 +752,7 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 			if (codec) {
 				gvrs->dataCompressionCodecs[i] = codec->allocateNewCodec(codec);
 				if (!gvrs->dataCompressionCodecs[i]) {
-					GvrsError = GVRSERR_NOMEM;
+					*status = GVRSERR_NOMEM;
 					return 0;
 				}
 			}

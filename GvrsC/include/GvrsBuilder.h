@@ -131,7 +131,7 @@ extern "C"
 	}GvrsBuilder;
 
 
-	GvrsBuilder* GvrsBuilderInit(int nRows, int nColumns);
+	GvrsBuilder* GvrsBuilderInit(int nRows, int nColumns, int *status);
 	int GvrsBuilderSetTileSize(GvrsBuilder* builder, int nRowsInTile, int nColumnsInTile);
 	GvrsBuilder* GvrsBuilderFree(GvrsBuilder* builder);
 

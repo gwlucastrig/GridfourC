@@ -37,7 +37,6 @@ if(ZLIB_FOUND)
 	src/GvrsCodecLsop.c
 	src/GvrsCrossPlatform.c
 	src/GvrsElement.c
-	src/GvrsError.c
 	src/GvrsFileSpaceManager.c
 	src/GvrsInterpolation.c
 	src/GvrsM32.c
@@ -59,7 +58,6 @@ else()
 	src/GvrsCodecHuffman.c
 	src/GvrsCrossPlatform.c
 	src/GvrsElement.c
-	src/GvrsError.c
 	src/GvrsFileSpaceManager.c
 	src/GvrsInterpolation.c
 	src/GvrsM32.c

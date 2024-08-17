@@ -35,7 +35,6 @@
 static GvrsTileDirectory* readFailed(GvrsTileDirectory* td, int status, int* errCode) {
 	GvrsTileDirectoryFree(td);
 	*errCode = status;
-	GvrsError = status;
 	return 0;
 }
 
@@ -208,7 +207,7 @@ GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode) {
 		cellSize = 8;
 	}
 	int sizeTileDirectory = 8 + 16 + nTileCells * cellSize;
-	GvrsLong posToStore = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTileDir, sizeTileDirectory);
+	GvrsLong posToStore = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTileDir, sizeTileDirectory, errorCode);
 	GvrsWriteByte(fp, 0);  // Version of tile directory, currently only zero is implemented
 	GvrsWriteBoolean(fp, extendedAddressSpace); // extended address space
 	GvrsWriteZeroes(fp, 6); // reserved for future use
@@ -297,7 +296,6 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 				GvrsUnsignedInt* iOffsets = td->iOffsets;
 				GvrsUnsignedInt* xOffsets = calloc(n, sizeof(GvrsUnsignedInt));
 				if (!xOffsets) {
-					GvrsError = GVRSERR_NOMEM;
 					return GVRSERR_NOMEM;
 				}
 				// TO DO:  replace col loop with memmove?  memcpy?
@@ -315,7 +313,6 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 				GvrsLong* lOffsets = td->lOffsets;
 				GvrsLong* xOffsets = calloc(n, sizeof(GvrsLong));
 				if (!xOffsets) {
-					GvrsError = GVRSERR_NOMEM;
 					return GVRSERR_NOMEM;
 				}
 				// TO DO:  replace col loop with memmove?  memcpy?  

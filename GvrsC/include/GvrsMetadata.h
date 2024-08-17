@@ -110,7 +110,7 @@ extern "C"
 	* @param nValues the size of the data associated with the metadata.
 	* @return a pointer to the byte content associated with the metadata.
 	*/
-	GvrsByte* GvrsMetadataGetByte(GvrsMetadata* m, int* nValues);
+	GvrsByte* GvrsMetadataGetByte(GvrsMetadata* m, int* nValues, int* errorCode);
 
 	/**
 	* Gets the content of a metadata element as a pointer to shorts.
@@ -122,7 +122,7 @@ extern "C"
 	* @param nValues the number of elements associated with the metadata instance.
 	* @return a pointer to an array of shorts
 	*/
-	GvrsShort* GvrsMetadataGetShort(GvrsMetadata* m, int* nValues);
+	GvrsShort* GvrsMetadataGetShort(GvrsMetadata* m, int* nValues, int* errorCode);
 
 	/**
 	* Gets the content of a metadata element as a pointer to unsigned shorts.
@@ -134,7 +134,7 @@ extern "C"
 	* @param nValues the number of elements associated with the metadata instance.
 	* @return a pointer to an array of shorts
 	*/
-	GvrsUnsignedShort* GvrsMetadataGetUnsignedShort(GvrsMetadata* m, int* nValues);
+	GvrsUnsignedShort* GvrsMetadataGetUnsignedShort(GvrsMetadata* m, int* nValues, int* errorCode);
 
 	/**
 	* Gets the content of a metadata element as a pointer to integers.
@@ -146,7 +146,7 @@ extern "C"
 	* @param nValues the number of elements associated with the metadata instance.
 	* @return a pointer to an array of integers
 	*/
-	GvrsInt* GvrsMetadataGetInt(GvrsMetadata* m, int* nValues);
+	GvrsInt* GvrsMetadataGetInt(GvrsMetadata* m, int* nValues, int* errorCode);
 
 	/**
 	* Gets the content of a metadata element as a pointer to unsigned integers.
@@ -158,7 +158,7 @@ extern "C"
 	* @param nValues the number of elements associated with the metadata instance.
 	* @return a pointer to an array of unsigned integers.
 	*/
-	GvrsUnsignedInt* GvrsMetadataGetUnsignedInt(GvrsMetadata* m, int* nValues);
+	GvrsUnsignedInt* GvrsMetadataGetUnsignedInt(GvrsMetadata* m, int* nValues, int* errorCode);
 
 	/**
 	* Gets the content of a metadata element as a pointer to floats.
@@ -170,7 +170,7 @@ extern "C"
 	* @param nValues the number of elements associated with the metadata instance.
 	* @return a pointer to an array of floats.
 	*/
-	GvrsFloat* GvrsMetadataGetFloat(GvrsMetadata* m, int* nValues);
+	GvrsFloat* GvrsMetadataGetFloat(GvrsMetadata* m, int* nValues, int* errorCode);
 
 	/**
 	* Gets the content of a metadata element as a pointer to doubles.
@@ -182,7 +182,7 @@ extern "C"
 	* @param nValues the number of elements associated with the metadata instance.
 	* @return a pointer to an array of doubles.
 	*/
-	GvrsDouble* GvrsMetadataGetDouble(GvrsMetadata* m, int* nValues);
+	GvrsDouble* GvrsMetadataGetDouble(GvrsMetadata* m, int* nValues, int* errorCode);
 
 	/**
 	* Gets a static string indicating the name of the metadata type.  Intended for writing reports

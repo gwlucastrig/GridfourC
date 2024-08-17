@@ -89,7 +89,6 @@ GvrsMetadataDirectory* GvrsMetadataDirectoryFree(GvrsMetadataDirectory* dir) {
 
 static GvrsMetadataDirectory* readFailed(GvrsMetadataDirectory* dir, int status, int* errCode) {
 	*errCode = status;
-	GvrsError = status;
 	return GvrsMetadataDirectoryFree(dir);
 }
 
@@ -293,7 +292,7 @@ GvrsMetadataResultSet* GvrsMetadataReadByNameAndID(Gvrs* gvrs, const char* name,
 
 char* GvrsMetadataGetString(GvrsMetadata* metadata, int *errCode) {
 	if (!metadata) {
-		*errCode = GVRSERR_FILE_ACCESS;
+		*errCode = GVRSERR_NULL_ARGUMENT;
 		return 0;
 	}
 
@@ -314,79 +313,86 @@ char* GvrsMetadataGetString(GvrsMetadata* metadata, int *errCode) {
 }
 
 
-GvrsDouble* GvrsMetadataGetDouble(GvrsMetadata *m, int* nValues) {
+GvrsDouble* GvrsMetadataGetDouble(GvrsMetadata *m, int* nValues, int* errorCode) {
 	*nValues = 0;
+	*errorCode = 0;
 	if (!m || m->metadataType != GvrsMetadataTypeDouble) {
-		GvrsError = GVRSERR_FILE_ACCESS;
+		*errorCode = GVRSERR_FILE_ACCESS;
 		return 0;
 	}
 	*nValues = m->nValues;
 	return (GvrsDouble*)(m->data);
 }
 
-GvrsFloat* GvrsMetadataGetFloat(GvrsMetadata* m, int* nValues) {
+GvrsFloat* GvrsMetadataGetFloat(GvrsMetadata* m, int* nValues, int* errorCode) {
 	*nValues = 0;
+	*errorCode = 0;
 	if (!m || m->metadataType != GvrsMetadataTypeFloat) {
-		GvrsError = GVRSERR_FILE_ACCESS;
+		*errorCode = GVRSERR_FILE_ACCESS;
 		return 0;
 	}
 	*nValues = m->nValues;
 	return (GvrsFloat*)(m->data);
 }
 
-GvrsShort* GvrsMetadataGetShort(GvrsMetadata* m, int* nValues) {
+GvrsShort* GvrsMetadataGetShort(GvrsMetadata* m, int* nValues, int* errorCode) {
 	if (m && (m->metadataType == GvrsMetadataTypeShort || m->metadataType == GvrsMetadataTypeUnsignedShort)) {
 		*nValues = m->nValues;
+		*errorCode = 0;
 		return (GvrsShort*)(m->data);
 	}
 	else {
 		*nValues = 0;
-		GvrsError = GVRSERR_FILE_ACCESS;
+		*errorCode = GVRSERR_FILE_ACCESS;
 		return 0;
 	}
 }
 
 
-GvrsUnsignedShort* GvrsMetadataGetUnsignedShort(GvrsMetadata* m, int* nValues) {
+GvrsUnsignedShort* GvrsMetadataGetUnsignedShort(GvrsMetadata* m, int* nValues, int* errorCode) {
 	if (m && (m->metadataType == GvrsMetadataTypeShort || m->metadataType == GvrsMetadataTypeUnsignedShort)) {
 		*nValues = m->nValues;
+		*errorCode = 0;
 		return (GvrsUnsignedShort*)(m->data);
 	}
 	else{
 		*nValues = 0;
-		GvrsError = GVRSERR_FILE_ACCESS;
+		*errorCode = GVRSERR_FILE_ACCESS;
 		return 0;
 	}
 }
 
 
 
-GvrsInt* GvrsMetadataGetInt(GvrsMetadata* m, int* nValues) {
+GvrsInt* GvrsMetadataGetInt(GvrsMetadata* m, int* nValues, int* errorCode) {
 	if (m && (m->metadataType == GvrsMetadataTypeInt || m->metadataType == GvrsMetadataTypeUnsignedInt)) {
 		*nValues = m->nValues;
+		*errorCode = 0;
 		return (GvrsInt*)(m->data);
 	}else{
 		*nValues = 0;
-		GvrsError = GVRSERR_FILE_ACCESS;
+		*errorCode = GVRSERR_FILE_ACCESS;
 		return 0;
 	}
 }
 
 
-GvrsUnsignedInt* GvrsMetadataGetUnsignedInt(GvrsMetadata* m, int* nValues) {
+GvrsUnsignedInt* GvrsMetadataGetUnsignedInt(GvrsMetadata* m, int* nValues, int* errorCode) {
 	if (m && (m->metadataType == GvrsMetadataTypeInt || m->metadataType == GvrsMetadataTypeUnsignedInt)) {
 		*nValues = m->nValues;
+		*errorCode = 0;
 		return (GvrsUnsignedInt*)(m->data);
 	}
 	else {
 		*nValues = 0;
-		GvrsError = GVRSERR_FILE_ACCESS;
+		*errorCode = GVRSERR_FILE_ACCESS;
 		return 0;
 	}
 }
 
 
-GvrsByte* GvrsMetadataGetByte(GvrsMetadata* m, int* nValues) {
+GvrsByte* GvrsMetadataGetByte(GvrsMetadata* m, int* nValues, int* errorCode) {
 	*nValues = m->dataSize;
+	*errorCode = 0;
 	return m->data;
 }

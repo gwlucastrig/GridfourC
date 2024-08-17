@@ -69,7 +69,7 @@ static int multipleOf8(int value) {
 
 
 GvrsLong
-GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent) {
+GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent, int *errorCode) {
 	manager->nAllocations++;
 	FILE* fp = manager->fp;
 	fflush(fp);
@@ -136,7 +136,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		GvrsWriteByte(fp, (GvrsByte)recordType);
 		int status = GvrsWriteZeroes(fp, 3);
 		if (status) {
-			GvrsError = status;
+			*errorCode = status;
 			return 0;
 		}
 		return startOfContent;
@@ -154,7 +154,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		int n = (int)(manager->expectedFileSize - fileSize);
 		int status = GvrsWriteZeroes(fp, n);
 		if (status) {
-			GvrsError = status;
+			*errorCode = status;
 			return 0;
 		}
 		fileSize = manager->expectedFileSize;
@@ -456,9 +456,10 @@ int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition) {
 	//        when we allocate additional file space (note that this action could
 	//        actually reduce the number of free nodes if it merges blocks).
 	int nBytesRequired = 4 + (kNode+1)*BYTES_PER_FS_NODE;
-	GvrsLong contentPos = GvrsFileSpaceAlloc(manager, GvrsRecordTypeFilespaceDir, nBytesRequired);
+	int status;
+	GvrsLong contentPos = GvrsFileSpaceAlloc(manager, GvrsRecordTypeFilespaceDir, nBytesRequired, &status);
 	if (!contentPos) {
-		return GVRSERR_FILE_ERROR;
+		return status;
 	}
 	*filePosition = contentPos;
 	// count the nodes again, in case the count changed
@@ -470,7 +471,6 @@ int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition) {
 	}
 
 	FILE* fp = manager->fp;
-	int status;
 	GvrsWriteInt(fp, kNode);
 	node = manager->freeList;
 	while (node) {

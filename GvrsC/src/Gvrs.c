@@ -270,7 +270,8 @@ static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int 
 
 
 int GvrsSetTileCacheSize(Gvrs* gvrs, GvrsTileCacheSizeType cacheSize) {
-	int i, n, status;
+	int i, n;
+	int status = 0;
 	if (cacheSize < 0 || cacheSize>3) {
 		// improper specification from application code.
 		cacheSize = GvrsTileCacheSizeMedium;

@@ -59,15 +59,13 @@
  
 int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt *value) {
 	if (!element) {
-		GvrsError = GVRSERR_NULL_POINTER;
 		return GVRSERR_NULL_POINTER;
 	}
 
 	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
 
 	if ((unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster){
-		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
-		return GvrsError;
+		return GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 	}
 	tc->nRasterReads++;
 
@@ -123,14 +121,12 @@ int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsIn
 
 int  GvrsElementReadFloat(GvrsElement* element, int gridRow, int gridColumn, GvrsFloat* value) {
 	if (!element) {
-		GvrsError = GVRSERR_NULL_POINTER;
 		return GVRSERR_NULL_POINTER;
 	}
 
 	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
 	if ((unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster) {
-		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
-		return GvrsError;
+		return GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 	}
 	tc->nRasterReads++;
 
@@ -257,14 +253,12 @@ GvrsElementFillData(GvrsElement* element, GvrsByte* data, int nCells) {
 
 int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt value) {
 	if (!element) {
-		GvrsError = GVRSERR_NULL_POINTER;
 		return GVRSERR_NULL_POINTER;
 	}
 
 	Gvrs* gvrs = element->gvrs;
 	if (gvrs) {
 		if (!gvrs->timeOpenedForWritingMS) {
-			GvrsError = GVRSERR_NOT_OPENED_FOR_WRITING;
 			return GVRSERR_NOT_OPENED_FOR_WRITING;
 		}
 	}
@@ -275,8 +269,7 @@ int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsI
 
 	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
 	if ((unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster) {
-		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
-		return GvrsError;
+		return GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 	}
 	tc->nRasterWrites++;
 	int nRowsInTile = tc->nRowsInTile;
@@ -340,14 +333,12 @@ int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsI
 
 int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, float value) {
 	if (!element) {
-		GvrsError = GVRSERR_NULL_POINTER;
 		return GVRSERR_NULL_POINTER;
 	}
 
 	Gvrs* gvrs = element->gvrs;
 	if (gvrs) {
 		if (!gvrs->timeOpenedForWritingMS) {
-			GvrsError = GVRSERR_NOT_OPENED_FOR_WRITING;
 			return GVRSERR_NOT_OPENED_FOR_WRITING;
 		}
 	}
@@ -359,8 +350,7 @@ int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, flo
 	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
 
 	if ((unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster) {
-		GvrsError = GVRSERR_COORDINATE_OUT_OF_BOUNDS;
-		return GvrsError;
+		return GVRSERR_COORDINATE_OUT_OF_BOUNDS;
 	}
 	tc->nRasterWrites++;
 
