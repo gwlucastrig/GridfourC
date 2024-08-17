@@ -57,8 +57,6 @@ extern "C"
 #define GVRSERR_COMPRESSION_FAILED          -20
 #define GVRSERR_INTERNAL_ERROR              -21
 
-extern int GvrsError;
-
 #ifdef __cplusplus
 }
 #endif
