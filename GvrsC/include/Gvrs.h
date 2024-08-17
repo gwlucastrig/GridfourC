@@ -251,17 +251,23 @@ typedef struct GvrsTag {
  * When a file is opened for writing it may be either read or write.  
  * @param path the file specification.
  * @param accessMode  the mode of access; r for read; w for write.
+ * @param status a pointer to receive the result status of the operation: zero for success, otherwise non-zero.
  * @return if successful, a pointer to a valid virtual raster store; otherwise, a null.
  */
-Gvrs* GvrsOpen(const char* path, const char* accessMode);
+Gvrs* GvrsOpen(const char* path, const char* accessMode, int *status);
 
 /**
 * Disposes of a GVRS virtual raster store, frees all associated memory,
 * and closes the associated file.
+* <p>
+* The result status is set when a file is opened for write-access to indicates whether
+* the completion operations are successful.  When a file is opened for read-only mode,
+* the status value is not meaningful and is set to zero.
 * @param gvrs a pointer to a valid raster file store; null pointers will be ignored.
+* @param status a pointer to receive the result status of the operation: zero for success, otherwise non-zero.
 * @return a null pointer
 */
-Gvrs* GvrsClose(Gvrs *gvrs);
+Gvrs* GvrsClose(Gvrs *gvrs, int *status);
  
 /**
 * Sets the size of the GVRS file cache.  Deletes the current cache and replaces

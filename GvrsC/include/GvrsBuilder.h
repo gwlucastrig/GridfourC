@@ -172,8 +172,19 @@ extern "C"
 	int GvrsBuilderRegisterDataCompressionCodec(GvrsBuilder* builder, GvrsCodec* codec);
 
 
-
-	Gvrs* GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path);
+	/**
+	* Creates a new file-backed virtual raster and opens it for write access.
+	* The raster is based on parameters set for the builder instance.
+	* A single builder may be used to create multiple rasters.
+	* <p>
+	* If there was an error in a specification set for the builder, it will be disabled.
+	* Calls to this function will return a null pointer.
+	* @param builder a valid instance populated with settings for the desired raster.
+	* @param path the path to the file to be used for the raster.
+	* @param status zero if successful; otherwise, a value as specified in GvrsError.h
+	* @return if successful, a pointer to a valid Gvrs structure; otherwise, a null.
+	*/
+	Gvrs* GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status);
 
 
 #ifdef __cplusplus

@@ -246,7 +246,7 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	*/
 	int GvrsTileCacheComputeStandardSize(int nRowsOfTiles, int nColsOfTiles, GvrsTileCacheSizeType cacheSize);
 
-	GvrsTileCache* GvrsTileCacheAlloc(void* gvrs, int maxTileCacheSize);
+	GvrsTileCache* GvrsTileCacheAlloc(void* gvrs, int maxTileCacheSize, int* status);
 	GvrsTileCache* GvrsTileCacheFree(GvrsTileCache* cache);
 	int GvrsTileCacheWritePendingTiles(GvrsTileCache* tc);
 
@@ -280,6 +280,7 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	GvrsFileSpaceManager* GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong freeSpaceDirectoryPosition, int* errCode);
 	int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition);
 
+	Gvrs* GvrsDisposeOfResources(Gvrs* gvrs);
 #ifdef __cplusplus
 }
 #endif

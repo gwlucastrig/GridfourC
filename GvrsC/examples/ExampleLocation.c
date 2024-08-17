@@ -75,10 +75,11 @@ int main(int argc, char* argv[]) {
 
     // Open the GVRS file.  If the file is not found or cannot be accessed,
     // GvrsOpen will set the global GvrsError flag and will return a null pointer.
-	Gvrs* gvrs = GvrsOpen(target, "r");
+    int status;
+	Gvrs* gvrs = GvrsOpen(target, "r", &status);
 	if (!gvrs) {
-		printf("Unable to open GVRS file, error code %d\n", GvrsError);
-		exit(GvrsError);
+		printf("Unable to open GVRS file, error code %d\n", status);
+		exit(1);
 	}
 
     // The Deflate extensions introduce a dependency on zlib.  At this time, we have
@@ -100,7 +101,6 @@ int main(int argc, char* argv[]) {
 
     size_t nPlaces = sizeof(places) / sizeof(struct Place);
     int iPlace;
-    int status;
     GvrsFloat fvalue;
     GvrsDouble row, col;
     GvrsInterpolationResult result;

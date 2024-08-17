@@ -127,10 +127,10 @@ GvrsInt  GvrsM32GetNextSymbol(GvrsM32*);
 GvrsM32* GvrsM32AllocForOutput();
 int GvrsM32AppendSymbol(GvrsM32* m32, int symbol);
 
-GvrsBitInput* GvrsBitInputAlloc( GvrsByte* text, size_t nBytesInText);
+GvrsBitInput* GvrsBitInputAlloc( GvrsByte* text, size_t nBytesInText, int *errorCode);
 GvrsBitInput* GvrsBitInputFree(GvrsBitInput* input);
-int GvrsBitInputGetBit( GvrsBitInput* input);
-int GvrsBitInputGetByte(GvrsBitInput* input);
+int GvrsBitInputGetBit( GvrsBitInput* input, int *errorCode);
+int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode);
 int GvrsBitInputGetPosition(GvrsBitInput* input);
 
 void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);

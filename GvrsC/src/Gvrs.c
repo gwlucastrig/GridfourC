@@ -35,6 +35,7 @@
 
 
 GvrsCodec* GvrsCodecHuffmanAlloc();
+
 #ifdef GVRS_ZLIB
 GvrsCodec* GvrsCodecDeflateAlloc();
 GvrsCodec* GvrsCodecFloatAlloc();
@@ -82,15 +83,20 @@ static GvrsCodec* createCodecPlaceholder(const char *identification) {
 }
 
 
-static Gvrs *fail(Gvrs *gvrs, FILE *fp ,int code) {
+static Gvrs *fail(Gvrs *gvrs, FILE *fp, int errorCode, int *status) {
+	*status = errorCode;
 	if (gvrs) {
-		GvrsClose(gvrs);
+		// TO DO:  we need to write a static "dispose of resources" function and
+		//         call it here rather than invoking GvrsClose.   If a file is
+		//         opened for writing, we do not want to perform the completion operations.
+		int closeStatus;
+		gvrs->timeOpenedForWritingMS = 0; // to suppress completion operations.
+		GvrsClose(gvrs, &closeStatus);
 	}
 	else if (fp) {
 		// the file pointer wasn't yet copied into the Gvrs structure
 		fclose(fp);
 	}
-	GvrsError = code;
 	return 0;
 }
 
@@ -135,7 +141,7 @@ static GvrsElement* freeElement(GvrsElement* element) {
 	return 0;
 }
 
-static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int offsetWithinTileData) {
+static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int offsetWithinTileData, int *status) {
 	FILE* fp = gvrs->fp;
 	GvrsElement* element = calloc(1, sizeof(GvrsElement));
 	if (!element) {
@@ -144,16 +150,15 @@ static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int 
 	element->elementIndex = iElement;
 	element->dataOffset = offsetWithinTileData;
 
-	int status;
 	GvrsByte eType;
-	status = GvrsReadByte(fp, &eType);
-	if (status || eType < 0 || eType>3) {
+	*status = GvrsReadByte(fp, &eType);
+	if (*status || eType < 0 || eType>3) {
 		free(element);
 		return (GvrsElement*)0;
 	}
 	GvrsReadBoolean(fp, &element->continuous);
 	GvrsSkipBytes(fp, 6); // reserved for future use
-	status = GvrsReadIdentifier(fp, sizeof(element->name), element->name);
+	*status = GvrsReadIdentifier(fp, sizeof(element->name), element->name);
 	skipToMultipleOf4(fp); // needed because the name often breaks byte-alignment
 	// TO DO:  in the following, most of the types aren't completely implemented.
 	//         the code skips the appropriate bytes.
@@ -207,9 +212,9 @@ static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int 
 		break; // no action required
 	}
 
-	element->label = GvrsReadString(fp, &status);
-	element->description = GvrsReadString(fp, &status);
-	element->unitOfMeasure = GvrsReadString(fp, &status);
+	element->label = GvrsReadString(fp, status);
+	element->description = GvrsReadString(fp, status);
+	element->unitOfMeasure = GvrsReadString(fp, status);
 	skipToMultipleOf4(fp);
 
 	// compute number of bytes needed for tile.  Note that this size
@@ -265,7 +270,7 @@ static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int 
 
 
 int GvrsSetTileCacheSize(Gvrs* gvrs, GvrsTileCacheSizeType cacheSize) {
-	int i, n;
+	int i, n, status;
 	if (cacheSize < 0 || cacheSize>3) {
 		// improper specification from application code.
 		cacheSize = GvrsTileCacheSizeMedium;
@@ -285,7 +290,7 @@ int GvrsSetTileCacheSize(Gvrs* gvrs, GvrsTileCacheSizeType cacheSize) {
 		}
 		GvrsTileCacheFree(tileCache);
 	}
-	tileCache = GvrsTileCacheAlloc(gvrs, n);
+	tileCache = GvrsTileCacheAlloc(gvrs, n, &status);
 	if (tileCache) {
 		gvrs->tileCache = tileCache;
 		for (i = 0; i < gvrs->nElementsInTupple; i++) {
@@ -293,14 +298,14 @@ int GvrsSetTileCacheSize(Gvrs* gvrs, GvrsTileCacheSizeType cacheSize) {
 		}
 		return 0;
 	}
-	return GvrsError;
+	return status;
 }
 
  
 
-Gvrs *GvrsOpen(const char* path, const char* accessMode) {
+Gvrs *GvrsOpen(const char* path, const char* accessMode, int *status) {
 	errno = 0;
-	int status;
+	*status =0;  // start off optimistic
 	int iElement;
  
 	Gvrs* gvrs = 0;
@@ -308,12 +313,12 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 
 	if (!fp) {
 		if (errno == EACCES) {
-			return fail(gvrs, fp, GVRSERR_FILE_ACCESS);
+			return fail(gvrs, fp, GVRSERR_FILE_ACCESS, status);
 		}
 		else if(errno == ENOENT){
-			return fail(gvrs, fp, GVRSERR_FILENOTFOUND);
+			return fail(gvrs, fp, GVRSERR_FILENOTFOUND, status);
 		}
-		return fail(gvrs, fp, GVRSERR_FILE_ERROR);
+		return fail(gvrs, fp, GVRSERR_FILE_ERROR, status);
 	}
 
 	int openedForWriting = 0;
@@ -335,24 +340,24 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 	char buffer[64];
 	int istat = GvrsReadASCII(fp, 12, sizeof(buffer), buffer);
 	if (istat!=0 || strcmp(buffer, "gvrs raster")) {
-		return fail(gvrs, fp, GVRSERR_INVALID_FILE);
+		return fail(gvrs, fp, GVRSERR_INVALID_FILE, status);
 	}
 
 	unsigned  char v1, v2;
 	GvrsReadByte(fp, &v1);
 	GvrsReadByte(fp, &v2);
 	if (v1 != 1 && v2 < 4) {
-		return fail(gvrs, fp, GVRSERR_VERSION_NOT_SUPPORTED);
+		return fail(gvrs, fp, GVRSERR_VERSION_NOT_SUPPORTED, status);
 	}
 
 	gvrs = calloc(1, sizeof(Gvrs));
 	if (!gvrs) {
-		return fail(gvrs, fp, GVRSERR_NOMEM);
+		return fail(gvrs, fp, GVRSERR_NOMEM, status);
 	}
 	gvrs->fp = fp;
 	gvrs->path = GVRS_STRDUP(path);
 	if (!path) {
-		return fail(gvrs, fp, GVRSERR_NOMEM);
+		return fail(gvrs, fp, GVRSERR_NOMEM, status);
 	}
 
 	GvrsSkipBytes(fp, 2);
@@ -369,7 +374,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 
 	GvrsReadLong(fp, &gvrs->timeOpenedForWritingMS);
 	if (gvrs->timeOpenedForWritingMS) {
-		return fail(gvrs, fp, GVRSERR_EXCLUSIVE_OPEN);
+		return fail(gvrs, fp, GVRSERR_EXCLUSIVE_OPEN, status);
 	}
 
  
@@ -441,12 +446,12 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 
 	istat = GvrsReadInt(fp, &gvrs->nElementsInTupple);
 	if (istat != 0) {
-		return fail(gvrs, fp, GVRSERR_EOF);
+		return fail(gvrs, fp, GVRSERR_EOF, status);
 	}
 
 	gvrs->elements = calloc((size_t)(gvrs->nElementsInTupple+1), sizeof(GvrsElement*));
 	if (!gvrs->elements) {
-		return fail(gvrs, fp, GVRSERR_NOMEM);
+		return fail(gvrs, fp, GVRSERR_NOMEM, status);
 	}
 
 	// The format for data within the file is a set of the following
@@ -460,9 +465,9 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 	gvrs->nBytesForTileData = 0;
 	int nCellsInTile = gvrs->nRowsInTile * gvrs->nColsInTile;
 	for (iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
-		GvrsElement *element =   readElement(gvrs, iElement, nCellsInTile, gvrs->nBytesForTileData);
+		GvrsElement *element =   readElement(gvrs, iElement, nCellsInTile, gvrs->nBytesForTileData, status);
 		if (!element) {
-			return fail(gvrs, fp, GVRSERR_FILE_ACCESS);
+			return fail(gvrs, fp, GVRSERR_FILE_ACCESS, status);
 		}
 		gvrs->elements[iElement] = element;
 		gvrs->nBytesForTileData += element->dataSize;
@@ -473,15 +478,15 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 		int iCompress;
 		gvrs->dataCompressionCodecs = calloc(gvrs->nDataCompressionCodecs, sizeof(GvrsCodec*));
 		if (!gvrs->dataCompressionCodecs) {
-			return fail(gvrs, fp, GVRSERR_NOMEM);
+			return fail(gvrs, fp, GVRSERR_NOMEM, status);
 		}
 
 #ifdef GVRS_ZLIB
 		for (iCompress = 0; iCompress < gvrs->nDataCompressionCodecs; iCompress++) {
 			char* sp = "";
-			sp = GvrsReadString(fp, &status);
-			if (status) {
-				return fail(gvrs, fp, status);
+			sp = GvrsReadString(fp, status);
+			if (*status) {
+				return fail(gvrs, fp, *status, status);
 			}
 			if (strcmp("GvrsHuffman", sp) == 0) {
 				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecHuffmanAlloc();
@@ -499,16 +504,16 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 				gvrs->dataCompressionCodecs[iCompress] = createCodecPlaceholder(sp);
 			}
 			if (!gvrs->dataCompressionCodecs[iCompress]) {
-				return fail(gvrs, fp, GVRSERR_BAD_COMPRESSION_FORMAT);
+				return fail(gvrs, fp, GVRSERR_BAD_COMPRESSION_FORMAT, status);
 			}
 			free(sp);
 		}
 #else
 		for (iCompress = 0; iCompress < gvrs->nDataCompressionCodecs; iCompress++) {
 			unsigned char* sp = "";
-			sp = GvrsReadString(fp, &status);
-			if (status) {
-				return fail(gvrs, fp, status);
+			sp = GvrsReadString(fp, status);
+			if (*status) {
+				return fail(gvrs, fp, *status, status);
 			}
 	        if (strcmp("GvrsHuffman", sp) == 0) {
 				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecHuffmanAlloc();
@@ -517,7 +522,7 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 				gvrs->dataCompressionCodecs[iCompress] = createCodecPlaceholder(sp);
 			}
 			if (!gvrs->dataCompressionCodecs[iCompress]) {
-				return fail(gvrs, fp, GVRSERR_BAD_COMPRESSION_FORMAT);
+				return fail(gvrs, fp, GVRSERR_BAD_COMPRESSION_FORMAT, status);
 			}
 			free(sp);
 		}
@@ -525,21 +530,21 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 
 	}
 
-	gvrs->productLabel = GvrsReadString(fp, &status);
+	gvrs->productLabel = GvrsReadString(fp, status);
 
-	gvrs->tileDirectory = GvrsTileDirectoryRead(gvrs, gvrs->filePosTileDirectory, &status);
-	if (status) {
-		return fail(gvrs, fp, status);
+	gvrs->tileDirectory = GvrsTileDirectoryRead(gvrs, gvrs->filePosTileDirectory, status);
+	if (*status) {
+		return fail(gvrs, fp, *status, status);
 	}
 
-	gvrs->metadataDirectory =  GvrsMetadataDirectoryRead(fp, gvrs->filePosMetadataDirectory, &status);
-	if (status) {
-		return fail(gvrs, fp, status);
+	gvrs->metadataDirectory =  GvrsMetadataDirectoryRead(fp, gvrs->filePosMetadataDirectory, status);
+	if (*status) {
+		return fail(gvrs, fp, *status, status);
 	}
 
-	status = GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
-	if (status) {
-		fail(gvrs, fp, GvrsError);
+	*status = GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
+	if (*status) {
+		fail(gvrs, fp, *status, status);
 	}
 
 	for (iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
@@ -549,34 +554,34 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 	if (openedForWriting) {
 		gvrs->timeOpenedForWritingMS = GvrsTimeMS();
 		GvrsSetFilePosition(fp, FILEPOS_OPENED_FOR_WRITING_TIME);
-		status = GvrsWriteLong(fp, gvrs->timeOpenedForWritingMS);  // the modification time
-		if (status) {
-			return fail(gvrs, fp, status);
+		*status = GvrsWriteLong(fp, gvrs->timeOpenedForWritingMS);  // the modification time
+		if (*status) {
+			return fail(gvrs, fp, *status, status);
 		}
-		gvrs->fileSpaceManager = GvrsFileSpaceDirectoryRead(gvrs, gvrs->filePosFileSpaceDirectory, &status);
+		gvrs->fileSpaceManager = GvrsFileSpaceDirectoryRead(gvrs, gvrs->filePosFileSpaceDirectory, status);
 		// TO DO:  dealloc the file space for:
 		//            file-space manager directory  (done)
 		//            tile directory (done)
 		//            metadata directory ?
-		if (status) {
-			return fail(gvrs, fp, status);
+		if (*status) {
+			return fail(gvrs, fp, *status, status);
 		}
 		if (gvrs->filePosFileSpaceDirectory) {
 			GvrsFileSpaceDealloc(gvrs->fileSpaceManager, gvrs->filePosFileSpaceDirectory);
 			gvrs->filePosFileSpaceDirectory = 0;
 			GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_FILESPACE_DIR);
-			status = GvrsWriteLong(fp, 0);
-			if (status) {
-				return fail(gvrs, fp, status);
+			*status = GvrsWriteLong(fp, 0);
+			if (*status) {
+				return fail(gvrs, fp, *status, status);
 			}
 		}
 		if (gvrs->filePosTileDirectory) {
 			GvrsFileSpaceDealloc(gvrs->fileSpaceManager, gvrs->filePosTileDirectory);
 			gvrs->filePosTileDirectory = 0;
 			GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_TILE_DIR);
-			status = GvrsWriteLong(fp, 0);
-			if (status) {
-				return fail(gvrs, fp, status);
+			*status = GvrsWriteLong(fp, 0);
+			if (*status) {
+				return fail(gvrs, fp, *status, status);
 			}
 		}
 		fflush(fp);
@@ -591,7 +596,6 @@ Gvrs *GvrsOpen(const char* path, const char* accessMode) {
 GvrsElement* GvrsGetElementByName(Gvrs* gvrs, const char *name) {
 	int i;
 	if (!gvrs || !name || !gvrs->elements) {
-		GvrsError = GVRSERR_NULL_POINTER;
 		return 0;
 	}
 
@@ -601,14 +605,12 @@ GvrsElement* GvrsGetElementByName(Gvrs* gvrs, const char *name) {
 			return element;
 		}
 	}
-	GvrsError = GVRSERR_ELEMENT_NOT_FOUND;
 
 	return 0;
 }
 
 GvrsElement* GvrsGetElementByIndex(Gvrs* gvrs, int index) {
 	if (!gvrs || !gvrs->elements) {
-		GvrsError = GVRSERR_NULL_POINTER;
 		return 0;
 	}
 	if (index<0 || index>=gvrs->nElementsInTupple) {
@@ -694,11 +696,11 @@ GvrsRegisterCodec(Gvrs* gvrs, GvrsCodec* codec) {
 
 
 static int writeChecksums(Gvrs* gvrs) {
+	int status;
 	if (!gvrs->checksumEnabled) {
 		// nothing to do
 		return 0;
 	}
-	int status;
 	FILE* fp = gvrs->fp;
 	fflush(fp);
 	GvrsInt recordSize;
@@ -713,7 +715,6 @@ static int writeChecksums(Gvrs* gvrs) {
 				// end of file, all is well
 				return 0;
 			}
-			GvrsError = status;
 			return status;
 		}
 	
@@ -745,7 +746,6 @@ static int writeChecksums(Gvrs* gvrs) {
 		else {
 			GvrsByte* b = malloc(recordSize);
 			if (!b) {
-				GvrsError = GVRSERR_NOMEM;
 				return GVRSERR_NOMEM;
 			}
 
@@ -759,14 +759,12 @@ static int writeChecksums(Gvrs* gvrs) {
 			}
 			else {
 				free(b);
-				GvrsError = status;
 				return status;
 			}
 		}
 		GvrsSetFilePosition(fp, (GvrsLong)(recordFilePos + recordSize - 4));
 		status = GvrsWriteInt(fp, (GvrsInt)(crc & 0xFFFFFFFFL));
 		if (status) {
-			GvrsError = status;
 			return status;
 		}
 		fflush(fp);
@@ -781,20 +779,17 @@ static int writeChecksums(Gvrs* gvrs) {
 static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 	int status = GvrsTileCacheWritePendingTiles(gvrs->tileCache);
 	if (status) {
-		GvrsError = status;
 		return status;
 	}
  
 	if (gvrs->tileDirectory) {
 		GvrsLong tileDirectoryPos = GvrsTileDirectoryWrite(gvrs, &status);
 		if (status) {
-			GvrsError = status;
 			return status;
 		}
 		GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_TILE_DIR);
 		status = GvrsWriteLong(fp, tileDirectoryPos);
 		if (status) {
-			GvrsError = status;
 			return status;
 		}
 	}
@@ -806,7 +801,6 @@ static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 			GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_FILESPACE_DIR);
 			status = GvrsWriteLong(fp, freeSpaceDirectoryPos);
 			if (status) {
-				GvrsError = status;
 				return status;
 			}
 		}
@@ -815,45 +809,49 @@ static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 	GvrsWriteLong(fp, GvrsTimeMS());
 	status = GvrsWriteLong(fp, 0);
 	if (status) {
-		GvrsError = status;
 		return status;
 	}
 
  	status = writeChecksums(gvrs);
 	if (status) {
-		GvrsError = status;
 		return status;
 	}
 	return 0;
 }
 
 
-
-Gvrs* GvrsClose(Gvrs* gvrs) {
-	if(gvrs){
-		int status, status1;
-		if (gvrs->fp) {
-			if (gvrs->timeOpenedForWritingMS) {
-				status = writeClosingElements(gvrs, gvrs->fp);
-			}
-			status = fflush(gvrs->fp);
+Gvrs* GvrsClose(Gvrs* gvrs, int *status) {
+	if(gvrs && gvrs->fp && gvrs->timeOpenedForWritingMS){
+		int status0, status1;
+			*status = writeClosingElements(gvrs, gvrs->fp);
+			status0 = fflush(gvrs->fp);
 			status1 = fclose(gvrs->fp);
-			if (status || status1) {
-				GvrsError = GVRSERR_FILE_ERROR;
+			gvrs->fp = 0;
+			if (*status == 0 && (status0 || status1)) {
+				*status = GVRSERR_FILE_ERROR;
 			}
+		}
+	GvrsDisposeOfResources(gvrs);
+	return 0;
+}
+
+
+Gvrs* GvrsDisposeOfResources(Gvrs* gvrs) {
+	if (gvrs) {
+		if (gvrs->fp) {
+			fclose(gvrs->fp);
 			gvrs->fp = 0;
 		}
 
 		// Free resources ------------------------
-		int i;
+
 		gvrs->path = freeString(gvrs->path);
-	
 		gvrs->productLabel = freeString(gvrs->productLabel);
+		int i;
 		for (i = 0; i < gvrs->nElementsInTupple; i++) {
 			gvrs->elements[i] = freeElement(gvrs->elements[i]);
 		}
 		free(gvrs->elements);
-		gvrs->elements = 0;
 		gvrs->tileCache = GvrsTileCacheFree(gvrs->tileCache);
 		gvrs->tileDirectory = GvrsTileDirectoryFree(gvrs->tileDirectory);
 		gvrs->metadataDirectory = GvrsMetadataDirectoryFree(gvrs->metadataDirectory);

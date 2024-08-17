@@ -112,6 +112,7 @@ endif()
 # without it public headers won't get installed
 set(public_headers
 	include/Gvrs.h
+	include/GvrsBuilder.h
 	include/GvrsCodec.h
 	include/GvrsCrossPlatform.h
 	include/GvrsError.h

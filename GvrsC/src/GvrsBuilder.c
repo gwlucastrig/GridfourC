@@ -53,7 +53,6 @@ static int recordStatus(GvrsBuilder* builder, int errorCode) {
 		if (builder) {
 			builder->errorCode = errorCode;
 		}
-		GvrsError = errorCode;
 	}
 	return errorCode;
 }
@@ -561,7 +560,7 @@ GvrsElementSetFillInt(GvrsElementSpec* eSpec, GvrsInt iFill) {
 
 static Gvrs* gvrsFail(GvrsBuilder* builder, Gvrs* gvrs, int errorCode) {
 	recordStatus(builder, errorCode);
-	return GvrsClose(gvrs);
+	return GvrsDisposeOfResources(gvrs);
 }
 
 char* optstrdup(const char* s) {
@@ -580,16 +579,17 @@ static int writeHeader(Gvrs *gvrs);
 
 
 Gvrs*
-GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path) {
+GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 	int i;
 	GvrsError = 0;
 	if (!builder || !path || !path[0]) {
-		GvrsError = GVRSERR_NULL_ARGUMENT;
+		*status = GVRSERR_NULL_ARGUMENT;
 		return 0;
 	}
 	if (builder->errorCode) {
 		// there was an error recorded while building the specification.
 		// we cannot build a file
+		*status = builder->errorCode;
 		return  0;
 	}
 
@@ -602,19 +602,19 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path) {
 
 	// step 2: establish access to a file ---------------------------------------
 	struct stat statbuffer;
-	int status;
+	int status1;
 
-	status = stat(path, &statbuffer);
-	if (!status) {
+	status1 = stat(path, &statbuffer);
+	if (!status1) {
 		// the file exists
-		status = remove(path);
-		if (status) {
+		status1 = remove(path);
+		if (status1) {
 			recordStatus(builder, GVRSERR_FILE_ACCESS);
 			return 0;
 		}
 	}
 
-
+	errno = 0;
 	FILE* fp = fopen(path, "wb+");
 	if (!fp) {
 		if (errno == EACCES) {
@@ -765,18 +765,29 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path) {
 		}
 	}
 
-	status = writeHeader(gvrs);
-	if (status) {
-		// the write action failed
-		GvrsError = status;
-		gvrs = GvrsClose(gvrs);
-	}
-	else {
-		gvrs->tileDirectory = GvrsTileDirectoryAllocEmpty(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, &status);
+	*status = writeHeader(gvrs);
+	if (*status == 0) {
+		gvrs->tileDirectory = GvrsTileDirectoryAllocEmpty(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, status);
 	}
 
-	GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
-	gvrs->fileSpaceManager = GvrsFileSpaceManagerAlloc(fp);
+	if (*status == 0) {
+		*status = GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
+	}
+
+	if (*status == 0) {
+		gvrs->fileSpaceManager = GvrsFileSpaceManagerAlloc(fp);
+		if (!gvrs->fileSpaceManager) {
+			*status = GVRSERR_NOMEM;
+		}
+	}
+
+	if(*status){
+		// the write action failed
+		gvrs = GvrsDisposeOfResources(gvrs);
+		recordStatus(builder, *status);
+		return 0;
+	}
+
 	fflush(fp);
 	return gvrs;
 }

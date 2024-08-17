@@ -45,10 +45,11 @@ int main(int argc, char *argv[]) {
 	const char* target = argv[1];
 	printf("\nReading input file: %s\n", target);
 
-	Gvrs* gvrs = GvrsOpen(target, "r");
+    int status;
+	Gvrs* gvrs = GvrsOpen(target, "r", &status);
 	if (!gvrs) {
-		printf("Unable to open GVRS file, error code %d\n", GvrsError);
-		exit(GvrsError);
+		printf("Unable to open GVRS file, error code %d\n", status);
+		exit(1);
 	}
 
 	// Because this operation loops over the entire grid row-by-row, we wish
@@ -133,7 +134,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			GvrsLong time1 = GvrsTimeMS();
-			printf("Processing completed in %lld ms\n", time1-time0);
+			printf("Processing completed in %lld ms\n", (long long)(time1-time0));
 			if (nGood) {
 				double avgValue = (double)sumValue / (double)nGood;
 				printf("Average value %f on %ld successful queries\n", avgValue, nGood);
@@ -142,6 +143,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	GvrsSummarizeAccessStatistics(gvrs, stdout);
-	gvrs = GvrsClose(gvrs);
+	gvrs = GvrsClose(gvrs, &status);
 	exit(0);
 }

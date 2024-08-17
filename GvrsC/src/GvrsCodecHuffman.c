@@ -79,8 +79,8 @@ static GvrsCodec* allocateCodecHuffman(struct GvrsCodecTag* codec) {
  
 static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
 	*errCode = 0;
-	int nLeafsToDecode = GvrsBitInputGetByte(input) + 1;
-	int rootBit = GvrsBitInputGetBit(input);
+	int nLeafsToDecode = GvrsBitInputGetByte(input, errCode) + 1;
+	int rootBit = GvrsBitInputGetBit(input, errCode);
 	int* nodeIndex;
 
 	if (rootBit == 1) {
@@ -92,7 +92,7 @@ static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
 			*errCode = GVRSERR_NOMEM;
 			return 0;
 		}
-		nodeIndex[0] =  GvrsBitInputGetByte(input);
+		nodeIndex[0] =  GvrsBitInputGetByte(input, errCode);
 		*indexSize = 1;
 		return nodeIndex;
 	}
@@ -163,7 +163,7 @@ static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
 			nodeIndex[offset + 2] = nodeIndexCount;
 		}
 
-		int bit = GvrsBitInputGetBit(input);  
+		int bit = GvrsBitInputGetBit(input, errCode);  
 		if (bit == 1) {
 			if (iStack >= stackSize || nodeIndexCount + 3 >= nodeIndexSize) {
 				free(stack);
@@ -173,7 +173,7 @@ static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
 			}
 			// leaf node
 			nLeafsDecoded++;
-			nodeIndex[nodeIndexCount++] = GvrsBitInputGetByte(input);   
+			nodeIndex[nodeIndexCount++] = GvrsBitInputGetByte(input, errCode);   
 			nodeIndex[nodeIndexCount++] = 0; // not required, just a diagnostic aid
 			nodeIndex[nodeIndexCount++] = 0; // not required, just a diagnostic aid
 
@@ -215,6 +215,7 @@ static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
 
 static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo) {
 	int i;
+	int errCode = 0;
 	GvrsByte* output = 0;
 	GvrsBitInput* input = 0;
 	GvrsM32* m32 = 0;
@@ -233,14 +234,13 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 		| ((packing[8] & 0xff) << 16)
 		| ((packing[9] & 0xff) << 24);
 
-	input = GvrsBitInputAlloc(packing + 10, (size_t)(packingLength - 10));
+	input = GvrsBitInputAlloc(packing + 10, (size_t)(packingLength - 10), &errCode);
 	if (!input) {
 		cleanUp(output, input, m32, nodeIndex);
 		return GVRSERR_NOMEM;
 	}
  
 	int indexSize;
-	int errCode;
    
 	nodeIndex = decodeTree(input, &indexSize, &errCode);
 	// GvrsInt nBitsInTree = GvrsBitInputGetPosition(input);
@@ -288,9 +288,9 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 			// the traversal has reached a terminal node and is complete.
 			// We know that the root node is always a branch node, so we have a shortcut.
 			// We don't have to check to see if nodeIndex[0] == -1 
-			int offset = nodeIndex[1 + GvrsBitInputGetBit(input)]; // start from the root node
+			int offset = nodeIndex[1 + GvrsBitInputGetBit(input, &errCode)]; // start from the root node
 			while (nodeIndex[offset] == -1) {
-				offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input)];
+				offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &errCode)];
 			}
 			output[i] = (GvrsByte)nodeIndex[offset];
 		}

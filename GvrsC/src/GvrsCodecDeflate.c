@@ -299,7 +299,6 @@ static GvrsByte* encodeInt(int nRow, int nColumn,
 GvrsCodec* GvrsCodecDeflateAlloc() {
     GvrsCodec* codec = calloc(1, sizeof(GvrsCodec));
 	if (!codec) {
-		GvrsError = GVRSERR_NOMEM;
 		return 0;
 	}
     GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);

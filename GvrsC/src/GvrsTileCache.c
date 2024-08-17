@@ -339,7 +339,7 @@ static void moveTileToHeadOfMainList(GvrsTileCache* tc, GvrsTile* node) {
 
  
 
-GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
+GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize, int *status) {
 	Gvrs* gvrs = gvrspointer;
 	if (maxTileCacheSize <= 0) {
 		maxTileCacheSize = 16;
@@ -358,7 +358,7 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 	tc->head = calloc((size_t)(tc->maxTileCacheSize+2), sizeof(GvrsTile));
 	if (!tc->head) {
 		free(tc);
-		GvrsError = GVRSERR_NOMEM;
+		*status = GVRSERR_NOMEM;
 		return 0;
 	}
 	tc->tail = tc->head + 1;
@@ -396,6 +396,7 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 
 	tc->hashTable = hashTableAlloc();
 	if (!tc->hashTable) {
+		*status = GVRSERR_NOMEM;
 		free(tc->head);
 		free(tc);
 		return 0;
@@ -404,7 +405,7 @@ GvrsTileCache* GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize) {
 	tc->nElementsInTupple = gvrs->nElementsInTupple;
 	tc->outputBlocks = calloc(gvrs->nElementsInTupple, sizeof(GvrsTileOutputBlock));
 	if (!tc->outputBlocks) {
-		GvrsError = GVRSERR_NOMEM;
+		*status = GVRSERR_NOMEM;
 		hashTableFree(tc->hashTable);
 		free(tc->head);
 		free(tc);

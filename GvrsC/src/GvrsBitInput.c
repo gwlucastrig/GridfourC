@@ -45,14 +45,14 @@ static int mask[] = {
 	0xff
 };
 
-GvrsBitInput* GvrsBitInputAlloc(GvrsByte* text, size_t nBytesInText) {
+GvrsBitInput* GvrsBitInputAlloc(GvrsByte* text, size_t nBytesInText, int *errorCode) {
 	GvrsBitInput* input = calloc(1, sizeof(GvrsBitInput));
 	if (!input) {
-		GvrsError = GVRSERR_NOMEM;
+		*errorCode = GVRSERR_NOMEM;
 		return 0;
 	}
 	if (nBytesInText < 1) {
-		GvrsError = GVRSERR_FILE_ERROR;
+		*errorCode = GVRSERR_FILE_ERROR;
 	}
 	input->text = text;
 	input->nBytesInText = (int)nBytesInText;
@@ -62,10 +62,10 @@ GvrsBitInput* GvrsBitInputAlloc(GvrsByte* text, size_t nBytesInText) {
 	return input;
 }
 
-int GvrsBitInputGetBit(GvrsBitInput* input) {
+int GvrsBitInputGetBit(GvrsBitInput* input, int *errorCode) {
 	if (input->iBit == 8) {
 		if (input->nBytesProcessed >= input->nBytesInText) {
-			GvrsError = GVRSERR_FILE_ERROR;
+			*errorCode = GVRSERR_FILE_ERROR;
 			return 0;
 		}
 		input->scratch = input->text[input->nBytesProcessed++];
@@ -77,12 +77,12 @@ int GvrsBitInputGetBit(GvrsBitInput* input) {
 	return bit;
 }
 
-int GvrsBitInputGetByte(GvrsBitInput* input){
+int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode){
 	 
 	// at this point, the process is going to require one more byte.
 	// if there is no more data left, an error occurs
 	if (input->nBytesProcessed >= input->nBytesInText) {
-		GvrsError = GVRSERR_FILE_ERROR;
+		*errorCode = GVRSERR_FILE_ERROR;
 		return 0;
 	}
 

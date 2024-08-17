@@ -141,10 +141,11 @@ static int performTimeTest(const char* path, TimeTest testType, TestResults* res
 
 	memset(results, 0, sizeof(TestResults));
 
+	int status;
 	Gvrs* gvrs;
-	gvrs = GvrsOpen(path, "r");
+	gvrs = GvrsOpen(path, "r", &status);
 	if (!gvrs) {
-		return GvrsError;
+		return status;
 	}
 	GvrsElement* e = GvrsGetElementByIndex(gvrs, 0);
 	if (!e) {
@@ -313,7 +314,7 @@ static int performTimeTest(const char* path, TimeTest testType, TestResults* res
 	GvrsLong time1 = GvrsTimeMS();
 	results->elapsedTime = (long)(time1 - time0);
 
-	GvrsClose(gvrs);
+	GvrsClose(gvrs, &status);
 
 	return 0;
 }

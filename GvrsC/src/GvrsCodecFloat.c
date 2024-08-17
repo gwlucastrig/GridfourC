@@ -126,9 +126,12 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 		return errCode;
 	}
 	offset += lengthSignPacking;
-	GvrsBitInput* bitInput = GvrsBitInputAlloc(signBytes, nSignBytes);
+	GvrsBitInput* bitInput = GvrsBitInputAlloc(signBytes, nSignBytes, &errCode);
+	if (errCode) {
+		return errCode;
+	}
 	for (i = 0; i < nCellsInTile; i++) {
-		rawInt[i] = GvrsBitInputGetBit(bitInput) << 31;
+		rawInt[i] = GvrsBitInputGetBit(bitInput, &errCode) << 31;
 	}
 	free(signBytes);
 	bitInput = GvrsBitInputFree(bitInput);
