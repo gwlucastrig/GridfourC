@@ -73,8 +73,6 @@ extern "C"
 	}GvrsMetadataResultSet;
 
 
-	GvrsMetadata* GvrsMetadataFree(GvrsMetadata* m);
-	GvrsMetadata* GvrsMetadataRead(FILE* fp, int* errorCode);
 
 	/**
 	* Frees the metadata result set.

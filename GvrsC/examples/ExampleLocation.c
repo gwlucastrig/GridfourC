@@ -76,7 +76,8 @@ int main(int argc, char* argv[]) {
     // Open the GVRS file.  If the file is not found or cannot be accessed,
     // GvrsOpen will set the global GvrsError flag and will return a null pointer.
     int status;
-	Gvrs* gvrs = GvrsOpen(target, "r", &status);
+	Gvrs* gvrs;
+	status = GvrsOpen(&gvrs, target, "r");
 	if (!gvrs) {
 		printf("Unable to open GVRS file, error code %d\n", status);
 		exit(1);

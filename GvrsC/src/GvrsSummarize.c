@@ -238,8 +238,11 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 			node = node->next;
 		}
 		fprintf(fp, "\nFile space management\n");
-		fprintf(fp, "    Number of free blocks:  %8d\n", nFreeRecords);
-		fprintf(fp, "    Unused file space:      %8lld\n", (long long)sizeFreeRecords);
+		fprintf(fp, "    Number of free blocks:   %8d\n", nFreeRecords);
+		fprintf(fp, "    Unused file space:       %8lld\n", (long long)sizeFreeRecords);
+		fprintf(fp, "    Number of allocations:   %8lld\n", (long long)fsm->nAllocations);
+		fprintf(fp, "    Number of finishes:      %8lld\n", (long long)fsm->nFinish);
+		fprintf(fp, "    Number of deallocations: %8lld\n", (long long)fsm->nDeallocations);
 	}
 	return 0;
 }

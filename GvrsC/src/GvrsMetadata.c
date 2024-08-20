@@ -168,18 +168,19 @@ GvrsMetadata *GvrsMetadataFree(GvrsMetadata* m) {
 	return 0;
 }
  
-GvrsMetadata* GvrsMetadataRead(FILE* fp, int *errorCode) {
-	*errorCode = 0; // start off optimistic
+int GvrsMetadataRead(FILE* fp, GvrsMetadata **metadata) {
+
 	GvrsMetadata *m = calloc(1, sizeof(GvrsMetadata));
-	if (!m) {
-		*errorCode = GVRSERR_NOMEM;
-		return 0;
+	if (m) {
+		*metadata = m;
+	}else{
+		return GVRSERR_NOMEM;
 	}
 	int status;
 	status = GvrsReadIdentifier(fp, sizeof(m->name), m->name);
 	if (status) {
-		*errorCode = status;
-		return GvrsMetadataFree(m);
+		GvrsMetadataFree(m);
+		return status;
 	}
 	GvrsReadInt(fp, &m->recordID);
 	GvrsByte typeCode;
@@ -188,16 +189,16 @@ GvrsMetadata* GvrsMetadataRead(FILE* fp, int *errorCode) {
 	GvrsSkipBytes(fp, 3); // reserved for future use
 	status = GvrsReadInt(fp, &m->dataSize);
 	if (status) {
-		*errorCode = status;
-		return GvrsMetadataFree(m);
+		GvrsMetadataFree(m);
+		return status;
 	}
 
 	// it is possible to have an empty metadata element, though it's not encouraged.
 	if (m->dataSize > 0) {
 		m->data = (GvrsByte*)malloc(m->dataSize);
 		if (!m->data) {
-			*errorCode = GVRSERR_NOMEM;
-			return GvrsMetadataFree(m);
+			GvrsMetadataFree(m);
+			return GVRSERR_NOMEM;
 		}
 	}
 
@@ -214,22 +215,22 @@ GvrsMetadata* GvrsMetadataRead(FILE* fp, int *errorCode) {
 		m->dataSize -= 4;
 		status = GvrsReadByteArray(fp, m->dataSize, m->data);
 		if (status) {
-			*errorCode = status;
-			return GvrsMetadataFree(m);
+			GvrsMetadataFree(m);
+			return status;
 		}
 		m->data[m->dataSize] = 0;
 	}
 	else {
 		status = GvrsReadByteArray(fp, m->dataSize, m->data);
 		if (status) {
-			*errorCode = status;
-			return GvrsMetadataFree(m);
+			GvrsMetadataFree(m);
+			return status;
 		}
 	}
 
 	m->bytesPerValue = metadataTypeBytesPerValue[m->metadataType];
 	m->nValues = m->dataSize / m->bytesPerValue;
-	return m;
+	return 0;
 }
 
 GvrsMetadataResultSet* GvrsMetadataResultSetFree(GvrsMetadataResultSet* rs) {
@@ -244,28 +245,28 @@ GvrsMetadataResultSet* GvrsMetadataResultSetFree(GvrsMetadataResultSet* rs) {
 	return 0;
 }
 
-GvrsMetadataResultSet* GvrsMetadataReadByNameAndID(Gvrs* gvrs, const char* name, int recordID, int* errorCode) {
+int  GvrsReadMetadataByNameAndID(Gvrs* gvrs, const char* name, int recordID, GvrsMetadataResultSet** resultSet) {
+	*resultSet = 0;
 	int i;
-	*errorCode = 0;
 	if (!gvrs || !gvrs->fp) {
-		*errorCode = GVRSERR_FILE_ERROR;
-		return 0;
+		return GVRSERR_NULL_ARGUMENT;
 	}
 	GvrsMetadataResultSet *rs = calloc(1, sizeof(GvrsMetadataResultSet));
-	if (!rs) {
-		*errorCode = GVRSERR_NOMEM;
-		return 0;
+	if (rs) {
+		*resultSet = rs;
+	}else{
+		return GVRSERR_NOMEM;
 	}
 
 	GvrsMetadataDirectory* dir = gvrs->metadataDirectory;
 	if (!dir || dir->nMetadataRecords == 0) {
-		return rs; // no further action required.
+		return 0;  // no further action required
 	}
 
 	rs->records = calloc(dir->nMetadataRecords, sizeof(GvrsMetadata *));
 	if (!rs->records) {
-		*errorCode = GVRSERR_NOMEM;
-		return GvrsMetadataResultSetFree(rs);
+		GvrsMetadataResultSetFree(rs);
+		return GVRSERR_NOMEM;
 	}
 
 	FILE* fp = gvrs->fp;
@@ -275,18 +276,23 @@ GvrsMetadataResultSet* GvrsMetadataReadByNameAndID(Gvrs* gvrs, const char* name,
 			int status = GvrsSetFilePosition(fp, r.offset);
 			if (status) {
 				// non-zero status indicates an error
-				*errorCode = status;
-				return GvrsMetadataResultSetFree(rs);
+				GvrsMetadataResultSetFree(rs);
+				return status;
 			}
-			rs->records[rs->nRecords++] = GvrsMetadataRead(fp, errorCode);
-			if (*errorCode) {
-				return GvrsMetadataResultSetFree(rs);
+			//rs->records[rs->nRecords++] = GvrsMetadataRead(fp, &status);
+			GvrsMetadata* m;
+			status  = GvrsMetadataRead(fp, &m);
+			if (status) {
+				GvrsMetadataResultSetFree(rs);
+				return status;
 			}
-
+			else {
+				rs->records[rs->nRecords++] = m;
+			}
 		}
 	
 	}
-	return rs;
+	return 0;
 }
 
 

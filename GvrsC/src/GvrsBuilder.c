@@ -50,10 +50,6 @@ static int recordStatus(GvrsBuilder* builder, int errorCode) {
 	return errorCode;
 }
 
-static GvrsBuilder* allocFail(GvrsBuilder* builder, int errorCode) {
-	GvrsBuilderFree(builder);
-	return 0; // a null pointer to a builder
-}
 
 static int padMultipleOf4(FILE* fp) {
 	long pos = ftell(fp);
@@ -176,21 +172,22 @@ static void  computeAndStoreInternalTransforms(GvrsBuilder* b) {
 	b->r2m = r2m;
 }
 
-
-GvrsBuilder* GvrsBuilderInit(int nRows, int nColumns, int *status) {
-	*status = 0;
+int
+GvrsBuilderInit(GvrsBuilder** builderReference, int nRows, int nColumns) {
+	if (!builderReference) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	*builderReference = 0;
 
 	if (nRows < 1 || nColumns < 1) {
-		*status = GVRSERR_BAD_RASTER_SPECIFICATION;
-		return 0;
+		return GVRSERR_BAD_RASTER_SPECIFICATION;
 	}
+
 	GvrsBuilder* builder = calloc(1, sizeof(GvrsBuilder));
-	if (!builder) {
-		*status = GVRSERR_NOMEM;
-		return allocFail(builder, GVRSERR_NOMEM);
+	if(!builder){
+		return GVRSERR_NOMEM;
 	}
   
-	 
 	int nRowsInRaster = nRows;
 	int nColsInRaster = nColumns;
 	int nRowsInTile;
@@ -222,10 +219,9 @@ GvrsBuilder* GvrsBuilderInit(int nRows, int nColumns, int *status) {
 	builder->nCellsInTile = nRowsInTile * nColsInTile;
 	int status1 = checkNumberOfTiles(builder);
 	if (status1) {
-		*status = status1;
-		return allocFail(builder, status1);
+		GvrsBuilderFree(builder);
+		return status1;
 	}
-
 
 	builder->x0 = 0;
 	builder->y0 = 0;
@@ -236,7 +232,8 @@ GvrsBuilder* GvrsBuilderInit(int nRows, int nColumns, int *status) {
 
 	computeAndStoreInternalTransforms(builder);
 
-	return builder;
+	*builderReference = builder;
+	return 0;
 }
 
 int
@@ -551,9 +548,10 @@ GvrsElementSetFillInt(GvrsElementSpec* eSpec, GvrsInt iFill) {
 	return 0;
 }
 
-static Gvrs* gvrsFail(GvrsBuilder* builder, Gvrs* gvrs, int errorCode) {
+static int gvrsFail(GvrsBuilder* builder, Gvrs* gvrs, int errorCode) {
 	recordStatus(builder, errorCode);
-	return GvrsDisposeOfResources(gvrs);
+	GvrsDisposeOfResources(gvrs);
+	return errorCode;
 }
 
 static char* optstrdup(const char* s, int *status) {
@@ -570,28 +568,25 @@ static char* optstrdup(const char* s, int *status) {
 
 static int writeHeader(Gvrs *gvrs);
 
-
-Gvrs*
-GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
+int
+GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, Gvrs** gvrsReference) {
 	int i;
-	 
-	if (!builder || !path || !path[0]) {
-		*status = GVRSERR_NULL_ARGUMENT;
-		return 0;
+	if (!builder || !path || !path[0] || !gvrsReference) {
+		return GVRSERR_NULL_ARGUMENT;
 	}
+	*gvrsReference = 0;
+
 	if (builder->errorCode) {
 		// there was an error recorded while building the specification.
 		// we cannot build a file
-		*status = builder->errorCode;
-		return  0;
+		return builder->errorCode;
 	}
 
-	*status = 0;
+	int status = 0;
 
 	// step 1:  test for internal completeness of the specification -------------
 	if (builder->nElementSpecs == 0) {
-		recordStatus(builder, GVRSERR_BAD_ELEMENT_SPEC);
-		return 0;
+		return recordStatus(builder, GVRSERR_BAD_ELEMENT_SPEC);
 	}
 
 	// step 2: establish access to a file ---------------------------------------
@@ -603,8 +598,7 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 		// the file exists
 		status1 = remove(path);
 		if (status1) {
-			recordStatus(builder, GVRSERR_FILE_ACCESS);
-			return 0;
+			return recordStatus(builder, GVRSERR_FILE_ACCESS);
 		}
 	}
 
@@ -612,12 +606,12 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 	FILE* fp = fopen(path, "wb+");
 	if (!fp) {
 		if (errno == EACCES) {
-			recordStatus(builder, GVRSERR_FILE_ACCESS);
+			return recordStatus(builder, GVRSERR_FILE_ACCESS);
 		}
 		else if (errno == ENOENT) {
-			recordStatus(builder, GVRSERR_FILENOTFOUND);
+			return recordStatus(builder, GVRSERR_FILENOTFOUND);
 		}
-		return 0;
+		return recordStatus(builder, GVRSERR_FILE_ACCESS);
 	}
  
 
@@ -625,8 +619,7 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 	Gvrs* gvrs = calloc(1, sizeof(Gvrs));
 	if (!gvrs) {
 		fclose(fp);
-		recordStatus(builder, GVRSERR_NOMEM);
-		return 0;
+		return gvrsFail(builder, gvrs, GVRSERR_NOMEM);
 	}
 
 	
@@ -744,46 +737,42 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status) {
 	if (gvrs->nDataCompressionCodecs >0) {
 		gvrs->dataCompressionCodecs = calloc(gvrs->nDataCompressionCodecs, sizeof(GvrsCodec*));
 		if (!gvrs->dataCompressionCodecs) {
-			*status = GVRSERR_NOMEM;
-			return 0;
+			return gvrsFail(builder, gvrs, GVRSERR_NOMEM);
 		}
 		for (i = 0; i < gvrs->nDataCompressionCodecs; i++) {
 			GvrsCodec* codec = builder->dataCompressionCodecs[i];
 			if (codec) {
 				gvrs->dataCompressionCodecs[i] = codec->allocateNewCodec(codec);
 				if (!gvrs->dataCompressionCodecs[i]) {
-					*status = GVRSERR_NOMEM;
-					return 0;
+					return gvrsFail(builder, gvrs, GVRSERR_NOMEM);
 				}
 			}
 		}
 	}
 
-	*status = writeHeader(gvrs);
-	if (*status == 0) {
-		gvrs->tileDirectory = GvrsTileDirectoryAllocEmpty(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, status);
+	status = writeHeader(gvrs);
+	if (status == 0) {
+		gvrs->tileDirectory = GvrsTileDirectoryAllocEmpty(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, &status);
+	}
+	else {
+		return gvrsFail(builder, gvrs, status);
 	}
 
-	if (*status == 0) {
-		*status = GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
-	}
+	status = GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
 
-	if (*status == 0) {
+	if (status == 0) {
 		gvrs->fileSpaceManager = GvrsFileSpaceManagerAlloc(fp);
 		if (!gvrs->fileSpaceManager) {
-			*status = GVRSERR_NOMEM;
+			return gvrsFail(builder, gvrs, GVRSERR_NOMEM);
 		}
 	}
-
-	if(*status){
-		// the write action failed
-		gvrs = GvrsDisposeOfResources(gvrs);
-		recordStatus(builder, *status);
-		return 0;
+	else {
+		return gvrsFail(builder, gvrs, status);
 	}
 
 	fflush(fp);
-	return gvrs;
+	*gvrsReference = gvrs;
+	return 0;
 }
 
 

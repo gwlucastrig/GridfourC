@@ -238,9 +238,8 @@ typedef struct GvrsTag {
  * This function creates a virtual raster store that includes allocated memory
  * and an open file pointer.  When a program is done using the virtual raster store,
  * it should clean up the resources using a call to GvrsClose.
- * If an error is encountered while processing the file, a null pointer will
- * be returned and the status variable will be set with an appropriate
- * integer error code.
+ * If an error is encountered while processing the file, the Gvrs reference will be
+ * set to null and an appropriate status value will be returned.
  * <p>
  * Although the access-mode resembles the traditional specification for the C-language's
  * fopen() function, it is limited to either "read-only" or "read-write". The GvrsOpen
@@ -248,26 +247,26 @@ typedef struct GvrsTag {
  * functions).  A file that is opened for writing must already exist and must not currently
  * be opened by another program or application thread (writing requires exclusive access).
  * However, a file that is opened for read-only can be accessed by muliple processes simultaneously.
- * When a file is opened for writing it may be either read or write.  
+ * When a file is opened for writing it may be either read or write.
+ * @param a pointer to a pointer varaible to receive the address of the memory allocated when
+ * the GVRS data store is opened.
  * @param path the file specification.
  * @param accessMode  the mode of access; r for read; w for write.
- * @param status a pointer to receive the result status of the operation: zero for success, otherwise non-zero.
- * @return if successful, a pointer to a valid virtual raster store; otherwise, a null.
+ * @return if successful, a value of zero; otherwise an error code indicating the cause of the failure.
  */
-Gvrs* GvrsOpen(const char* path, const char* accessMode, int *status);
+int GvrsOpen(Gvrs** gvrs, const char* path, const char* accessMode);
 
 /**
 * Disposes of a GVRS virtual raster store, frees all associated memory,
 * and closes the associated file.
 * <p>
-* The result status is set when a file is opened for write-access to indicates whether
+* The return status is set only when a file is opened for write-access to indicates whether
 * the completion operations are successful.  When a file is opened for read-only mode,
-* the status value is not meaningful and is set to zero.
+* the return status value is not meaningful and is set to zero.
 * @param gvrs a pointer to a valid raster file store; null pointers will be ignored.
-* @param status a pointer to receive the result status of the operation: zero for success, otherwise non-zero.
-* @return a null pointer
+* @return zero for success, otherwise non-zero.
 */
-Gvrs* GvrsClose(Gvrs *gvrs, int *status);
+int GvrsClose(Gvrs *gvrs);
  
 /**
 * Sets the size of the GVRS file cache.  Deletes the current cache and replaces
@@ -414,10 +413,10 @@ void GvrsMapGeoToGrid(Gvrs* gvrs, double latitude, double longitude, double* row
 * @param name the name of the metadata element to be read from the GVRS data store or an asterisk to indicate
 * a wildcard operator.
 * @param recordID the numeric record ID or an INT32_MIN to indicate a wildcard operator.
-* @param errorCode if successful, set to a valid of zero; otherwise an error code.
-* @result a pointer to a valid metadata result set.
+* @param resultSet a pointer to a pointer for a variable to receive the result set address.
+* @return if successful, zero; otherwise an integer value indicating an error condition.
 */
-GvrsMetadataResultSet* GvrsMetadataReadByNameAndID(Gvrs* gvrs, const char* name, int recordID, int* errorCode);
+int GvrsReadMetadataByNameAndID(Gvrs* gvrs, const char* name, int recordID, GvrsMetadataResultSet** resultSet);
 
 /**
 * Updates the CRC-32C checksum with the specified array of bytes. The CRC-32C checksum

@@ -131,7 +131,15 @@ extern "C"
 	}GvrsBuilder;
 
 
-	GvrsBuilder* GvrsBuilderInit(int nRows, int nColumns, int *status);
+	/**
+	* Allocates memory for a GvrsBuilder structure and initializes data elements for
+	* a grid of the specified dimensions.
+	* @param builder a pointer to a pointer variable giving the address of the builder structure.
+	* @param nRows number of rows in the grid, greater than or equal to 2.
+	* @param nColumns number of columns in the grid, greater than or equal to 2.
+	* @return if successful, zero; otherwise an integer value indicating an error condition.
+	*/
+	int GvrsBuilderInit(GvrsBuilder** builder, int nRows, int nColumns);
 	int GvrsBuilderSetTileSize(GvrsBuilder* builder, int nRowsInTile, int nColumnsInTile);
 	GvrsBuilder* GvrsBuilderFree(GvrsBuilder* builder);
 
@@ -181,10 +189,11 @@ extern "C"
 	* Calls to this function will return a null pointer.
 	* @param builder a valid instance populated with settings for the desired raster.
 	* @param path the path to the file to be used for the raster.
-	* @param status zero if successful; otherwise, a value as specified in GvrsError.h
-	* @return if successful, a pointer to a valid Gvrs structure; otherwise, a null.
+	* @param gvrs a pointer to a pointer variable to receive the address of the memory allocated when
+    * the GVRS data store is opened.
+	* @return zero if successful; otherwise an error code indicating the cause of the failure.
 	*/
-	Gvrs* GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, int *status);
+	int GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, Gvrs** gvrs);
 
 
 #ifdef __cplusplus

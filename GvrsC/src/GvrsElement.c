@@ -331,7 +331,7 @@ int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsI
 
 
 
-int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, float value) {
+int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, GvrsFloat value) {
 	if (!element) {
 		return GVRSERR_NULL_POINTER;
 	}

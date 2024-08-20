@@ -11,14 +11,16 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
 	printf("GVRS transcription test, data compression %s\n", compress ? "enabled" : "disabled");
     printf("Opening %s\n", input);
     int status;
-	Gvrs* gInput = GvrsOpen(input, "r", &status);
+	Gvrs* gInput;
+	status = GvrsOpen(&gInput, input, "r");
     if(!gInput){
         printf("Error code %d opening file\n", status);
         exit(1);
     }
 	int nRows = gInput->nRowsInRaster;
 	int nCols = gInput->nColsInRaster;
-	GvrsBuilder* builder = GvrsBuilderInit(nRows, nCols);
+	GvrsBuilder* builder;
+    status	= GvrsBuilderInit(&builder, nRows, nCols);
 	GvrsBuilderSetTileSize(builder, gInput->nRowsInTile, gInput->nColsInTile);
 	GvrsBuilderSetChecksumEnabled(builder, 1);
 
@@ -53,7 +55,8 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
 	}
 
 
-	Gvrs* gOutput = GvrsBuilderOpenNewGvrs(builder, output, &status);
+	Gvrs* gOutput;
+    status = GvrsBuilderOpenNewGvrs(builder, output, &gOutput);
 	GvrsBuilderFree(builder);
     if(!gOutput){
        printf("Error %d building new GVRS file %s\n", status, output);
@@ -91,7 +94,11 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
 	printf("copy operation completed in %lld ms\n", (long long)(time1 - time0));
 	GvrsSummarizeAccessStatistics(gOutput, stdout);
  
-	GvrsClose(gOutput, &status);
+	status = GvrsClose(gOutput);
+	if(status){
+		printf("Transcription failed on close operation with status %d\n", status);
+		exit(1);
+	}
 	time1 = GvrsTimeMS();
 	printf("transcription completed in %lld ms\n", (long long)(time1-time0));
 
@@ -99,7 +106,7 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
 
 	time0 = GvrsTimeMS();
 
-	gOutput = GvrsOpen(output, "r", &status);
+	status = GvrsOpen(&gOutput, output, "r");
     if(!gOutput){
         printf("Error code %d opening file %s\n", status, output);
         exit(1);
@@ -138,6 +145,6 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
 	printf("Completed inspection in %lld ms, average value %f\n",
                (long long)(time1-time0), (double)iSum / (double)nSum);
 
-    GvrsClose(gOutput, &status);
+    status = GvrsClose(gOutput);
 
 }

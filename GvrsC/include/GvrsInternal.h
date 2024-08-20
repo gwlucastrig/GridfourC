@@ -279,6 +279,9 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 
 	GvrsMetadataDirectory* GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDir, int *errCode);
 	GvrsMetadataDirectory* GvrsMetadataDirectoryFree(GvrsMetadataDirectory* dir);
+	GvrsMetadata* GvrsMetadataFree(GvrsMetadata* m);
+	int GvrsMetadataRead(FILE* fp, GvrsMetadata**);
+
 
 	void GvrsElementFillData(GvrsElement* element, GvrsByte* data, int nCells);
 	int  GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, GvrsLong contentPos);
@@ -288,6 +291,8 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition);
 
 	Gvrs* GvrsDisposeOfResources(Gvrs* gvrs);
+
+
 #ifdef __cplusplus
 }
 #endif
