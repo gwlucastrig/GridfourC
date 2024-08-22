@@ -30,6 +30,7 @@
 #include <math.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <limits.h>
  
 GvrsCodec* GvrsCodecHuffmanAlloc();
 #ifdef GVRS_ZLIB
