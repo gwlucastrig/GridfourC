@@ -24,6 +24,7 @@
  * ---------------------------------------------------------------------
  */
 
+
 #pragma once
 
 
@@ -93,94 +94,109 @@ extern "C"
 	* memory location within the metadata element.  When an application calls the metadata-result free function,
 	* those pointers become invalid and should not be de-referenced.
 	* @param metadata a pointer to a valid metadata element with datatype string.
-	* @param errCode a pointer to an integer to store the function status; zero if successful, otherwise an error code.
-	* @return a pointer to the string assocaated with the metadata.
+	* @param string a pointer to a pointer variable that will receive the address of the string
+	* @return zero if successful, otherwise an error code.
 	*/
-	char* GvrsMetadataGetString(GvrsMetadata* metadata, int* errCode);
+	int GvrsMetadataGetString(GvrsMetadata* metadata, char **string);
 
 	/**
-	* Gets the byte content of a metadata element.
+	* Gets the content of a metadata element as a pointer to an array of one or more bytes.
 	* <p>
 	* <strong>Memory management:</strong> A metadata <i>get</i> function returns a pointer to an internal
 	* memory location within the metadata element.  When an application calls the metadata-result free function,
 	* those pointers become invalid and should not be de-referenced.
 	* @param m a pointer to a valid metadata element.
 	* @param nValues the size of the data associated with the metadata.
-	* @return a pointer to the byte content associated with the metadata.
+	* @param byte a pointer to a pointer variable that will receive the address of the metadata.
+	* @return zero if successful; otherwise, an error code.
 	*/
-	GvrsByte* GvrsMetadataGetByte(GvrsMetadata* m, int* nValues, int* errorCode);
+	 int GvrsMetadataGetByteArray(GvrsMetadata* m, int* nValues, GvrsByte** bytes);
 
 	/**
-	* Gets the content of a metadata element as a pointer to shorts.
+	* Gets the content of a metadata element as a pointer to an array of one or more short integers.
 	* <p>
 	* <strong>Memory management:</strong> A metadata <i>get</i> function returns a pointer to an internal
 	* memory location within the metadata element.  When an application calls the metadata-result free function,
 	* those pointers become invalid and should not be de-referenced.
 	* @param m a pointer to a valid metadata element with datatype short.
 	* @param nValues the number of elements associated with the metadata instance.
-	* @return a pointer to an array of shorts
+	* @param data a pointer to a pointer variable that will receive the address of one or more short integers.
+	* @return zero if successful; otherwise, an error code.
 	*/
-	GvrsShort* GvrsMetadataGetShort(GvrsMetadata* m, int* nValues, int* errorCode);
+	int GvrsMetadataGetShortArray(GvrsMetadata* m, int* nValues, GvrsShort** data);
+
 
 	/**
-	* Gets the content of a metadata element as a pointer to unsigned shorts.
+	* Gets the content of a metadata element as a pointer to an array of one or more unsigned short integerss.
 	* <p>
 	* <strong>Memory management:</strong> A metadata <i>get</i> function returns a pointer to an internal
 	* memory location within the metadata element.  When an application calls the metadata-result free function,
 	* those pointers become invalid and should not be de-referenced.
-	* @param m a pointer to a valid metadata element with datatype unsigned string.
+	* @param m a pointer to a valid metadata element with datatype unsigned short.
 	* @param nValues the number of elements associated with the metadata instance.
-	* @return a pointer to an array of shorts
+	* @param data a pointer to a pointer variable that will receive the address of one or more unsigned short integers.
+	* @return zero if successful; otherwise, an error code.
 	*/
-	GvrsUnsignedShort* GvrsMetadataGetUnsignedShort(GvrsMetadata* m, int* nValues, int* errorCode);
+	int GvrsMetadataGetUnsignedShortArray(GvrsMetadata* m, int* nValues, GvrsUnsignedShort** data);
 
 	/**
-	* Gets the content of a metadata element as a pointer to integers.
+	* Gets the content of a metadata element as a pointer to an array of one or more integers.
 	* <p>
 	* <strong>Memory management:</strong> A metadata <i>get</i> function returns a pointer to an internal
 	* memory location within the metadata element.  When an application calls the metadata-result free function,
 	* those pointers become invalid and should not be de-referenced.
 	* @param m a pointer to a valid metadata element with datatype integer.
 	* @param nValues the number of elements associated with the metadata instance.
-	* @return a pointer to an array of integers
+	* @param data a pointer to a pointer variable that will receive the address of one or more integers.
+	* @return zero if successful; otherwise, an error code.
 	*/
-	GvrsInt* GvrsMetadataGetInt(GvrsMetadata* m, int* nValues, int* errorCode);
+	int GvrsMetadataGetIntArray(GvrsMetadata* m, int* nValues, GvrsInt** data );
+
 
 	/**
-	* Gets the content of a metadata element as a pointer to unsigned integers.
+	* Gets the content of a metadata element as a pointer to an array of one or more unsigned integers.
 	* <p>
 	* <strong>Memory management:</strong> A metadata <i>get</i> function returns a pointer to an internal
 	* memory location within the metadata element.  When an application calls the metadata-result free function,
 	* those pointers become invalid and should not be de-referenced.
 	* @param m a pointer to a valid metadata element with datatype unsigned integer.
 	* @param nValues the number of elements associated with the metadata instance.
-	* @return a pointer to an array of unsigned integers.
+	* @param data a pointer to a pointer variable that will receive the address of one or more unsigned integers.
+	* @return zero if successful; otherwise, an error code.
 	*/
-	GvrsUnsignedInt* GvrsMetadataGetUnsignedInt(GvrsMetadata* m, int* nValues, int* errorCode);
+	int GvrsMetadataGetUnsignedIntArray(GvrsMetadata* m, int* nValues, GvrsUnsignedInt** data);
+
+
+
 
 	/**
-	* Gets the content of a metadata element as a pointer to floats.
+	* Gets the content of a metadata element as a pointer to an array of one or more floats.
 	* <p>
 	* <strong>Memory management:</strong> A metadata <i>get</i> function returns a pointer to an internal
 	* memory location within the metadata element.  When an application calls the metadata-result free function,
 	* those pointers become invalid and should not be de-referenced.
 	* @param m a pointer to a valid metadata element with datatype float.
 	* @param nValues the number of elements associated with the metadata instance.
-	* @return a pointer to an array of floats.
+	* @param data a pointer to a pointer variable that will receive the address of one or more floats.
+	* @return zero if successful; otherwise, an error code.
 	*/
-	GvrsFloat* GvrsMetadataGetFloat(GvrsMetadata* m, int* nValues, int* errorCode);
+	int GvrsMetadataGetFloatArray(GvrsMetadata* m, int* nValues, GvrsFloat** data);
+
+
+
 
 	/**
-	* Gets the content of a metadata element as a pointer to doubles.
+	* Gets the content of a metadata element as a pointer to an array of one or more doubles.
 	* <p>
 	* <strong>Memory management:</strong> A metadata <i>get</i> function returns a pointer to an internal
 	* memory location within the metadata element.  When an application calls the metadata-result free function,
 	* those pointers become invalid and should not be de-referenced.
 	* @param m a pointer to a valid metadata element with datatype double.
 	* @param nValues the number of elements associated with the metadata instance.
-	* @return a pointer to an array of doubles.
+	* @param data a pointer to a pointer variable that will receive the address of one or more doubles.
+	* @return zero if successful; otherwise, an error code.
 	*/
-	GvrsDouble* GvrsMetadataGetDouble(GvrsMetadata* m, int* nValues, int* errorCode);
+	int GvrsMetadataGetDoubleArray(GvrsMetadata* m, int* nValues, GvrsDouble** data);
 
 	/**
 	* Gets a static string indicating the name of the metadata type.  Intended for writing reports

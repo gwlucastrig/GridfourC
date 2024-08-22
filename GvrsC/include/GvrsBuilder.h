@@ -155,8 +155,10 @@ extern "C"
 	GvrsElementSpec* GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder, const char* name, GvrsFloat scale, GvrsFloat offset);
 
 
-	int GvrsElementSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax);
-	int GvrsElementSetFillInt(GvrsElementSpec* eSpec, GvrsInt iFill);
+	int GvrsElementSpecSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax);
+	int GvrsElementSpecSetFillInt(GvrsElementSpec* eSpec, GvrsInt iFill);
+	int GvrsElementSpecSetRangeFloat(GvrsElementSpec* eSpec, float iMin, float iMax);
+	int GvrsElementSpecSetFillFloat(GvrsElementSpec* eSpec, float iFill);
 
 	/**
 	* Instructs the builder to enable data compression and configure the initial set

@@ -375,18 +375,25 @@ GvrsBuilder* GvrsBuilderFree(GvrsBuilder* builder) {
 					// Other strings are malloc'd.
 					if (spec->description) {
 						free(spec->description);
+						spec->description = 0;
 					}
 					if (spec->unitOfMeasure) {
 						free(spec->unitOfMeasure);
+						spec->unitOfMeasure = 0;
 					}
 					if (spec->label) {
 						free(spec->label);
+						spec->label = 0;
 					}
+					spec->builder = 0;
 					free(spec);
+					builder->elementSpecs[i] = 0;
 				}
 			}
 			free(builder->elementSpecs);
+			builder->elementSpecs = 0;
 		}
+
 		if (builder->nDataCompressionCodecs) {
 			for (i = 0; i < builder->nDataCompressionCodecs; i++) {
 				GvrsCodec* c = builder->dataCompressionCodecs[i];
@@ -476,8 +483,8 @@ GvrsElementSpec* GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder,
 }
 
 int
-GvrsElementSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax) {
-	if (!eSpec) {
+GvrsElementSpecSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax) {
+	if (!eSpec || !eSpec->builder) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	if (iMin > iMax) {
@@ -517,7 +524,7 @@ GvrsElementSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax) {
 
 
 int
-GvrsElementSetFillInt(GvrsElementSpec* eSpec, GvrsInt iFill) {
+GvrsElementSpecSetFillInt(GvrsElementSpec* eSpec, GvrsInt iFill) {
 	if (!eSpec) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -1051,4 +1058,98 @@ int GvrsBuilderRegisterDataCompressionCodec(GvrsBuilder* builder, GvrsCodec* cod
 	}
 	builder->dataCompressionCodecs[builder->nDataCompressionCodecs++] = codec;
 	return 0;
+}
+
+
+int GvrsElementSpecSetFillValueInt(GvrsElementSpec* spec, int fillValue) {
+	if (!spec || !spec->builder) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	GvrsBuilder* builder = spec->builder;
+
+	switch (spec->elementType) {
+	case GvrsElementTypeInt:
+		spec->elementSpec.intSpec.fillValue = fillValue;
+		return 0;
+	case GvrsElementTypeIntCodedFloat: {
+		float scale = spec->elementSpec.intFloatSpec.scale;
+		float offset = spec->elementSpec.intFloatSpec.offset;
+		spec->elementSpec.intFloatSpec.iFillValue = fillValue;
+		if (fillValue == INT32_MIN) {
+			spec->elementSpec.intFloatSpec.fillValue = NAN;
+		}
+		else {
+			spec->elementSpec.intFloatSpec.fillValue = fillValue / scale + offset;
+		}
+	}
+									 return 0;
+	case GvrsElementTypeFloat:
+		spec->elementSpec.floatSpec.fillValue = (GvrsFloat)fillValue;
+		return 0;
+	case GvrsElementTypeShort:
+		if (fillValue<SHRT_MIN || fillValue>SHRT_MAX) {
+			builder->errorCode = GVRSERR_BAD_ELEMENT_SPEC;
+			return builder->errorCode;
+		}
+		spec->elementSpec.shortSpec.fillValue = (GvrsShort)fillValue;
+		return 0;
+	default:
+		builder->errorCode = GVRSERR_BAD_ELEMENT_SPEC;
+		return builder->errorCode;
+	}
+}
+
+
+
+
+int GvrsElementSpecSetFillValueFloat(GvrsElementSpec* spec, float fillValue) {
+	if (!spec || !spec->builder) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	GvrsBuilder* builder = spec->builder;
+
+	switch (spec->elementType) {
+	case GvrsElementTypeInt:
+		if (isnan(fillValue)) {
+			spec->elementSpec.intSpec.fillValue = INT32_MIN;
+		}
+		else {
+			if (fillValue<INT32_MIN || fillValue>INT32_MAX) {
+				builder->errorCode = GVRSERR_BAD_ELEMENT_SPEC;
+				return builder->errorCode;
+			}
+			spec->elementSpec.intSpec.fillValue = (int)fillValue;
+		}
+		return 0;
+	case GvrsElementTypeIntCodedFloat: {
+		float scale = spec->elementSpec.intFloatSpec.scale;
+		float offset = spec->elementSpec.intFloatSpec.offset;
+		spec->elementSpec.intFloatSpec.fillValue = fillValue;
+		if (isnan(fillValue)) {
+			spec->elementSpec.intFloatSpec.iFillValue = INT32_MIN;
+		}
+		else {
+			spec->elementSpec.intFloatSpec.fillValue = (fillValue - offset) * scale; ;
+		}
+	}
+	return 0;
+	case GvrsElementTypeFloat:
+		spec->elementSpec.floatSpec.fillValue = fillValue;
+		return 0;
+	case GvrsElementTypeShort:
+		if (isnan(fillValue)) {
+			spec->elementSpec.shortSpec.fillValue = SHRT_MIN;
+		}
+		else {
+			if (fillValue<SHRT_MIN || fillValue>SHRT_MAX) {
+				builder->errorCode = GVRSERR_BAD_ELEMENT_SPEC;
+				return builder->errorCode;
+			}
+			spec->elementSpec.shortSpec.fillValue = (short)fillValue;
+		}
+		return 0;
+	default:
+		builder->errorCode = GVRSERR_BAD_ELEMENT_SPEC;
+		return builder->errorCode;
+	}
 }
