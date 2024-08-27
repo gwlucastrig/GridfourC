@@ -435,6 +435,18 @@ void GvrsMapGeoToGrid(Gvrs* gvrs, double latitude, double longitude, double* row
 int GvrsReadMetadataByNameAndID(Gvrs* gvrs, const char* name, int recordID, GvrsMetadataResultSet** resultSet);
 
 /**
+* Writes a metadata structure to the GVRS instance.  The metadata element is uniquely identified by its
+* name and record ID elements.  If a metadata element already exists with the specified identification,
+* it is replaced.
+* @param gvrs a valid reference to a GVRS instance opened for writing.
+* @param metadata a valid reference.
+* @return if successful, zero; otherwise an integer value indicating an error condition.
+*/
+int GvrsMetadataWrite(Gvrs* gvrs, GvrsMetadata* metadata);
+
+
+
+/**
 * Updates the CRC-32C checksum with the specified array of bytes. The CRC-32C checksum
 * is used internally by the GVRS implementations to detect bit-errors in stored data.
 *

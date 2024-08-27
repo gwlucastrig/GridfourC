@@ -63,9 +63,7 @@ extern "C"
 		GvrsInt recordID;
 		GvrsMetadataType metadataType;
 		GvrsInt bytesPerValue;
-		int guard1;
 		GvrsInt dataSize;
-		int guard2;
 		GvrsInt nValues;
 		char* description;
 		GvrsByte* data;
@@ -207,7 +205,7 @@ extern "C"
 	*/
 	const char* GvrsMetadataGetTypeName(GvrsMetadataType mtype);
 
-	int GvrsMetadataWrite(void* gvrsReference, GvrsMetadata* metadata);
+
 
 
 #ifdef __cplusplus

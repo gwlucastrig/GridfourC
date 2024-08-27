@@ -491,14 +491,16 @@ static int computeMetadataSize(GvrsMetadata* metadata) {
 
 
 int
-GvrsMetadataWrite(void* gvrsReference, GvrsMetadata* metadata) {
-	if (!gvrsReference || !metadata || !metadata->name[0]) {
+GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
+	if (!gvrs || !metadata || !metadata->name[0]) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
-	Gvrs* gvrs = gvrsReference;
 	FILE* fp = gvrs->fp;
 	if (!fp) {
 		return GVRSERR_NULL_ARGUMENT;
+	}
+	if (!gvrs->timeOpenedForWritingMS) {
+		return GVRSERR_FILE_ACCESS;
 	}
 
 
