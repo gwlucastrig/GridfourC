@@ -63,8 +63,11 @@ extern "C"
 		GvrsInt recordID;
 		GvrsMetadataType metadataType;
 		GvrsInt bytesPerValue;
+		int guard1;
 		GvrsInt dataSize;
+		int guard2;
 		GvrsInt nValues;
+		char* description;
 		GvrsByte* data;
 	}GvrsMetadata;
 
@@ -203,6 +206,9 @@ extern "C"
 	* and diagnostic purposes.  Do not attempt to free the pointer returned by this method.
 	*/
 	const char* GvrsMetadataGetTypeName(GvrsMetadataType mtype);
+
+	int GvrsMetadataWrite(void* gvrsReference, GvrsMetadata* metadata);
+
 
 #ifdef __cplusplus
 }

@@ -207,7 +207,13 @@ GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode) {
 		cellSize = 8;
 	}
 	int sizeTileDirectory = 8 + 16 + nTileCells * cellSize;
-	GvrsLong posToStore = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTileDir, sizeTileDirectory, errorCode);
+	int status;
+	GvrsLong posToStore;
+	status = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTileDir, sizeTileDirectory, &posToStore);
+	if (status) {
+		*errorCode = status;
+		return 0;
+	}
 	GvrsWriteByte(fp, 0);  // Version of tile directory, currently only zero is implemented
 	GvrsWriteBoolean(fp, extendedAddressSpace); // extended address space
 	GvrsWriteZeroes(fp, 6); // reserved for future use

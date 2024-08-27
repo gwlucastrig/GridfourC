@@ -52,6 +52,27 @@ static int recordStatus(GvrsBuilder* builder, int errorCode) {
 }
 
 
+static int gvrsFail(GvrsBuilder* builder, Gvrs* gvrs, int errorCode) {
+	recordStatus(builder, errorCode);
+	GvrsDisposeOfResources(gvrs);
+	return errorCode;
+}
+
+static char* optstrdup(const char* s, int* status) {
+	if (s && *s) {
+		char* t = GVRS_STRDUP(s);
+		if (!t) {
+			*status = GVRSERR_NOMEM;
+			return 0;
+		}
+		return t;
+	}
+	return 0;
+}
+
+
+
+
 static int padMultipleOf4(FILE* fp) {
 	long pos = ftell(fp);
 	int k = (int)(pos & 0x3L);
@@ -66,10 +87,10 @@ static int padMultipleOf4(FILE* fp) {
 	}
 	return 0;
 }
- 
+
 static int checkNumberOfTiles(GvrsBuilder* builder) {
-	GvrsLong nRowsOfTiles = ((GvrsLong)builder->nRowsInRaster +(GvrsLong)builder->nRowsInTile-1)/ (GvrsLong)builder->nRowsInTile;
-	GvrsLong nColsOfTiles = ((GvrsLong)builder->nColsInRaster +(GvrsLong)builder->nColsInTile-1)/ (GvrsLong)builder->nColsInTile;
+	GvrsLong nRowsOfTiles = ((GvrsLong)builder->nRowsInRaster + (GvrsLong)builder->nRowsInTile - 1) / (GvrsLong)builder->nRowsInTile;
+	GvrsLong nColsOfTiles = ((GvrsLong)builder->nColsInRaster + (GvrsLong)builder->nColsInTile - 1) / (GvrsLong)builder->nColsInTile;
 	GvrsLong n = nRowsOfTiles * nColsOfTiles;
 	if (n > INT32_MAX) {
 		return recordStatus(builder, GVRSERR_BAD_RASTER_SPECIFICATION);
@@ -85,7 +106,7 @@ static int checkIdentifier(const char* name, int maxLength) {
 	}
 	size_t len = strlen(name);
 	if (len == 0 || len > maxLength) {
-		 return  GVRSERR_BAD_NAME_SPECIFICATION;
+		return  GVRSERR_BAD_NAME_SPECIFICATION;
 	}
 	if (!isalpha(name[0])) {
 		// GVRS identifiers always start with a letter
@@ -102,14 +123,38 @@ static int checkIdentifier(const char* name, int maxLength) {
 }
 
 
+static int checkArguments(GvrsBuilder* builder, const char* name, GvrsElementSpec** specReference) {
+	if (!builder || !name || !*name || !specReference) {
+		if (builder) {
+			recordStatus(builder, GVRSERR_NULL_ARGUMENT);
+		}
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	return 0;
+}
 
-static GvrsElementSpec* addElementSpec(GvrsBuilder* builder, GvrsElementType eType, const char *name) {
+static int addElementSpec(GvrsBuilder* builder, GvrsElementType eType, const char* name, GvrsElementSpec** specReference) {
+	*specReference = 0;
 	int status = checkIdentifier(name, GVRS_ELEMENT_NAME_SZ);
 	if (status) {
 		recordStatus(builder, status);
-		return 0;
+		return status;
 	}
-	
+
+	// If other elements have already been added, check to verify that
+	// the new element has a unique name.
+	if (builder->elementSpecs) {
+		int i;
+		for (i = 0; i < builder->nElementSpecs; i++) {
+			if (strcmp(builder->elementSpecs[i]->name, name) == 0) {
+				recordStatus(builder, GVRSERR_NAME_NOT_UNIQUE);
+				return GVRSERR_NAME_NOT_UNIQUE;
+			}
+		}
+	}
+
+
+
 	GvrsElementSpec** specs;
 	if (builder->nElementSpecs == 0) {
 		specs = calloc(1, sizeof(GvrsElementSpec*));
@@ -126,14 +171,14 @@ static GvrsElementSpec* addElementSpec(GvrsBuilder* builder, GvrsElementType eTy
 			free(builder->elementSpecs);
 		}
 		recordStatus(builder, GVRSERR_NOMEM);
-		return 0;
+		return GVRSERR_NOMEM;
 	}
 	
 	builder->elementSpecs = specs;
 	GvrsElementSpec* eSpec = calloc(1, sizeof(GvrsElementSpec));
 	if (!eSpec) {
 		recordStatus(builder, GVRSERR_NOMEM);
-		return 0;
+		return GVRSERR_NOMEM;
 	}
 	eSpec->builder = builder;
 	eSpec->description = 0;
@@ -143,7 +188,8 @@ static GvrsElementSpec* addElementSpec(GvrsBuilder* builder, GvrsElementType eTy
 	GvrsStrncpy(eSpec->name, sizeof(eSpec->name), name);
 	eSpec->elementType = eType;
 	specs[builder->nElementSpecs++] = eSpec;
-	return eSpec;
+	*specReference = eSpec;
+	return 0;
 }
 
 static void  computeAndStoreInternalTransforms(GvrsBuilder* b) {
@@ -388,6 +434,7 @@ GvrsBuilder* GvrsBuilderFree(GvrsBuilder* builder) {
 					}
 					spec->builder = 0;
 					free(spec);
+					spec = 0;
 					builder->elementSpecs[i] = 0;
 				}
 			}
@@ -410,37 +457,63 @@ GvrsBuilder* GvrsBuilderFree(GvrsBuilder* builder) {
 	return 0;
 }
 
-GvrsElementSpec* GvrsBuilderAddElementShort(GvrsBuilder* builder, const char* name) {
-	GvrsElementSpec* spec = addElementSpec(builder, GvrsElementTypeShort, name);
-	if (!spec) {
-		return 0;
+int 
+GvrsBuilderAddElementShort(GvrsBuilder* builder, const char* name, GvrsElementSpec** specReference) {
+	int status;
+	status = checkArguments(builder, name, specReference);
+	if (status) {
+		return status;
 	}
 
+	GvrsElementSpec* spec;
+	status = addElementSpec(builder, GvrsElementTypeShort, name, &spec);
+	if (status) {
+		return status;
+	}
+
+ 
 	spec->elementSpec.shortSpec.minValue = INT16_MIN+1;
 	spec->elementSpec.shortSpec.maxValue = INT16_MAX;
 	spec->elementSpec.shortSpec.fillValue = INT16_MIN;
 	spec->typeSize = 2;
-	return spec;
+	*specReference = spec;
+	return 0;
 }
  
-GvrsElementSpec* GvrsBuilderAddElementInt(GvrsBuilder* builder, const char* name) {
-	GvrsElementSpec* spec = addElementSpec(builder, GvrsElementTypeInt, name);
-	if (!spec) {
-		return 0;
+int 
+GvrsBuilderAddElementInt(GvrsBuilder* builder, const char* name, GvrsElementSpec **specReference) { 
+	int status;
+	status = checkArguments(builder, name, specReference);
+	if (status) {
+		return status;
 	}
+
+	GvrsElementSpec* spec;
+	status = addElementSpec(builder, GvrsElementTypeInt, name, &spec);
+	if (status) {
+		return status;
+	}
+
 
 	spec->elementSpec.intSpec.minValue = INT32_MIN + 1;
 	spec->elementSpec.intSpec.maxValue = INT32_MAX;
 	spec->elementSpec.intSpec.fillValue = INT32_MIN;
 	spec->typeSize = 4;
-	return spec;
+	*specReference = spec;
+	return 0;
 }
 
-GvrsElementSpec* GvrsBuilderAddElementFloat(GvrsBuilder* builder, const char* name)
+int GvrsBuilderAddElementFloat(GvrsBuilder* builder, const char* name, GvrsElementSpec** specReference)
 {
-	GvrsElementSpec* spec = addElementSpec(builder, GvrsElementTypeFloat, name);
-	if (!spec) {
-		return 0;
+	int status;
+	status = checkArguments(builder, name, specReference);
+	if (status) {
+		return status;
+	}
+	GvrsElementSpec* spec;
+	status = addElementSpec(builder, GvrsElementTypeFloat, name, &spec);
+	if (status) {
+		return status;
 	}
 
 	spec->elementSpec.floatSpec.minValue = -1.0e+32F;
@@ -448,24 +521,33 @@ GvrsElementSpec* GvrsBuilderAddElementFloat(GvrsBuilder* builder, const char* na
 	spec->elementSpec.floatSpec.fillValue = NAN;
 	spec->continuous = 1;
 	spec->typeSize = 4;
-	return spec;
+	*specReference = spec;
+	return 0;
 }
 
 
-
-GvrsElementSpec* GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder, 
+int
+GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder, 
 	const char* name, 
 	GvrsFloat scale,
-	GvrsFloat offset) 
+	GvrsFloat offset,
+	GvrsElementSpec** specReference)
 {
-	if (scale == 0 || isnan(scale) || isnan(offset)){
-		recordStatus(builder, GVRSERR_BAD_ICF_PARAMETERS);
-		return 0;
+	int status;
+	status = checkArguments(builder, name, specReference);
+	if (status) {
+		return status;
 	}
 
-	GvrsElementSpec* spec = addElementSpec(builder, GvrsElementTypeIntCodedFloat, name);
-	if (!spec) {
-		return 0;
+	if (scale == 0 || isnan(scale) || isnan(offset)){
+		recordStatus(builder, GVRSERR_BAD_ICF_PARAMETERS);
+		return GVRSERR_BAD_ICF_PARAMETERS;
+	}
+
+	GvrsElementSpec* spec;
+	status = addElementSpec(builder, GvrsElementTypeIntCodedFloat, name, &spec);
+	if (status) {
+		return status;
 	}
 
 	spec->elementSpec.intFloatSpec.scale = scale;
@@ -478,7 +560,7 @@ GvrsElementSpec* GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder,
 	spec->elementSpec.intFloatSpec.fillValue = NAN;
 	spec->continuous = 1;
 	spec->typeSize = 4;
-	return spec;
+	*specReference = spec;
 
 	return 0;
 }
@@ -523,56 +605,65 @@ GvrsElementSpecSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax) {
 	return 0;
 }
 
+int GvrsElementSpecSetContinuous(GvrsElementSpec* eSpec, int continuous)
+{
+	if (!eSpec || !eSpec->builder) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	eSpec->continuous = continuous;
+	return 0;
+}
 
 int
-GvrsElementSpecSetFillInt(GvrsElementSpec* eSpec, GvrsInt iFill) {
-	if (!eSpec) {
+GvrsElementSpecSetDescription(GvrsElementSpec* eSpec, char *description) {
+	if (!eSpec || !eSpec->builder) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 
-	switch (eSpec->elementType) {
-	case GvrsElementTypeInt:
-		eSpec->elementSpec.intSpec.fillValue = iFill;
-		break;
-	case GvrsElementTypeIntCodedFloat: {
-		GvrsElementSpecIntCodedFloat icf = eSpec->elementSpec.intFloatSpec;
-		eSpec->elementSpec.intFloatSpec.iFillValue = iFill;
-		eSpec->elementSpec.intFloatSpec.fillValue = iFill / icf.scale + icf.offset;
-		break;
-	}
-	case GvrsElementTypeFloat:
-		eSpec->elementSpec.floatSpec.fillValue = (GvrsFloat)iFill;
-		break;
-	case GvrsElementTypeShort:
-		if (iFill<INT16_MIN || iFill>INT16_MAX) {
-			return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
-		}
-		eSpec->elementSpec.shortSpec.fillValue = (GvrsShort)iFill;
-		break;
-	default:
-		return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
+	if (!description || !*description) {
+		eSpec->description = 0;
+		return 0;
 	}
 
-	return 0;
+	int status;
+	eSpec->description = optstrdup(description, &status);
+	return status;
 }
 
-static int gvrsFail(GvrsBuilder* builder, Gvrs* gvrs, int errorCode) {
-	recordStatus(builder, errorCode);
-	GvrsDisposeOfResources(gvrs);
-	return errorCode;
-}
 
-static char* optstrdup(const char* s, int *status) {
-	if (s && *s) {
-		char *t = GVRS_STRDUP(s);
-		if (!t) {
-			*status = GVRSERR_NOMEM;
-			return 0;
-		}
-		return t;
+int
+GvrsElementSpecSetLabel(GvrsElementSpec* eSpec, char* label) {
+	if (!eSpec || !eSpec->builder) {
+		return GVRSERR_NULL_ARGUMENT;
 	}
-	return 0;
+
+	if (!label || !*label) {
+		eSpec->label = 0;
+		return 0;
+	}
+
+	int status;
+	eSpec->label = optstrdup(label, &status);
+	return status;
 }
+
+
+int
+GvrsElementSpecSetUnitOfMeasure(GvrsElementSpec* eSpec, char* unitOfMeasure) {
+	if (!eSpec || !eSpec->builder) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+	if (!unitOfMeasure || !*unitOfMeasure) {
+		eSpec->unitOfMeasure = 0;
+		return 0;
+	}
+
+	int status;
+	eSpec->unitOfMeasure = optstrdup(unitOfMeasure, &status);
+	return status;
+}
+
 
 static int writeHeader(Gvrs *gvrs);
 
@@ -766,8 +857,14 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, Gvrs** gvrsRefere
 		return gvrsFail(builder, gvrs, status);
 	}
 
-	status = GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
+	GvrsMetadataDirectory* metadataDirectory = (GvrsMetadataDirectory*)gvrs->metadataDirectory;
+	status = GvrsMetadataDirectoryAllocEmpty(gvrs, &metadataDirectory);
+	if (status) {
+		return gvrsFail(builder, gvrs, status);
+	}
+	gvrs->metadataDirectory = metadataDirectory;
 
+	status = GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
 	if (status == 0) {
 		gvrs->fileSpaceManager = GvrsFileSpaceManagerAlloc(fp);
 		if (!gvrs->fileSpaceManager) {
@@ -1062,7 +1159,8 @@ int GvrsBuilderRegisterDataCompressionCodec(GvrsBuilder* builder, GvrsCodec* cod
 }
 
 
-int GvrsElementSpecSetFillValueInt(GvrsElementSpec* spec, int fillValue) {
+int 
+GvrsElementSpecSetFillValueInt(GvrsElementSpec* spec, GvrsInt fillValue) {
 	if (!spec || !spec->builder) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -1102,8 +1200,60 @@ int GvrsElementSpecSetFillValueInt(GvrsElementSpec* spec, int fillValue) {
 
 
 
+int
+GvrsElementSpecSetRangeFloat(GvrsElementSpec* eSpec, float min, float max) {
+	if (!eSpec || !eSpec->builder) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	if(isnan(min) || isnan(max) || min > max) {
+		return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
+	}
 
-int GvrsElementSpecSetFillValueFloat(GvrsElementSpec* spec, float fillValue) {
+	switch (eSpec->elementType) {
+	case GvrsElementTypeInt:
+		if (min<INT32_MIN || max>INT32_MAX) {
+			return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
+		}
+		eSpec->elementSpec.intSpec.minValue = (int)min;
+		eSpec->elementSpec.intSpec.maxValue = (int)max;
+		break;
+	case GvrsElementTypeIntCodedFloat: {
+		GvrsElementSpecIntCodedFloat icf = eSpec->elementSpec.intFloatSpec;
+		float tMin = (min - icf.offset) * icf.scale;
+		float tMax = (max - icf.offset) * icf.scale;
+		if (tMin<INT32_MIN || tMax>INT32_MAX) {
+			return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
+		}
+		int iMin = (int)tMin;
+		int iMax = (int)tMax;
+		eSpec->elementSpec.intFloatSpec.iMinValue = iMin;
+		eSpec->elementSpec.intFloatSpec.iMaxValue = iMax;
+		eSpec->elementSpec.intFloatSpec.minValue = iMin / icf.scale + icf.offset;
+		eSpec->elementSpec.intFloatSpec.maxValue = iMax / icf.scale + icf.offset;
+	}
+	break;
+	case GvrsElementTypeFloat:
+		eSpec->elementSpec.floatSpec.minValue = min;
+		eSpec->elementSpec.floatSpec.maxValue = max;
+		break;
+	case GvrsElementTypeShort:
+		if (min<INT16_MIN || max>INT16_MAX) {
+			return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
+		}
+		eSpec->elementSpec.shortSpec.minValue = (GvrsShort)min;
+		eSpec->elementSpec.shortSpec.maxValue = (GvrsShort)max;
+		break;
+	default:
+		return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
+	}
+
+	return 0;
+}
+
+
+
+int 
+GvrsElementSpecSetFillValueFloat(GvrsElementSpec* spec, float fillValue) {
 	if (!spec || !spec->builder) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -1116,8 +1266,7 @@ int GvrsElementSpecSetFillValueFloat(GvrsElementSpec* spec, float fillValue) {
 		}
 		else {
 			if (fillValue<INT32_MIN || fillValue>INT32_MAX) {
-				builder->errorCode = GVRSERR_BAD_ELEMENT_SPEC;
-				return builder->errorCode;
+				return recordStatus(spec->builder, GVRSERR_BAD_ELEMENT_SPEC);
 			}
 			spec->elementSpec.intSpec.fillValue = (int)fillValue;
 		}

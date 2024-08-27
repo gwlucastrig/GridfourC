@@ -192,6 +192,11 @@ int GvrsElementIsFloat(GvrsElement* element) {
 	return element->elementType == GvrsElementTypeFloat;
 }
 
+int GvrsElementIsContinuous(GvrsElement* element)
+{
+	return element->continuous;
+}
+
 int GvrsElementIsIntegral(GvrsElement * element) {
 	switch (element->elementType) {
 	case GvrsElementTypeInt:

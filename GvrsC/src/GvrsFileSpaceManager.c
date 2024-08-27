@@ -68,8 +68,13 @@ static int multipleOf8(int value) {
 }
 
 
-GvrsLong
-GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent, int *errorCode) {
+int
+GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent, GvrsLong* filePos) {
+	if (!manager || !filePos) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	int status;
+	*filePos = 0;
 	manager->nAllocations++;
 	FILE* fp = manager->fp;
 	fflush(fp);
@@ -136,10 +141,10 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		GvrsWriteByte(fp, (GvrsByte)recordType);
 		int status = GvrsWriteZeroes(fp, 3);
 		if (status) {
-			*errorCode = status;
-			return 0;
+			return status;
 		}
-		return startOfContent;
+		*filePos = startOfContent;
+		return 0;
 	}
 
 
@@ -154,8 +159,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		int n = (int)(manager->expectedFileSize - fileSize);
 		int status = GvrsWriteZeroes(fp, n);
 		if (status) {
-			*errorCode = status;
-			return 0;
+			return status;
 		}
 		fileSize = manager->expectedFileSize;
 	}
@@ -205,9 +209,16 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 	GvrsWriteInt(fp, manager->recentRecordSize);
 	GvrsWriteByte(fp, (GvrsByte)recordType);
 	int n = (int)(blockSize - RECORD_HEADER_SIZE) + 3;
-	GvrsWriteZeroes(fp, n);
-	GvrsSetFilePosition(fp, manager->recentStartOfContent); 
-	return manager->recentStartOfContent;
+	status = GvrsWriteZeroes(fp, n);
+	if (status) {
+		return status;
+	}
+	status = GvrsSetFilePosition(fp, manager->recentStartOfContent); 
+	if (status) {
+		return status;
+	}
+	*filePos = manager->recentStartOfContent;
+	return 0;
 }
  
 
@@ -457,7 +468,8 @@ int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition) {
 	//        actually reduce the number of free nodes if it merges blocks).
 	int nBytesRequired = 4 + (kNode+1)*BYTES_PER_FS_NODE;
 	int status;
-	GvrsLong contentPos = GvrsFileSpaceAlloc(manager, GvrsRecordTypeFilespaceDir, nBytesRequired, &status);
+	GvrsLong contentPos;
+	status = GvrsFileSpaceAlloc(manager, GvrsRecordTypeFilespaceDir, nBytesRequired, &contentPos);
 	if (!contentPos) {
 		return status;
 	}

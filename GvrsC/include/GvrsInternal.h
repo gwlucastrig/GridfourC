@@ -186,7 +186,9 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	}GvrsMetadataReference;
 
 	typedef struct GvrsMetadataDirectoryTag {
+		int writePending;
 		int nMetadataRecords;
+		GvrsLong filePosMetadataDirectory;
 		GvrsMetadataReference* records;
 	}GvrsMetadataDirectory;
 
@@ -235,7 +237,7 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition);
 
 
-	GvrsLong GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent, int *status);
+	int GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent, GvrsLong *filePos);
 	int GvrsFileSpaceDealloc(GvrsFileSpaceManager* manager, GvrsLong contentPosition);
 	/**
 	* Computes the standard maximum capacity for a tile cache based on the number
@@ -277,10 +279,13 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	*/
 	GvrsTile* GvrsTileCacheStartNewTile(GvrsTileCache* tc,  int tileIndex, int* errCode);
 
-	GvrsMetadataDirectory* GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDir, int *errCode);
+	int GvrsMetadataDirectoryAllocEmpty(Gvrs* gvrs, GvrsMetadataDirectory** directory);
+	int GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDir, GvrsMetadataDirectory** directory);
+	int GvrsMetadataDirectoryWrite(void* gvrsReference, GvrsLong* filePosMetadataDirectory);
+	int GvrsMetadataRead(FILE* fp, GvrsMetadata**);
 	GvrsMetadataDirectory* GvrsMetadataDirectoryFree(GvrsMetadataDirectory* dir);
 	GvrsMetadata* GvrsMetadataFree(GvrsMetadata* m);
-	int GvrsMetadataRead(FILE* fp, GvrsMetadata**);
+
 
 
 	void GvrsElementFillData(GvrsElement* element, GvrsByte* data, int nCells);

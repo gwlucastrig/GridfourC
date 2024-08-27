@@ -36,7 +36,15 @@ static int cmpMetaRec(const void* p1, const void* p2) {
 	GvrsMetadataReference* m2 = (GvrsMetadataReference*)p2;
 	int test = strcmp(m1->name, m2->name);
 	if (test == 0) {
-		test = m1->recordID - m2->recordID;
+		if (m1->recordID > m2->recordID) {
+			return 1;
+		}
+		else if (m1->recordID < m2->recordID) {
+			return -1;
+		}
+		else {
+			return 0;
+		}
 	}
 	return test;
 }
@@ -87,40 +95,47 @@ GvrsMetadataDirectory* GvrsMetadataDirectoryFree(GvrsMetadataDirectory* dir) {
 	return 0;
 }
 
-static GvrsMetadataDirectory* readFailed(GvrsMetadataDirectory* dir, int status, int* errCode) {
-	*errCode = status;
-	return GvrsMetadataDirectoryFree(dir);
+static int readFailed(GvrsMetadataDirectory* dir, int status) {
+     GvrsMetadataDirectoryFree(dir);
+	 return status;
 }
 
-GvrsMetadataDirectory* GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDirectory, int *errCode) {
-	*errCode = 0;
+int
+GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDirectory, GvrsMetadataDirectory** directory) {
+	int status;
+	if (!fp || filePosMetadataDirectory == 0 || !directory) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	*directory = 0;
 	GvrsMetadataDirectory* dir = calloc(1, sizeof(GvrsMetadataDirectory));
 	if (!dir) {
-		return readFailed(dir, GVRSERR_NOMEM, errCode);
+		return readFailed(dir, GVRSERR_NOMEM);
 	}
 	int i;
 	if (filePosMetadataDirectory == 0) {
 		// there is no metadata stored in the file, no further action required
-		return dir;
+		*directory = dir;
+		return 0;
 	}
-	int status;
+ 
 
+	dir->filePosMetadataDirectory = filePosMetadataDirectory;
 	status = GvrsSetFilePosition(fp, filePosMetadataDirectory);
 	if (status) {
-		return readFailed(dir, status, errCode);
+		return readFailed(dir, status);
 	}
 
 
 	GvrsInt nRecords;
 	status = GvrsReadInt(fp, &nRecords);
 	if (status) {
-		return readFailed(dir, status, errCode);
+		return readFailed(dir, status);
 	}
 
 
 	dir->records = calloc(nRecords, sizeof(GvrsMetadataReference));
 	if (!dir->records) {
-		return readFailed(dir, GVRSERR_NOMEM, errCode);
+		return readFailed(dir, GVRSERR_NOMEM);
 	}
 	dir->nMetadataRecords = nRecords;
 
@@ -128,24 +143,24 @@ GvrsMetadataDirectory* GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetad
 		GvrsMetadataReference* r = dir->records + i;
 		status = GvrsReadLong(fp, &r->offset);
 		if (status) {
-			return readFailed(dir, status, errCode);
+			return readFailed(dir, status);
 		}
 		status = GvrsReadIdentifier(fp, sizeof(r->name), r->name);
 		if (status) {
-			return readFailed(dir, status, errCode);
+			return readFailed(dir, status);
 		}
 
 		status = GvrsReadInt(fp, &r->recordID);
 		if (status) {
-			return readFailed(dir, status, errCode);
+			return readFailed(dir, status);
 		}
 		GvrsByte typeCode;
 		status = GvrsReadByte(fp, &typeCode);
 		if (status) {
-			return readFailed(dir, status, errCode);
+			return readFailed(dir, status);
 		}
 		if (typeCode < 0 || typeCode>9) {
-			return readFailed(dir, GVRSERR_FILE_ERROR, errCode);
+			return readFailed(dir, GVRSERR_FILE_ERROR);
 		}
 		GvrsMetadataType metadataType = (GvrsMetadataType)typeCode;
 		r->metadataType = metadataType;
@@ -154,7 +169,8 @@ GvrsMetadataDirectory* GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetad
 	if (nRecords > 1) {
 		qsort(dir->records, nRecords, sizeof(GvrsMetadataReference), cmpMetaRec);
 	}
-	return dir;
+	*directory = dir;
+	return 0;
 }
 
  
@@ -162,6 +178,11 @@ GvrsMetadata *GvrsMetadataFree(GvrsMetadata* m) {
 	if (m) {
 		if (m->data) {
 			free(m->data);
+			m->data = 0;
+		}
+		if (m->description) {
+			free(m->description);
+			m->description = 0;
 		}
 		free(m);
 	}
@@ -193,15 +214,7 @@ int GvrsMetadataRead(FILE* fp, GvrsMetadata **metadata) {
 		return status;
 	}
 
-	// it is possible to have an empty metadata element, though it's not encouraged.
-	if (m->dataSize > 0) {
-		m->data = (GvrsByte*)malloc(m->dataSize);
-		if (!m->data) {
-			GvrsMetadataFree(m);
-			return GVRSERR_NOMEM;
-		}
-	}
-
+	int n = m->dataSize;
 	if (typeCode == GvrsMetadataTypeString || typeCode == GvrsMetadataTypeAscii) {
 		// special-handling for the C-language.
 		// The GVRS format gives a string value (String or ASCII) using a 4-byte integer
@@ -209,27 +222,35 @@ int GvrsMetadataRead(FILE* fp, GvrsMetadata **metadata) {
 		// redundant since the length of the string could also be determined by the dataSize element.
 		// For the C-language, special handling is required because the the GVRS format does 
 		// not guarantee that there is a null-terminator on an input string.
-		// So when the metadata entity is read from the file, this code adjusts the structure of the
-		// data elements slightly to a form more compatible with C.
-		GvrsSkipBytes(fp, 4);
-		m->dataSize -= 4;
-		status = GvrsReadByteArray(fp, m->dataSize, m->data);
-		if (status) {
-			GvrsMetadataFree(m);
-			return status;
-		}
-		m->data[m->dataSize] = 0;
+		// So when the metadata entity is read from the file, add one more by to store a null terminator.
+		n++;
 	}
-	else {
+
+
+	// it is possible to have an empty metadata element, though it's not encouraged.
+	if (n > 0) {
+		m->data = (GvrsByte*)malloc(n);
+		if (!m->data) {
+			GvrsMetadataFree(m);
+			return GVRSERR_NOMEM;
+		}
+	}
+	if (m->dataSize > 0) {
 		status = GvrsReadByteArray(fp, m->dataSize, m->data);
 		if (status) {
 			GvrsMetadataFree(m);
 			return status;
 		}
+	}
+	if (n>0 && (typeCode == GvrsMetadataTypeString || typeCode == GvrsMetadataTypeAscii)) {
+		m->data[n-1] = 0;
 	}
 
 	m->bytesPerValue = metadataTypeBytesPerValue[m->metadataType];
 	m->nValues = m->dataSize / m->bytesPerValue;
+
+	m->description = GvrsReadString(fp, &status);
+ 
 	return 0;
 }
 
@@ -319,7 +340,7 @@ int  GvrsMetadataGetString(GvrsMetadata* metadata, char **string) {
 	// string when we read it from the file (see GvrsMetadataRead functions).
 
 	if (metadata->metadataType == GvrsMetadataTypeAscii || metadata->metadataType == GvrsMetadataTypeString) {
-		*string = (char *)metadata->data;
+		*string = (char *)(metadata->data+4);
 		return 0;
 	}
 	else {
@@ -437,5 +458,237 @@ int GvrsMetadataGetByteArray(GvrsMetadata* metadata, int* nValues, GvrsByte** by
 	}
 	*nValues = metadata->dataSize;
 	*bytes = metadata->data;
+	return 0;
+}
+
+int
+GvrsMetadataDirectoryAllocEmpty(Gvrs* gvrs, GvrsMetadataDirectory** directory) {
+	if (!gvrs || !directory) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	*directory = 0;
+	GvrsMetadataDirectory* d = calloc(1, sizeof(GvrsMetadataDirectory));
+	if (!d) {
+		return  GVRSERR_NOMEM;
+	}
+	*directory = d;
+	return 0;
+}
+
+static int computeMetadataSize(GvrsMetadata* metadata) {
+	int sumStorage =
+		2 + (int)strlen(metadata->name)  // GVRS string format for name
+		+ 4 // recordID
+		+ 1 // data type
+		+ 3; // reserved
+		sumStorage += 4 + metadata->dataSize;
+		sumStorage += 2; // length of description, may be zero
+		if (metadata->description) {
+			sumStorage += (int)strlen(metadata->description);
+		}
+	return sumStorage;
+}
+
+
+int
+GvrsMetadataWrite(void* gvrsReference, GvrsMetadata* metadata) {
+	if (!gvrsReference || !metadata || !metadata->name[0]) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	Gvrs* gvrs = gvrsReference;
+	FILE* fp = gvrs->fp;
+	if (!fp) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+
+	// TO DO:  fill in rest:
+	//   1. Write new metadata record to file.  keep track of file position
+	//   2. Search directory to see if a matching metadata element is already in place.
+	//      The match is based on the name and recordID elements.  
+	//        yes:    a. because a matching reference is already in place, re-use the existing
+	//                   reference in the directory's reference-record array.
+	//                b. de-allocate the file space currently occupied by old metadata record
+	//                c. replace file-position information in the directory's reference array.
+	//                   Note that even though the name and recordID match, the other information
+	//                   (data type, storage size, etc.) may have changed (not the best practice,
+	//                   of course, but we support it).
+	//        no:     a. reallocate the directory's reference array to be one larger
+	//                b. add the new information into the reference array, maintaining the proper
+	//                   sorting order...  find the position for new reference record in array
+	//                   if it needs to be inserted, shift reference records as necessary       
+	//                    populate the reference record as necessary
+ 
+
+	int i;
+	int status;
+	GvrsMetadataDirectory* d = gvrs->metadataDirectory;
+	if (gvrs->filePosMetadataDirectory) {
+		// The directory hasn't been modified since the GVRS was opened.  So the directory that
+		// was stored in the backing file must be marked for replacement.
+		GvrsFileSpaceDealloc(gvrs->fileSpaceManager, gvrs->filePosMetadataDirectory);
+		gvrs->filePosMetadataDirectory = 0;
+	}
+	d->writePending = 1;
+
+
+	GvrsMetadataReference* mRef = 0;
+	GvrsMetadataReference* match = 0;
+	if (d->records) {
+		int iRef = -1;
+		for (i = 0; i < d->nMetadataRecords; i++) {
+		    mRef = d->records + i;
+			if (strcmp(mRef->name, metadata->name) == 0 && mRef->recordID == metadata->recordID) {
+				match = mRef;
+				iRef = i;
+				break;
+			}
+		}
+		if (iRef >= 0) {
+			status = GvrsFileSpaceDealloc(gvrs->fileSpaceManager, mRef->offset);
+			mRef->offset = 0;
+			if (status) {
+				return status;
+			}
+		}
+	}
+
+	int n = computeMetadataSize(metadata);
+	GvrsLong filePos;
+	status = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeMetadata, n, &filePos);
+	if (status) {
+		return status;
+	}
+	GvrsWriteString(fp, metadata->name);
+	GvrsWriteInt(fp, metadata->recordID);
+	GvrsWriteByte(fp, (GvrsByte)(metadata->metadataType));
+	GvrsWriteZeroes(fp, 3); // reserved for future use
+	GvrsWriteInt(fp, metadata->dataSize);
+ 
+
+	// it is possible to have an empty metadata element, though it's not encouraged.
+	if (metadata->dataSize > 0) {
+		status = GvrsWriteByteArray(fp, metadata->dataSize, metadata->data);
+		if (status) {
+			return status;
+		}
+	}
+	 
+	
+	GvrsWriteString(fp, metadata->description);
+	status =  GvrsFileSpaceFinish(gvrs->fileSpaceManager, filePos);
+	if (status) {
+		return status;
+	}
+
+	// replace an existing reference or insert the new reference into the directory
+	if (match) {
+		// we can simply replace the file position for the old record
+		match->dataSize = metadata->dataSize;
+		match->metadataType = metadata->metadataType;
+		match->offset = filePos;
+	}
+	else {
+		// we need to insert the a new reference into the reference list
+		int nRecords = d->nMetadataRecords;
+		if (!d->records) {
+			// the array has not been allocated yet.  nRecords is expected to be zero
+			d->records = calloc(1, sizeof(GvrsMetadataReference));
+			if (!d->records) {
+				return GVRSERR_NOMEM;
+			}
+			mRef = d->records;
+		}
+		else {
+			GvrsMetadataReference* a = calloc((size_t)(nRecords + 1), sizeof(GvrsMetadataReference));
+			if (!a) {
+				return GVRSERR_NOMEM;
+			}
+			int index = 0; 
+			int comparison = 0;
+			for (i = 0; i < nRecords; i++) {
+				index = i;
+				comparison = strcmp(d->records[i].name, metadata->name);
+				if (comparison == 0) {
+					if (d->records[i].recordID > metadata->recordID) {
+						comparison = 1;
+					}
+					else {
+						comparison = -1;
+					}
+				}
+				if (comparison > 0) {
+					break;
+				}
+			}
+			for (i = 0; i < index; i++) {
+				a[i] = d->records[i];
+			}
+			mRef = a + index;
+			for (int i = index; i < nRecords; i++) {
+				a[i + 1] = d->records[i];
+			}
+			free(d->records);
+			d->records = a;
+
+		}
+		d->nMetadataRecords++;
+		GvrsStrncpy(mRef->name, sizeof(mRef->name), metadata->name); 
+		mRef->recordID = metadata->recordID;
+		mRef->dataSize = metadata->dataSize;
+		mRef->metadataType = metadata->metadataType;
+		mRef->offset = filePos;
+	}
+	return 0;
+}
+
+int  GvrsMetadataDirectoryWrite(void * gvrsReference, GvrsLong *filePosMetadataDirectory) {
+	if (!gvrsReference || !filePosMetadataDirectory) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+	Gvrs* gvrs = gvrsReference;
+	FILE* fp = gvrs->fp;
+	GvrsMetadataDirectory* d = gvrs->metadataDirectory;
+	if (!fp || !d) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+	*filePosMetadataDirectory = 0;
+	if (!d->writePending) {
+		return 0;
+	}
+	
+	// compute size for storage
+	int i;
+	int n = 4;
+	for (i = 0; i < d->nMetadataRecords; i++) {
+		n += 8; // file offset
+		// name is 2 bytes plus the length of the string
+		n += 2;
+		n += (int)strlen(d->records[i].name);
+		n += 4; // record ID
+		n += 1; // data type
+	}
+
+	int status;
+	GvrsLong filePos;
+	status = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeMetadataDir, n, &filePos);
+	if (status) {
+		return status;
+	}
+	status = GvrsWriteInt(fp, d->nMetadataRecords);
+	for (i = 0; i < d->nMetadataRecords; i++) {
+		GvrsMetadataReference* r = d->records + i;
+		GvrsWriteLong(fp, r->offset);
+		GvrsWriteString(fp, r->name);
+		GvrsWriteInt(fp, r->recordID);
+		GvrsWriteByte(fp, (GvrsByte)(r->metadataType));
+	}
+	status = GvrsFileSpaceFinish(gvrs->fileSpaceManager, filePos);
+	if (status) {
+		return status;
+	}
+	*filePosMetadataDirectory = filePos;
 	return 0;
 }

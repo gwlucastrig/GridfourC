@@ -295,8 +295,6 @@ int GvrsWriteUnsignedShort(FILE* fp, GvrsUnsignedShort value)
 	return fwrite(&i, 2, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-
-
 int GvrsWriteString(FILE* fp, const char *string)
 {
 	uint16_t len = 0;

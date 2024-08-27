@@ -537,10 +537,12 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 		return fail(gvrs, fp, status);
 	}
 
-	gvrs->metadataDirectory =  GvrsMetadataDirectoryRead(fp, gvrs->filePosMetadataDirectory, &status);
+	GvrsMetadataDirectory* metadataDirectory;
+	status =  GvrsMetadataDirectoryRead(fp, gvrs->filePosMetadataDirectory, &metadataDirectory);
 	if (status) {
 		return fail(gvrs, fp, status);
 	}
+	gvrs->metadataDirectory = metadataDirectory;
 
 	status = GvrsSetTileCacheSize(gvrs, GvrsTileCacheSizeMedium);
 	if (status) {
@@ -789,6 +791,20 @@ static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 		}
 		GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_TILE_DIR);
 		status = GvrsWriteLong(fp, tileDirectoryPos);
+		if (status) {
+			return status;
+		}
+	}
+
+	GvrsMetadataDirectory* mDir = gvrs->metadataDirectory;
+	if (mDir && mDir->writePending){
+		GvrsLong filePosMetadataDirectory;
+		status = GvrsMetadataDirectoryWrite(gvrs, &filePosMetadataDirectory);
+		if (status) {
+			return status;
+		}
+		GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_METADATA_DIR);
+		status = GvrsWriteLong(fp, filePosMetadataDirectory);
 		if (status) {
 			return status;
 		}

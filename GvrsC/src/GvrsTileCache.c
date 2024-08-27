@@ -601,7 +601,7 @@ static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
 		// This tile has never been written before.  Allocate space for it
 		// and update the tile directory.  Note that the file-space alloction function
 		// sets the file position to the indicate position
-		filePosition = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTile, nBytesForOutput, &status);
+		status = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTile, nBytesForOutput, &filePosition);
 		allocated = 1;
 		//filePosition = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTile, gvrs->nBytesForTileData+32);
 		if (filePosition == 0) {

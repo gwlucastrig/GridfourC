@@ -56,6 +56,8 @@ extern "C"
 #define GVRSERR_NOT_OPENED_FOR_WRITING      -19
 #define GVRSERR_COMPRESSION_FAILED          -20
 #define GVRSERR_INTERNAL_ERROR              -21
+#define GVRSERR_NAME_NOT_UNIQUE             -22
+
 
 #ifdef __cplusplus
 }

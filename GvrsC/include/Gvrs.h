@@ -311,7 +311,23 @@ GvrsElement** GvrsGetElements(Gvrs* gvrs, int* nElements);
 */
 int GvrsElementIsIntegral(GvrsElement* element);
 
+/**
+* Indicates whether an element is of a floating-point type.
+* Includes types Float and IntCodedFloat.
+* @param element a valid reference to an element
+* @return non-zero (true) if floating-point; zero (false) if not.
+*/
 int GvrsElementIsFloat(GvrsElement* element);
+
+
+/**
+* Indicates whether an element represents a continous surface (a mathematical field).
+* @param element a valid reference to an element
+* @return non-zero (true) if floating-point; zero (false) if not.
+*/
+int GvrsElementIsContinuous(GvrsElement* element);
+
+
 
 /**
 * Reads an integer value from GVRS. May access the file associated with the specified element.
