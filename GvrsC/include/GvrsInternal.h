@@ -182,14 +182,14 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 		GvrsInt recordID;
 		GvrsMetadataType metadataType;
 		GvrsInt dataSize;
-		GvrsLong offset;
+		GvrsLong filePos;
 	}GvrsMetadataReference;
 
 	typedef struct GvrsMetadataDirectoryTag {
 		int writePending;
-		int nMetadataRecords;
+		int nMetadataReferences;
 		GvrsLong filePosMetadataDirectory;
-		GvrsMetadataReference* records;
+		GvrsMetadataReference* references;
 	}GvrsMetadataDirectory;
 
 
@@ -228,11 +228,11 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 
 	/**
 	* Sets the file position for a tile in the GVRS tile directory. The GVRS specification requires that
-	* file positions for all records (including tile records) always be a multiple of 8. This approach
+	* file positions for all references (including tile references) always be a multiple of 8. This approach
 	* allows file positions for files of size up to 32 GiB to be stored in 4-byte unsigned integers.
 	* @param td a pointer to a valid tile directory structure
 	* @param tileIndex a positive integer
-	* @param filePosition the offset in the file at which the tile is stored.
+	* @param filePosition the filePos in the file at which the tile is stored.
 	*/
 	int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition);
 
@@ -284,7 +284,7 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	int GvrsMetadataDirectoryWrite(void* gvrsReference, GvrsLong* filePosMetadataDirectory);
 	int GvrsMetadataRead(FILE* fp, GvrsMetadata**);
 	GvrsMetadataDirectory* GvrsMetadataDirectoryFree(GvrsMetadataDirectory* dir);
-	GvrsMetadata* GvrsMetadataFree(GvrsMetadata* m);
+ 
 
 
 

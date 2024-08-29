@@ -196,8 +196,8 @@ GvrsSummarize(Gvrs* gvrs, FILE* fp) {
 	fprintf(fp, "     Name                           Record ID    Type\n");
 	GvrsMetadataDirectory* md = gvrs->metadataDirectory;
 	if (md) {
-		for (i = 0; i < md->nMetadataRecords; i++) {
-			GvrsMetadataReference* m = md->records + i;
+		for (i = 0; i < md->nMetadataReferences; i++) {
+			GvrsMetadataReference* m = md->references + i;
 			const char* typeName = GvrsMetadataGetTypeName(m->metadataType);
 			printf("%2d.  %-32.32s  %6d    %-12.12s\n", i, m->name, m->recordID, typeName);
 		}

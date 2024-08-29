@@ -249,7 +249,7 @@ GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode) {
 
 
 int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition) {
-	// TO DO: test for offset greater than 32 GB threshold that is to big for iOffset and requires lOffset  
+	// TO DO: test for filePos greater than 32 GB threshold that is to big for iOffset and requires lOffset  
 	int row = tileIndex / td->nColsOfTiles;
 	int col = tileIndex - row * td->nColsOfTiles;
 	if (td->nCols == 0) {

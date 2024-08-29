@@ -102,9 +102,9 @@ static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
 	// The array based representation of the Huffman tree
 	// is laid out as triplets of integer values each
 	// representing a node
-	//     [offset+0] symbol code (or -1 for a branch node)
-	//     [offset+1] index to left child node (zero if leaf)
-	//     [offset+2] index to right child node (zero if leaf)
+	//     [filePos+0] symbol code (or -1 for a branch node)
+	//     [filePos+1] index to left child node (zero if leaf)
+	//     [filePos+2] index to right child node (zero if leaf)
 	// The maximum number of symbols is 256.  The number of nodes in
 	// a Huffman tree is always 2*n-1.  We allocate 3 integers per
 	// node, or 2*n*3.
@@ -154,8 +154,8 @@ static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
 		// in the node-index array starting at position nodeIndexCount.
 		// We are going to store an integer reference to the new node as
 		// one of the child nodes of the node at the current position
-		// on the stack.  If the left-side node is already populates (offset+1),
-		// we will store the reference as the right-side child node (offset+2).
+		// on the stack.  If the left-side node is already populates (filePos+1),
+		// we will store the reference as the right-side child node (filePos+2).
 		if (nodeIndex[offset + 1] == 0) {
 			nodeIndex[offset + 1] = nodeIndexCount;
 		}
@@ -284,7 +284,7 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 	} else {
 		for (i = 0; i < nM32; i++) {
 			// start from the root node at nodeIndex[0]
-			// for branch nodes, nodeIndex[offset] will be -1.  when nodeIndex[offset] > -1,
+			// for branch nodes, nodeIndex[filePos] will be -1.  when nodeIndex[filePos] > -1,
 			// the traversal has reached a terminal node and is complete.
 			// We know that the root node is always a branch node, so we have a shortcut.
 			// We don't have to check to see if nodeIndex[0] == -1 

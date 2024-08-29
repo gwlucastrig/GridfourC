@@ -40,7 +40,7 @@ GvrsCodec* GvrsCodecLsopAlloc();
 #endif
 
 
-// This method records an error condition as part of the builder.
+// This method references an error condition as part of the builder.
 // For compactness, it may also be used in a return statement
 static int recordStatus(GvrsBuilder* builder, int errorCode) {
 	if (errorCode) {
@@ -1051,7 +1051,7 @@ static int writeHeader(Gvrs* gvrs) {
 	status = GvrsWriteByte(fp, 0);
 
 	GvrsLong filePos = ftell(fp);
-	status = GvrsWriteLong(fp, 0);  // pos 80, offset to first (only) tile directory
+	status = GvrsWriteLong(fp, 0);  // pos 80, filePos to first (only) tile directory
 
 	// write a block of reservd longs for future use
 	status = GvrsWriteLong(fp, 0);
@@ -1064,7 +1064,7 @@ static int writeHeader(Gvrs* gvrs) {
 
 	GvrsWriteZeroes(fp, 8);  // reserved for future use
 
-	// The offset to the end of the header needs to be a multiple
+	// The filePos to the end of the header needs to be a multiple
 	// of 8 in order to support file position compression. The size is
 	// not known a priori because it will depend on the structure
 	// of the elements in the specification.  At this point,

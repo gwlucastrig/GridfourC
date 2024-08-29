@@ -86,9 +86,9 @@ const char* GvrsMetadataGetTypeName(GvrsMetadataType mType) {
 
 GvrsMetadataDirectory* GvrsMetadataDirectoryFree(GvrsMetadataDirectory* dir) {
 	if (dir) {
-		if (dir->records) {
-			free(dir->records);
-			dir->records = 0;
+		if (dir->references) {
+			free(dir->references);
+			dir->references = 0;
 		}
 		free(dir);
 	}
@@ -133,15 +133,15 @@ GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDirectory, GvrsMetad
 	}
 
 
-	dir->records = calloc(nRecords, sizeof(GvrsMetadataReference));
-	if (!dir->records) {
+	dir->references = calloc(nRecords, sizeof(GvrsMetadataReference));
+	if (!dir->references) {
 		return readFailed(dir, GVRSERR_NOMEM);
 	}
-	dir->nMetadataRecords = nRecords;
+	dir->nMetadataReferences = nRecords;
 
 	for (i = 0; i < nRecords; i++) {
-		GvrsMetadataReference* r = dir->records + i;
-		status = GvrsReadLong(fp, &r->offset);
+		GvrsMetadataReference* r = dir->references + i;
+		status = GvrsReadLong(fp, &r->filePos);
 		if (status) {
 			return readFailed(dir, status);
 		}
@@ -167,27 +167,14 @@ GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDirectory, GvrsMetad
 	}
 
 	if (nRecords > 1) {
-		qsort(dir->records, nRecords, sizeof(GvrsMetadataReference), cmpMetaRec);
+		qsort(dir->references, nRecords, sizeof(GvrsMetadataReference), cmpMetaRec);
 	}
 	*directory = dir;
 	return 0;
 }
 
  
-GvrsMetadata *GvrsMetadataFree(GvrsMetadata* m) {
-	if (m) {
-		if (m->data) {
-			free(m->data);
-			m->data = 0;
-		}
-		if (m->description) {
-			free(m->description);
-			m->description = 0;
-		}
-		free(m);
-	}
-	return 0;
-}
+
  
 int GvrsMetadataRead(FILE* fp, GvrsMetadata **metadata) {
 
@@ -280,27 +267,27 @@ int  GvrsReadMetadataByNameAndID(Gvrs* gvrs, const char* name, int recordID, Gvr
 	}
 
 	GvrsMetadataDirectory* dir = gvrs->metadataDirectory;
-	if (!dir || dir->nMetadataRecords == 0) {
+	if (!dir || dir->nMetadataReferences == 0) {
 		return 0;  // no further action required
 	}
 
-	rs->records = calloc(dir->nMetadataRecords, sizeof(GvrsMetadata *));
+	rs->records = calloc(dir->nMetadataReferences, sizeof(GvrsMetadata *));
 	if (!rs->records) {
 		GvrsMetadataResultSetFree(rs);
 		return GVRSERR_NOMEM;
 	}
 
 	FILE* fp = gvrs->fp;
-	for (i = 0; i < dir->nMetadataRecords; i++) {
-		GvrsMetadataReference r = dir->records[i];
+	for (i = 0; i < dir->nMetadataReferences; i++) {
+		GvrsMetadataReference r = dir->references[i];
 		if ((*name == '*' || strcmp(name, r.name) == 0) && (recordID == INT32_MIN || recordID == r.recordID)) {
-			int status = GvrsSetFilePosition(fp, r.offset);
+			int status = GvrsSetFilePosition(fp, r.filePos);
 			if (status) {
 				// non-zero status indicates an error
 				GvrsMetadataResultSetFree(rs);
 				return status;
 			}
-			//rs->records[rs->nRecords++] = GvrsMetadataRead(fp, &status);
+			//rs->references[rs->nRecords++] = GvrsMetadataRead(fp, &status);
 			GvrsMetadata* m;
 			status  = GvrsMetadataRead(fp, &m);
 			if (status) {
@@ -500,7 +487,7 @@ GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	if (!gvrs->timeOpenedForWritingMS) {
-		return GVRSERR_FILE_ACCESS;
+		return GVRSERR_NOT_OPENED_FOR_WRITING;
 	}
 
 
@@ -518,7 +505,7 @@ GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
 	//        no:     a. reallocate the directory's reference array to be one larger
 	//                b. add the new information into the reference array, maintaining the proper
 	//                   sorting order...  find the position for new reference record in array
-	//                   if it needs to be inserted, shift reference records as necessary       
+	//                   if it needs to be inserted, shift reference references as necessary       
 	//                    populate the reference record as necessary
  
 
@@ -536,10 +523,10 @@ GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
 
 	GvrsMetadataReference* mRef = 0;
 	GvrsMetadataReference* match = 0;
-	if (d->records) {
+	if (d->references) {
 		int iRef = -1;
-		for (i = 0; i < d->nMetadataRecords; i++) {
-		    mRef = d->records + i;
+		for (i = 0; i < d->nMetadataReferences; i++) {
+		    mRef = d->references + i;
 			if (strcmp(mRef->name, metadata->name) == 0 && mRef->recordID == metadata->recordID) {
 				match = mRef;
 				iRef = i;
@@ -547,8 +534,8 @@ GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
 			}
 		}
 		if (iRef >= 0) {
-			status = GvrsFileSpaceDealloc(gvrs->fileSpaceManager, mRef->offset);
-			mRef->offset = 0;
+			status = GvrsFileSpaceDealloc(gvrs->fileSpaceManager, mRef->filePos);
+			mRef->filePos = 0;
 			if (status) {
 				return status;
 			}
@@ -588,18 +575,18 @@ GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
 		// we can simply replace the file position for the old record
 		match->dataSize = metadata->dataSize;
 		match->metadataType = metadata->metadataType;
-		match->offset = filePos;
+		match->filePos = filePos;
 	}
 	else {
 		// we need to insert the a new reference into the reference list
-		int nRecords = d->nMetadataRecords;
-		if (!d->records) {
+		int nRecords = d->nMetadataReferences;
+		if (!d->references) {
 			// the array has not been allocated yet.  nRecords is expected to be zero
-			d->records = calloc(1, sizeof(GvrsMetadataReference));
-			if (!d->records) {
+			d->references = calloc(1, sizeof(GvrsMetadataReference));
+			if (!d->references) {
 				return GVRSERR_NOMEM;
 			}
-			mRef = d->records;
+			mRef = d->references;
 		}
 		else {
 			GvrsMetadataReference* a = calloc((size_t)(nRecords + 1), sizeof(GvrsMetadataReference));
@@ -610,9 +597,9 @@ GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
 			int comparison = 0;
 			for (i = 0; i < nRecords; i++) {
 				index = i;
-				comparison = strcmp(d->records[i].name, metadata->name);
+				comparison = strcmp(d->references[i].name, metadata->name);
 				if (comparison == 0) {
-					if (d->records[i].recordID > metadata->recordID) {
+					if (d->references[i].recordID > metadata->recordID) {
 						comparison = 1;
 					}
 					else {
@@ -624,22 +611,22 @@ GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
 				}
 			}
 			for (i = 0; i < index; i++) {
-				a[i] = d->records[i];
+				a[i] = d->references[i];
 			}
 			mRef = a + index;
 			for (int i = index; i < nRecords; i++) {
-				a[i + 1] = d->records[i];
+				a[i + 1] = d->references[i];
 			}
-			free(d->records);
-			d->records = a;
+			free(d->references);
+			d->references = a;
 
 		}
-		d->nMetadataRecords++;
+		d->nMetadataReferences++;
 		GvrsStrncpy(mRef->name, sizeof(mRef->name), metadata->name); 
 		mRef->recordID = metadata->recordID;
 		mRef->dataSize = metadata->dataSize;
 		mRef->metadataType = metadata->metadataType;
-		mRef->offset = filePos;
+		mRef->filePos = filePos;
 	}
 	return 0;
 }
@@ -664,11 +651,11 @@ int  GvrsMetadataDirectoryWrite(void * gvrsReference, GvrsLong *filePosMetadataD
 	// compute size for storage
 	int i;
 	int n = 4;
-	for (i = 0; i < d->nMetadataRecords; i++) {
-		n += 8; // file offset
+	for (i = 0; i < d->nMetadataReferences; i++) {
+		n += 8; // file filePos
 		// name is 2 bytes plus the length of the string
 		n += 2;
-		n += (int)strlen(d->records[i].name);
+		n += (int)strlen(d->references[i].name);
 		n += 4; // record ID
 		n += 1; // data type
 	}
@@ -679,10 +666,10 @@ int  GvrsMetadataDirectoryWrite(void * gvrsReference, GvrsLong *filePosMetadataD
 	if (status) {
 		return status;
 	}
-	status = GvrsWriteInt(fp, d->nMetadataRecords);
-	for (i = 0; i < d->nMetadataRecords; i++) {
-		GvrsMetadataReference* r = d->records + i;
-		GvrsWriteLong(fp, r->offset);
+	status = GvrsWriteInt(fp, d->nMetadataReferences);
+	for (i = 0; i < d->nMetadataReferences; i++) {
+		GvrsMetadataReference* r = d->references + i;
+		GvrsWriteLong(fp, r->filePos);
 		GvrsWriteString(fp, r->name);
 		GvrsWriteInt(fp, r->recordID);
 		GvrsWriteByte(fp, (GvrsByte)(r->metadataType));
@@ -692,5 +679,216 @@ int  GvrsMetadataDirectoryWrite(void * gvrsReference, GvrsLong *filePosMetadataD
 		return status;
 	}
 	*filePosMetadataDirectory = filePos;
+	return 0;
+}
+
+
+static int checkIdentifier(const char* name, int maxLength) {
+	if (!name) {
+		return GVRSERR_BAD_NAME_SPECIFICATION;
+	}
+	size_t len = strlen(name);
+	if (len == 0 || len > maxLength) {
+		return  GVRSERR_BAD_NAME_SPECIFICATION;
+	}
+	if (!isalpha(name[0])) {
+		// GVRS identifiers always start with a letter
+		return GVRSERR_BAD_NAME_SPECIFICATION;
+	}
+	int i;
+	for (i = 1; i < len; i++) {
+		if (!isalnum(name[i]) && name[i] != '_') {
+			// GVRS identifiers are a mix of letters, numerals, and underscores
+			return  GVRSERR_BAD_NAME_SPECIFICATION;
+		}
+	}
+	return 0;
+}
+
+
+int GvrsMetadataInit(const char* name, GvrsInt recordID,  GvrsMetadata** metadata) {
+	if (!name || !*name || !metadata) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	*metadata = 0;
+	int status;
+
+	status = checkIdentifier(name, GVRS_METADATA_NAME_SZ);
+	if (status) {
+		return status;
+	}
+
+	GvrsMetadata* m = calloc(1, sizeof(GvrsMetadata));
+	if (!m) {
+		return GVRSERR_NOMEM;
+	}
+	GvrsStrncpy(m->name, sizeof(m->name), name);
+	m->recordID = recordID;
+	m->metadataType = GvrsMetadataTypeUnspecified;
+	m->bytesPerValue = 1;
+	*metadata = m;
+	return 0;
+}
+
+
+int GvrsMetadataSetAscii(GvrsMetadata* metadata, const char* string) {
+	if (!metadata || !string) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	if (metadata->data) {
+		// we will replace any existing data
+		free(metadata->data);
+		metadata->data = 0;
+	}
+	// at this time, the ASCII type (8 bit extended ASCII) is supported
+	// but the string type (UTF-8) is not.
+	metadata->metadataType = GvrsMetadataTypeAscii;
+	metadata->bytesPerValue = 1;
+
+	// allocate data to hold:
+	//     string length specification (4 bytes)
+	//     string content (n bytes)
+	//     null terminator (1 byte)
+	if (!*string) {
+		metadata->data = calloc(5, sizeof(char));
+		if (!metadata->data) {
+			return GVRSERR_NOMEM;
+		}
+		metadata->nValues = 0;
+		metadata->dataSize = 0;
+	}
+	else {
+		// allocate room for the null terminator
+		int n = (int)strlen(string);
+		metadata->data = (GvrsByte*)malloc((n + 5));
+		if (!metadata->data) {
+			return GVRSERR_NOMEM;
+		}
+		metadata->data[0] = (GvrsByte)(n & 0xff);
+		metadata->data[1] = (GvrsByte)((n>>8) & 0xff);
+		metadata->data[2] = (GvrsByte)((n>>16) & 0xff);
+		metadata->data[3] = (GvrsByte)((n>>24) & 0xff);
+		memcpy(metadata->data + 4, string, n);
+		metadata->data[n + 4] = 0;
+		metadata->nValues = 1;
+		metadata->dataSize = n + 4;
+	}
+
+	return 0;
+}
+
+
+int GvrsMetadataSetDouble(GvrsMetadata* metadata, int nValues, GvrsDouble* doubleRef) {
+	size_t dataSize = nValues * sizeof(GvrsDouble);
+	return GvrsMetadataSetData(metadata, GvrsMetadataTypeDouble, dataSize, doubleRef);
+}
+
+int GvrsMetadataSetShort(GvrsMetadata* metadata, int nValues, GvrsShort* shortRef) {
+	size_t dataSize = nValues * sizeof(GvrsShort);
+	return GvrsMetadataSetData(metadata, GvrsMetadataTypeShort, dataSize, shortRef);
+}
+
+
+int GvrsMetadataSetUnsignedShort(GvrsMetadata* metadata, int nValues, GvrsUnsignedShort* unsRef) {
+	size_t dataSize = nValues * sizeof(GvrsUnsignedShort);
+	return GvrsMetadataSetData(metadata, GvrsMetadataTypeUnsignedShort, dataSize, unsRef);
+}
+ 
+
+int GvrsMetadataSetData(GvrsMetadata* metadata,  GvrsMetadataType metadataType, size_t dataSize, void *data) {
+	if (!metadata || !data || dataSize < 0) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	if (metadataType == GvrsMetadataTypeString || metadataType == GvrsMetadataTypeAscii) {
+		// strings get special handling
+		return GvrsMetadataSetAscii(metadata, (const char*)data);
+	}
+
+	int typeIndex = (int)metadataType;
+	if (typeIndex < 0 || typeIndex>9) {
+		return GVRSERR_FILE_ERROR;
+	}
+
+	if (metadata->data) {
+		// we will replace any existing data
+		free(metadata->data);
+		metadata->data = 0;
+	}
+	metadata->dataSize = 0;
+	metadata->nValues = 0;
+
+	int nBytesPerValue = metadataTypeBytesPerValue[typeIndex];
+	metadata->metadataType = metadataType;
+	metadata->bytesPerValue = nBytesPerValue;
+
+	int nValues = (int)dataSize / nBytesPerValue;
+	if (nValues == 0) {
+		return 0;
+	}
+	
+	metadata->nValues = nValues;
+	metadata->dataSize = nValues * nBytesPerValue;
+	metadata->data = (GvrsByte*)malloc(metadata->dataSize);
+	if (!metadata->data) {
+		metadata->dataSize = 0;
+		metadata->nValues = 0;
+		return GVRSERR_NOMEM;
+	}
+	memmove(metadata->data, data, metadata->dataSize);
+	return 0;
+}
+
+
+GvrsMetadata*
+GvrsMetadataFree(GvrsMetadata* metadata) {
+	if (metadata) {
+		if (metadata->data) {
+			free(metadata->data);
+			metadata->data = 0;  // to satisfy MSVC code checker
+		}
+		if (metadata->description) {
+			free(metadata->description);
+			metadata->description = 0;
+		}
+		memset(metadata, 0, sizeof(GvrsMetadata)); // diagnostic
+		free(metadata);
+	}
+	return 0;
+}
+
+
+int
+GvrsMetadataDelete(Gvrs* gvrs, const char *name, int recordID) {
+	if (!gvrs || !name || !name[0]) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	FILE* fp = gvrs->fp;
+	if (!fp) {
+		return GVRSERR_FILE_ERROR;
+	}
+	if (!gvrs->timeOpenedForWritingMS) {
+		return GVRSERR_NOT_OPENED_FOR_WRITING;
+	}
+	GvrsMetadataDirectory* dir = gvrs->metadataDirectory;
+	if (dir->references) {
+		int i;
+		for (i = 0; i < dir->nMetadataReferences; i++) {
+			GvrsMetadataReference* ref = dir->references + i;
+			if (strcmp(name, ref->name) == 0 && recordID == ref->recordID) {
+				dir->writePending = 1;
+				int status = GvrsFileSpaceDealloc(gvrs->fileSpaceManager, dir->references[i].filePos);
+				if (status) {
+					return status;
+				}
+				int n = dir->nMetadataReferences - 1;
+				for (int j = i; j < n; j++) {
+					dir->references[j] = dir->references[j + 1];
+				}
+				memset(dir->references + n, 0, sizeof(GvrsMetadataReference));
+				dir->nMetadataReferences--;
+				break;
+			}
+		}
+	}
 	return 0;
 }

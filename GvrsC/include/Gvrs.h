@@ -90,7 +90,7 @@ typedef struct {
 /**
 * Provides range of values and default (fill) for a GVRS integer-coded floating-point  (ICF) element.
 * In the ICF format, floating-point values are scaled to integers using a scale (multiplicative) and
-* offset value.
+* filePos value.
 */
 typedef struct GvrsElmSpecIntCodedFloatTag {
 	GvrsFloat minValue;
@@ -142,7 +142,7 @@ typedef struct GvrsElementTag {
 	}elementSpec;
 	int typeSize;      // bytes per value of type
 	int elementIndex;  // index for element from specification
-	int dataOffset;    // byte offset for start of element data
+	int dataOffset;    // byte filePos for start of element data
 	int dataSize;      // the total bytes used for the element data when uncompressed.
 
 	int fillValueInt;
@@ -233,7 +233,6 @@ typedef struct GvrsTag {
 
 /**
  * Open an existing GVRS file as a virtual raster store.
- *
  * 
  * This function creates a virtual raster store that includes allocated memory
  * and an open file pointer.  When a program is done using the virtual raster store,
@@ -248,7 +247,7 @@ typedef struct GvrsTag {
  * be opened by another program or application thread (writing requires exclusive access).
  * However, a file that is opened for read-only can be accessed by muliple processes simultaneously.
  * When a file is opened for writing it may be either read or write.
- * @param a pointer to a pointer varaible to receive the address of the memory allocated when
+ * @param gvrs a pointer to a pointer varaible to receive the address of the memory allocated when
  * the GVRS data store is opened.
  * @param path the file specification.
  * @param accessMode  the mode of access; r for read; w for write.
@@ -444,6 +443,16 @@ int GvrsReadMetadataByNameAndID(Gvrs* gvrs, const char* name, int recordID, Gvrs
 */
 int GvrsMetadataWrite(Gvrs* gvrs, GvrsMetadata* metadata);
 
+/**
+* Removes the metadata record identified by the name and recordID.  If no matching record
+* exists, the file is unchanged.
+* @param gvrs a valid reference to a GVRS instance opened for writing.
+* @param name a valid identifier indicating the name of the metadata record to be deleted.
+* @param recordID the integer ID associated with the metadata record to be deleted.
+* @return if successful, zero; otherwise an integer value indicating an error condition.
+* 
+*/
+int GvrsMetadataDelete(Gvrs* gvrs, const char* name, int recordID);
 
 
 /**
