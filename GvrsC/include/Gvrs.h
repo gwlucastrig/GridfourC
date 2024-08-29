@@ -420,18 +420,35 @@ void GvrsMapGeoToGrid(Gvrs* gvrs, double latitude, double longitude, double* row
 
 /**
 * Read the metadata elements that match the specified name and record ID.  The return value from this method
-* is a pointer to a metadata result set.
+* is a pointer to a metadata result set.  The result set is detached from the GVRS data source and will
+* not be modified by any subsequent actions performed on the GVRS instance.
 * <p>
 * <strong>Memory management:</strong>The memory for the result set is assumed to be under the management
 * of the calling application (see GvrsMetadataResultSetFree).
 * @param gvrs a valid instance of a GVRS data store.
-* @param name the name of the metadata element to be read from the GVRS data store or an asterisk to indicate
-* a wildcard operator.
-* @param recordID the numeric record ID or an INT32_MIN to indicate a wildcard operator.
+* @param name the name of the metadata element to be read from the GVRS data store.
+* @param recordID the numeric record ID.
 * @param resultSet a pointer to a pointer for a variable to receive the result set address.
 * @return if successful, zero; otherwise an integer value indicating an error condition.
 */
 int GvrsReadMetadataByNameAndID(Gvrs* gvrs, const char* name, int recordID, GvrsMetadataResultSet** resultSet);
+
+
+/**
+* Read the metadata elements that match the specified name. The name may refer to a specific metadata
+* record or may act as a wildcard operator. The return value from this method
+* is a pointer to a metadata result set.  The result set is detached from the GVRS data source and will
+* not be modified by any subsequent actions performed on the GVRS instance.
+* <p>
+* <strong>Memory management:</strong>The memory for the result set is assumed to be under the management
+* of the calling application (see GvrsMetadataResultSetFree).
+* @param gvrs a valid instance of a GVRS data store.
+* @param name the name of the metadata element to be read from the GVRS data store, or an asterisk if
+* the specification is intended to act as a wildcard operation.
+* @param resultSet a pointer to a pointer for a variable to receive the result set address.
+* @return if successful, zero; otherwise an integer value indicating an error condition.
+*/
+int GvrsReadMetadataByName(Gvrs* gvrs, const char* name, GvrsMetadataResultSet** resultSet);
 
 /**
 * Writes a metadata structure to the GVRS instance.  The metadata element is uniquely identified by its

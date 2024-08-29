@@ -421,7 +421,12 @@ static int decodeInt(int nRows, int nColumns, int packingLength, GvrsByte* packi
 		return GVRSERR_BAD_COMPRESSION_FORMAT;
 	}
 
-	GvrsM32* mInit = GvrsM32Alloc(initializerCodes, nInitializerCodes);
+	GvrsM32* mInit;
+	status = GvrsM32Alloc(initializerCodes, nInitializerCodes, &mInit);
+	if (status) {
+		cleanUp(initializerCodes, interiorCodes, inputBits);
+		return status;
+	}
 
 	// step 1, the first row -------------------
 	values[0] = seed;
@@ -476,7 +481,12 @@ static int decodeInt(int nRows, int nColumns, int packingLength, GvrsByte* packi
 	float u11 = u[10];
 	float u12 = u[11];
 
-	GvrsM32* m32 = GvrsM32Alloc(interiorCodes, nInteriorCodes);
+	GvrsM32* m32;
+	status = GvrsM32Alloc(interiorCodes, nInteriorCodes, &m32);
+	if (status) {
+		cleanUp(initializerCodes, interiorCodes, inputBits);
+		return status;
+	}
 
 	// in the loop below, we wish to economize on processing by copying
 	 // the neighbor values into local variables.  In the inner (column)

@@ -111,11 +111,27 @@ typedef struct GvrsBitInputTag {
 * @param buffer an array of bytes supplying a sequence of one or more M32 codes.
 * @param bufferLength the number of bytes in the buffer; because some M32 codes have
 * multi-byte counts, this value may be larger than the number of symbols in the sequence.
-* @return if successful, a valid reference; otherwise, a null reference.
+* @param m32 a pointer to a pointer for a variable to receive the address for the GvrsM32 structure.
+* @return if successful, zero; otherwise an integer value indicating an error condition.
 */
-GvrsM32* GvrsM32Alloc(GvrsByte* buffer, GvrsInt bufferLength);
-GvrsM32* GvrsM32Free(GvrsM32*);
-GvrsInt  GvrsM32GetNextSymbol(GvrsM32*);
+int  GvrsM32Alloc(GvrsByte* buffer, GvrsInt bufferLength, GvrsM32** m32);
+
+/**
+* Deallocates the memory associated with the m32 codec.
+* @param a valid m32 reference.
+* @return a null.
+*/
+GvrsM32* GvrsM32Free(GvrsM32* m32);
+
+/**
+* Get the next integer value provided by the GvrsM32 instance.  The responsibility for determining
+* whether additional symbols are available is left to the application.  If no future symbols are
+* available, this function returns an INT_MIN (indicating "no data").  Note that in ordinary use,
+* an INT_MIN is a valid symbol, so that value cannot be used to detect an end-of-data condition.
+* @param m32 a valid instance of a M32 codec.
+* @return if successful, a valid integer; otherwise an INT_MIN.
+*/
+GvrsInt  GvrsM32GetNextSymbol(GvrsM32* m32);
 
 /**
 * Allocates a M32 structure, including internal buffer.  The internal buffer is assumed
@@ -125,6 +141,12 @@ GvrsInt  GvrsM32GetNextSymbol(GvrsM32*);
 * @return if successful, a valid reference; otherwise, a null.
 */
 GvrsM32* GvrsM32AllocForOutput();
+
+/**
+* Appends the specified integer value to the specified m32 encoding.
+* @param m32 a valid instance, initialized for output.
+* @return if successful, zero; otherwise an integer value indicating an error condition.
+*/
 int GvrsM32AppendSymbol(GvrsM32* m32, int symbol);
 
 GvrsBitInput* GvrsBitInputAlloc( GvrsByte* text, size_t nBytesInText, int *errorCode);
@@ -137,9 +159,9 @@ void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* ou
 void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);
 void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);
 
-GvrsM32* GvrsPredictor1encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, int* errCode);
-GvrsM32* GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, int* errCode);
-GvrsM32* GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, int* errCode);
+int GvrsPredictor1encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, GvrsM32** m32);
+int GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, GvrsM32** m32);
+int GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, GvrsM32** m32);
 
 #ifdef __cplusplus
 }

@@ -139,7 +139,11 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 
  
 	status = 0;
-	GvrsM32* m32 = GvrsM32Alloc(output, inflatedLength);
+	GvrsM32* m32;
+	status = GvrsM32Alloc(output, inflatedLength, &m32);
+	if (status) {
+		return status;
+	}
 	switch (predictorIndex) {
 	case 0:
 		status =  GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
@@ -245,19 +249,20 @@ static GvrsByte* encodeInt(int nRow, int nColumn,
 	GvrsByte* packing = 0;
 	GvrsInt seed;
 
-
+	int status;
 	for (int iPack = 1; iPack <= 3; iPack++) {
 		GvrsM32* m32 = 0;
 		if (iPack == 1) {
-			m32 = GvrsPredictor1encode(nRow, nColumn, data, &seed, errCode);
+			status = GvrsPredictor1encode(nRow, nColumn, data, &seed, &m32);
 		}
 		else if (iPack == 2) {
-			m32 = GvrsPredictor2encode(nRow, nColumn, data, &seed, errCode);
+			status = GvrsPredictor2encode(nRow, nColumn, data, &seed, &m32);
 		}
 		else {
-			m32 = GvrsPredictor3encode(nRow, nColumn, data, &seed, errCode);
+			status = GvrsPredictor3encode(nRow, nColumn, data, &seed, &m32);
 		}
-		if (*errCode || !m32) {
+		if (status) {
+			*errCode = status;
 			GvrsM32Free(m32);
 			if (packing) {
 				free(packing);

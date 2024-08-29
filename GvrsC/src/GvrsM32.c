@@ -31,13 +31,19 @@
 #include "GvrsCodec.h"
 
 
-GvrsM32* GvrsM32Alloc(GvrsByte* input, GvrsInt inputLength) {
+int GvrsM32Alloc(GvrsByte* input, GvrsInt inputLength, GvrsM32** m32Reference) {
+	if (!input || !m32Reference) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	*m32Reference = 0;
 	GvrsM32* m32 = calloc(1, sizeof(GvrsM32));
 	if (m32) {
 		m32->buffer = input;
 		m32->bufferLimit = inputLength;
+		*m32Reference = m32;
+		return 0;
 	}
-	return m32;
+	return GVRSERR_NOMEM;;
 }
 
 
@@ -45,8 +51,9 @@ GvrsM32* GvrsM32Free(GvrsM32* m32) {
 	if (m32) {
 		if (m32->bufferIsManaged) {
 			free(m32->buffer);
+			m32->buffer = 0;
 		}
-		m32->buffer = 0;
+		memset(m32, 0, sizeof(GvrsM32)); // for diagnostic purposes.
 		free(m32);
 	}
 	return 0;
@@ -151,7 +158,7 @@ GvrsM32AppendSymbol(GvrsM32* m32, int symbol) {
 		GvrsByte* b = realloc(m32->buffer, m32->bufferLimit);
 		if (!b) {
 			// malloc failed, do nothing
-			return -1;
+			return GVRSERR_NOMEM;
 		}
 		m32->buffer = b;
 

@@ -271,6 +271,9 @@ int  GvrsReadMetadataByNameAndID(Gvrs* gvrs, const char* name, int recordID, Gvr
 		return 0;  // no further action required
 	}
 
+	// allocate an array of pointers large enough to hold every metadata element in the GVRS source.
+	// in practice, this function will usually not produce that many records, but the overhead
+	// is small and it simplifies the code.  
 	rs->records = calloc(dir->nMetadataReferences, sizeof(GvrsMetadata *));
 	if (!rs->records) {
 		GvrsMetadataResultSetFree(rs);
@@ -280,14 +283,13 @@ int  GvrsReadMetadataByNameAndID(Gvrs* gvrs, const char* name, int recordID, Gvr
 	FILE* fp = gvrs->fp;
 	for (i = 0; i < dir->nMetadataReferences; i++) {
 		GvrsMetadataReference r = dir->references[i];
-		if ((*name == '*' || strcmp(name, r.name) == 0) && (recordID == INT32_MIN || recordID == r.recordID)) {
+		if ((*name == '*' || strcmp(name, r.name) == 0) && recordID == r.recordID) {
 			int status = GvrsSetFilePosition(fp, r.filePos);
 			if (status) {
 				// non-zero status indicates an error
 				GvrsMetadataResultSetFree(rs);
 				return status;
 			}
-			//rs->references[rs->nRecords++] = GvrsMetadataRead(fp, &status);
 			GvrsMetadata* m;
 			status  = GvrsMetadataRead(fp, &m);
 			if (status) {
@@ -299,6 +301,60 @@ int  GvrsReadMetadataByNameAndID(Gvrs* gvrs, const char* name, int recordID, Gvr
 			}
 		}
 	
+	}
+	return 0;
+}
+
+
+int  GvrsReadMetadataByName(Gvrs* gvrs, const char* name, GvrsMetadataResultSet** resultSet) {
+	*resultSet = 0;
+	int i;
+	if (!gvrs || !gvrs->fp) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	GvrsMetadataResultSet* rs = calloc(1, sizeof(GvrsMetadataResultSet));
+	if (rs) {
+		*resultSet = rs;
+	}
+	else {
+		return GVRSERR_NOMEM;
+	}
+
+	GvrsMetadataDirectory* dir = gvrs->metadataDirectory;
+	if (!dir || dir->nMetadataReferences == 0) {
+		return 0;  // no further action required
+	}
+
+	// allocate an array of pointers large enough to hold every metadata element in the GVRS source.
+	// in practice, this function will usually not produce that many records, but the overhead
+	// is small and it simplifies the code.  
+	rs->records = calloc(dir->nMetadataReferences, sizeof(GvrsMetadata*));
+	if (!rs->records) {
+		GvrsMetadataResultSetFree(rs);
+		return GVRSERR_NOMEM;
+	}
+
+	FILE* fp = gvrs->fp;
+	for (i = 0; i < dir->nMetadataReferences; i++) {
+		GvrsMetadataReference r = dir->references[i];
+		if (*name == '*' || strcmp(name, r.name) == 0) {
+			int status = GvrsSetFilePosition(fp, r.filePos);
+			if (status) {
+				// non-zero status indicates an error
+				GvrsMetadataResultSetFree(rs);
+				return status;
+			}
+			GvrsMetadata* m;
+			status = GvrsMetadataRead(fp, &m);
+			if (status) {
+				GvrsMetadataResultSetFree(rs);
+				return status;
+			}
+			else {
+				rs->records[rs->nRecords++] = m;
+			}
+		}
+
 	}
 	return 0;
 }
@@ -890,5 +946,27 @@ GvrsMetadataDelete(Gvrs* gvrs, const char *name, int recordID) {
 			}
 		}
 	}
+	return 0;
+}
+
+int GvrsMetadataSetDescription(GvrsMetadata* metadata, const char* description)
+{
+	if (!metadata) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	if (metadata->description) {
+		free(metadata->description);
+		metadata->description = 0;
+	}
+
+	if (!description || !*description) {	
+			return 0;
+	}
+
+	metadata->description = GVRS_STRDUP(description);
+	if (!metadata->description) {
+		return GVRSERR_NOMEM;
+	}
+
 	return 0;
 }

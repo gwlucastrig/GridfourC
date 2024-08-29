@@ -269,10 +269,10 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 		for (i = 0; i < nM32; i++) {
 			output[i] = nodeIndex[0];
 		}
-        m32 = GvrsM32Alloc(output, nM32);
-		if (!m32) {
+		status =   GvrsM32Alloc(output, nM32, &m32);
+		if (status) {
 			cleanUp(output, input, m32, nodeIndex);
-			return GVRSERR_NOMEM;
+			return status; // probably a memory error
 		}
 		int value = GvrsM32GetNextSymbol(m32);
 		int nCell = nRow * nColumn;
@@ -297,10 +297,10 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 
 		int pos1 = GvrsBitInputGetPosition(input);
 		hInfo->nBitsInDecodeBody += (pos1 - pos0);
-		m32 = GvrsM32Alloc(output, nM32);
-		if (!m32) {
+		status = GvrsM32Alloc(output, nM32, &m32);
+		if (status) {
 			cleanUp(output, input, m32, nodeIndex);
-			return GVRSERR_NOMEM;
+			return status;
 		}
 
 

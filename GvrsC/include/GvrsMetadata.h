@@ -231,6 +231,18 @@ extern "C"
 	*/
 	int GvrsMetadataSetAscii(GvrsMetadata* metadata, const char* string);
 
+
+	/**
+	* Sets the data content for the metadata structure to the specified double array.
+	* This function allocates memory and makes a safe copy of the input data values.
+	* If the metadata contains any previously set data values, they will be replaced.
+	* @param metadata a pointer to a memory address containing a metadata structure.
+	* @param nValues an integer value of zero or larger indicating the number of values to be stored
+	* @param doubleRef a valid pointer to any array of zero or more unsigned short integer values
+	* @return if successful, zero; otherwise an integer value indicating an error condition.
+	*/
+	int GvrsMetadataSetDouble(GvrsMetadata* metadata, int nValues, GvrsDouble* doubleRef);
+
 	/**
 	* Sets the data content for the metadata structure to the specified unsigned short array.
 	* This function allocates memory and makes a safe copy of the input data values.
@@ -254,18 +266,6 @@ extern "C"
 	*/
 	int GvrsMetadataSetUnsignedShort(GvrsMetadata* metadata, int nValues, GvrsUnsignedShort* unsRef);
 
-	/**
-	* Sets the data content for the metadata structure to the specified double array.
-	* This function allocates memory and makes a safe copy of the input data values.
-	* If the metadata contains any previously set data values, they will be replaced.
-	* @param metadata a pointer to a memory address containing a metadata structure.
-	* @param nValues an integer value of zero or larger indicating the number of values to be stored
-	* @param doubleRef a valid pointer to any array of zero or more unsigned short integer values
-	* @return if successful, zero; otherwise an integer value indicating an error condition.
-	*/
-	int GvrsMetadataSetDouble(GvrsMetadata* metadata, int nValues, GvrsDouble* doubleRef);
-
-
 
 	/**
 	* Sets the data content for the metadata structure to the specified data type.
@@ -278,6 +278,16 @@ extern "C"
 	* @return if successful, zero; otherwise an integer value indicating an error condition.
 	*/
 	int GvrsMetadataSetData(GvrsMetadata* metadata, GvrsMetadataType metadataType, size_t dataSize, void* data);
+
+	/**
+	* Sets the description element for the metadata structure. This function allocates memory and
+	* makes a safe copy of the input description string. If the metadata element already includes a description,
+	* the old description will be deallocated and replaced with the new value.
+	* @param metadata  a pointer to a memory address containing a metadata structure.
+	* @param description a string giving a human-readable description for the metadata; null values are supported.
+	* @return if successful, zero; otherwise an integer value indicating an error condition.
+	*/
+	int GvrsMetadataSetDescription(GvrsMetadata* metadata, const char* description);
 
 #ifdef __cplusplus
 }
