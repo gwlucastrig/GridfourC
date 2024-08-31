@@ -104,27 +104,7 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
     printf("copy operation completed in %lld ms\n", (long long)(time1 - time0));
     GvrsSummarizeAccessStatistics(gOutput, stdout);
  
-    status = GvrsClose(gInput);
-    status = GvrsClose(gOutput);
-    if(status){
-        printf("Transcription failed on close operation with status %d\n", status);
-        exit(1);
-    }
-    time1 = GvrsTimeMS();
-    printf("transcription completed in %lld ms\n", (long long)(time1-time0));
-
-    printf("\nInspecting output\n");
-
-
-
-    
-    status = GvrsOpen(&gInput, input, "r");
-    status = GvrsOpen(&gOutput, output, "r");
-    eInput = GvrsGetElements(gInput, &nElements);
-    eOutput = GvrsGetElements(gOutput, &nElements);
-    GvrsSetTileCacheSize(gInput, GvrsTileCacheSizeLarge);
-    GvrsSetTileCacheSize(gOutput, GvrsTileCacheSizeLarge);
-    
+    printf("Adding metadata\n");
     GvrsMetadataResultSet* resultSet;
     status = GvrsReadMetadataByName(gInput, "*",  &resultSet);
     if (!status) {
@@ -143,6 +123,30 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
     GvrsMetadataSetDescription(mNote, "This is a metadata example");
     GvrsMetadataWrite(gOutput, mNote);
     GvrsMetadataFree(mNote);
+ 
+    status = GvrsClose(gInput);
+    status = GvrsClose(gOutput);
+    if(status){
+        printf("Transcription failed on close operation with status %d\n", status);
+        exit(1);
+    }
+    time1 = GvrsTimeMS();
+    printf("transcription completed in %lld ms\n", (long long)(time1-time0));
+
+	
+
+    printf("\nInspecting output\n");
+
+
+
+    
+    status = GvrsOpen(&gInput, input, "r");
+    status = GvrsOpen(&gOutput, output, "r");
+    eInput = GvrsGetElements(gInput, &nElements);
+    eOutput = GvrsGetElements(gOutput, &nElements);
+    GvrsSetTileCacheSize(gInput, GvrsTileCacheSizeLarge);
+    GvrsSetTileCacheSize(gOutput, GvrsTileCacheSizeLarge);
+    
 
     time0 = GvrsTimeMS();
     GvrsInt iValue0, iValue1;
@@ -178,5 +182,5 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
     GvrsClose(gInput);
     GvrsClose(gOutput);
     time1 = GvrsTimeMS();
-    printf("Completed inspection in %lld ms, average value %f\n", time1-time0, (double)iSum / (double)nSum);
+    printf("Completed inspection in %ld ms, average value %f\n", (long)(time1-time0), (double)iSum / (double)nSum);
 }
