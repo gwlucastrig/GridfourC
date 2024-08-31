@@ -103,13 +103,18 @@ static int readFailed(GvrsMetadataDirectory* dir, int status) {
 int
 GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDirectory, GvrsMetadataDirectory** directory) {
 	int status;
-	if (!fp || filePosMetadataDirectory == 0 || !directory) {
+	if (!fp || !directory) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	*directory = 0;
 	GvrsMetadataDirectory* dir = calloc(1, sizeof(GvrsMetadataDirectory));
 	if (!dir) {
 		return readFailed(dir, GVRSERR_NOMEM);
+	}
+	if (filePosMetadataDirectory == 0) {
+		// the source file has no metadata
+		*directory = dir;
+		return 0;
 	}
 	int i;
 	if (filePosMetadataDirectory == 0) {

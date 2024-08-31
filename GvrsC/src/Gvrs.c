@@ -532,10 +532,14 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 
 	gvrs->productLabel = GvrsReadString(fp, &status);
 
-	gvrs->tileDirectory = GvrsTileDirectoryRead(gvrs, gvrs->filePosTileDirectory, &status);
+
+	GvrsTileDirectory* tileDirectory = 0;
+	status = GvrsTileDirectoryRead(gvrs, gvrs->filePosTileDirectory, &tileDirectory);
 	if (status) {
 		return fail(gvrs, fp, status);
 	}
+	gvrs->tileDirectory = tileDirectory;
+	
 
 	GvrsMetadataDirectory* metadataDirectory;
 	status =  GvrsMetadataDirectoryRead(fp, gvrs->filePosMetadataDirectory, &metadataDirectory);

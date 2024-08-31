@@ -147,8 +147,8 @@ int
 	return 0;
 }
 
-
- GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt* encodedSeed, GvrsM32** m32Reference) {
+int
+GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt* encodedSeed, GvrsM32** m32Reference) {
 	if (!values || !encodedSeed || !m32Reference) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -194,7 +194,7 @@ int
 	return 0;
 }
 
-
+int
 GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt* encodedSeed, GvrsM32**m32Reference ) {
 	if (!values || !encodedSeed || !m32Reference) {
 		return GVRSERR_NULL_ARGUMENT;

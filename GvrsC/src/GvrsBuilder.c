@@ -851,7 +851,12 @@ GvrsBuilderOpenNewGvrs(GvrsBuilder* builder, const char* path, Gvrs** gvrsRefere
 
 	status = writeHeader(gvrs);
 	if (status == 0) {
-		gvrs->tileDirectory = GvrsTileDirectoryAllocEmpty(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, &status);
+		GvrsTileDirectory* tileDirectoryReference;
+		status = GvrsTileDirectoryAllocEmpty(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, &tileDirectoryReference);
+		if (status) {
+			return  gvrsFail(builder, gvrs, status);
+		}
+		gvrs->tileDirectory = tileDirectoryReference;
 	}
 	else {
 		return gvrsFail(builder, gvrs, status);

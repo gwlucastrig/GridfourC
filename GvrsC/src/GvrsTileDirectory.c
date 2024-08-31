@@ -32,33 +32,48 @@
 #include "GvrsInternal.h"
 
 
-static GvrsTileDirectory* readFailed(GvrsTileDirectory* td, int status, int* errCode) {
+static int readFailed(GvrsTileDirectory* td, int status) {
 	GvrsTileDirectoryFree(td);
-	*errCode = status;
-	return 0;
+	return status;
 }
 
-GvrsTileDirectory* GvrsTileDirectoryAllocEmpty(int nRowsOfTiles, int nColsOfTiles, int *errCode) {
+int
+GvrsTileDirectoryAllocEmpty(int nRowsOfTiles, int nColsOfTiles, GvrsTileDirectory** tileDirectoryReference) {
+	if (!tileDirectoryReference) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	*tileDirectoryReference = 0;
 	GvrsTileDirectory* td = calloc(1, sizeof(GvrsTileDirectory));
 	if (!td) {
-		return readFailed(td, GVRSERR_NOMEM, errCode);
+		return GVRSERR_NOMEM;
 	}
 	td->nRowsOfTiles = nRowsOfTiles;
 	td->nColsOfTiles = nColsOfTiles;
-	return td;
+	*tileDirectoryReference = td;
+	return 0;
 }
 
-GvrsTileDirectory* GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong filePosTileDirectory, int* errCode) {
-	FILE* fp = gvrs->fp;
-	*errCode = 0;
-	if (filePosTileDirectory == 0) {
-		return GvrsTileDirectoryAllocEmpty(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, errCode);
+int
+GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong filePosTileDirectory, GvrsTileDirectory** tileDirectoryReference) {
+	if (!gvrs || !tileDirectoryReference) {
+		return GVRSERR_NULL_ARGUMENT;
 	}
 
+	int status;
+	FILE* fp = gvrs->fp;
+	if (!fp) {
+		return GVRSERR_FILE_ERROR;
+	}
+
+	if (filePosTileDirectory == 0) {
+		return GvrsTileDirectoryAllocEmpty(gvrs->nRowsOfTiles, gvrs->nColsOfTiles, tileDirectoryReference);
+	}
+
+	*tileDirectoryReference = 0;
 	GvrsTileDirectory* td = 0;
-	int status = GvrsSetFilePosition(fp, filePosTileDirectory);
+	status = GvrsSetFilePosition(fp, filePosTileDirectory);
 	if (status) {
-		return readFailed(td, status, errCode);
+		return readFailed(td, status);
 	}
 	// the first element in the tile directory is a set of 8 bytes:
 	//    0:        directory format, currently always set to zero
@@ -70,13 +85,13 @@ GvrsTileDirectory* GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong filePosTileDirecto
 	GvrsReadByte(fp, &tileDirectoryFormat);
 	GvrsReadBoolean(fp, &useExtendedFileOffset);
 	if (tileDirectoryFormat != 0) {
-		*errCode = GVRSERR_INVALID_FILE;
-		return 0;
+		return GVRSERR_INVALID_FILE;
 	}
+
 	GvrsSkipBytes(fp, 6); // reserved for future use
 	td = calloc(1, sizeof(GvrsTileDirectory));
 	if (!td) {
-		return readFailed(td, GVRSERR_NOMEM, errCode);
+		return readFailed(td, GVRSERR_NOMEM);
 	}
 
 	td->nRowsOfTiles = gvrs->nRowsOfTiles;
@@ -89,23 +104,32 @@ GvrsTileDirectory* GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong filePosTileDirecto
 	td->row1 = td->row0 + td->nRows - 1;
 	td->col1 = td->col0 + td->nCols - 1;
 	int nTilesInTable = td->nRows * td->nCols;
+	if (nTilesInTable == 0) {
+		// the table is empty, do not allocate memory for the offsets
+		// return with successful completion
+		*tileDirectoryReference = td;
+		return 0;
+	}
 
 	if (useExtendedFileOffset) {
 		td->lOffsets = calloc(nTilesInTable, sizeof(GvrsLong));
 		if (!td->iOffsets) {
-			return readFailed(td, GVRSERR_NOMEM, errCode);
+			return readFailed(td, GVRSERR_NOMEM);
 		}
 		status = GvrsReadLongArray(fp, nTilesInTable, td->lOffsets);
 	}
 	else {
 		td->iOffsets = calloc(nTilesInTable, sizeof(GvrsUnsignedInt));
 		if (!td->iOffsets) {
-			return readFailed(td, GVRSERR_NOMEM, errCode);
+			return readFailed(td, GVRSERR_NOMEM);
 		}
 		status = GvrsReadUnsignedIntArray(fp, nTilesInTable, td->iOffsets);
 	}
-
-	return td;
+	if (status) {
+		return readFailed(td, status);
+	}
+	*tileDirectoryReference = td;
+	return 0;
 }
 
 

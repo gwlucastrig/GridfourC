@@ -59,7 +59,7 @@
  
 int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt *value) {
 	if (!element) {
-		return GVRSERR_NULL_POINTER;
+		return GVRSERR_NULL_ARGUMENT;
 	}
 
 	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
@@ -121,7 +121,7 @@ int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsIn
 
 int  GvrsElementReadFloat(GvrsElement* element, int gridRow, int gridColumn, GvrsFloat* value) {
 	if (!element) {
-		return GVRSERR_NULL_POINTER;
+		return GVRSERR_NULL_ARGUMENT;
 	}
 
 	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
@@ -258,7 +258,7 @@ GvrsElementFillData(GvrsElement* element, GvrsByte* data, int nCells) {
 
 int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt value) {
 	if (!element) {
-		return GVRSERR_NULL_POINTER;
+		return GVRSERR_NULL_ARGUMENT;
 	}
 
 	Gvrs* gvrs = element->gvrs;
@@ -338,7 +338,7 @@ int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsI
 
 int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, GvrsFloat value) {
 	if (!element) {
-		return GVRSERR_NULL_POINTER;
+		return GVRSERR_NULL_ARGUMENT;
 	}
 
 	Gvrs* gvrs = element->gvrs;

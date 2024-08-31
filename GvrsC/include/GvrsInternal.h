@@ -219,8 +219,8 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	const char* GvrsGetRecordTypeName(int index);
 	GvrsRecordType  GvrsGetRecordType(int index);
 	 
-	GvrsTileDirectory* GvrsTileDirectoryAllocEmpty(int nRowsOfTiles, int nColsOfTiles, int* errCode);
-	GvrsTileDirectory* GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong fileOffset, int *errCode);
+	int GvrsTileDirectoryAllocEmpty(int nRowsOfTiles, int nColsOfTiles, GvrsTileDirectory** tileDirectoryReference);
+	int GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong fileOffset, GvrsTileDirectory** tileDirectoryReference);
 	GvrsTileDirectory* GvrsTileDirectoryFree(GvrsTileDirectory* tileDirectory);
 	GvrsLong GvrsTileDirectoryGetFilePositionByRowColumn(GvrsTileDirectory* tileDir, int tileRow, int tileCol);
 	GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIndex);
