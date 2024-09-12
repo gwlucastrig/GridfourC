@@ -24,8 +24,8 @@
  * ---------------------------------------------------------------------
  */
 
-#ifndef GVRS_FRAMEWORK_H
-#define GVRS_FRAMEWORK_H
+#ifndef GVRS_CODEC_H
+#define GVRS_CODEC_H
 
 #include "GvrsFramework.h"
 #include "GvrsPrimaryTypes.h"
@@ -50,8 +50,8 @@ typedef struct GvrsCodecTag {
 	int (*decodeInt)(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo);
 	int (*decodeFloat)(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsFloat* data, void *appInfo);
 
-	GvrsByte* (*encodeInt)(int nRow, int nColumn, GvrsInt* data, int index, int* packingLength, int *errCode, void *appInfo);
-	GvrsByte* (*encodeFloat)(int nRow, int nColumn, GvrsFloat* data, int index, int* packingLength, int* errCode, void *appInfo);
+	int (*encodeInt)(  int nRow, int nColumn, GvrsInt* data,   int index, int* packingLength, GvrsByte** packingReference, void *appInfo);
+	int (*encodeFloat)(int nRow, int nColumn, GvrsFloat* data, int index, int* packingLength, GvrsByte** packingReference, void *appInfo);
 
 	/**
 	* Free any memory associated with the codec and otherwise dispose of resources.
@@ -101,6 +101,15 @@ typedef struct GvrsBitInputTag {
 	int scratch;
 }GvrsBitInput;
 
+typedef struct GvrsBitOutputTag {
+	GvrsByte* text;
+	int iBit;
+	int nBytesAllocated;
+	int nBytesProcessed;
+	int scratch;
+}GvrsBitOutput;
+
+
 /**
 * Wraps the input in an M32 structure.
 * <p>
@@ -149,11 +158,30 @@ GvrsM32* GvrsM32AllocForOutput();
 */
 int GvrsM32AppendSymbol(GvrsM32* m32, int symbol);
 
-GvrsBitInput* GvrsBitInputAlloc( GvrsByte* text, size_t nBytesInText, int *errorCode);
-GvrsBitInput* GvrsBitInputFree(GvrsBitInput* input);
+GvrsBitInput* GvrsBitInputAlloc(GvrsByte* text, size_t nBytesInText, int *errorCode);
+GvrsBitInput* GvrsBitInputFree( GvrsBitInput* input);
 int GvrsBitInputGetBit( GvrsBitInput* input, int *errorCode);
 int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode);
 int GvrsBitInputGetPosition(GvrsBitInput* input);
+
+int GvrsBitOutputAlloc(GvrsBitOutput** outputReference);
+int GvrsBitOutputPutBit(GvrsBitOutput* output, int bit);
+int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol);
+int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, GvrsByte** reservedByteReference);
+int GvrsBitOutputGetBitCount(GvrsBitOutput* output);
+int GvrsBitOutputFlush(GvrsBitOutput* output);
+GvrsBitOutput* GvrsBitOutputFree(GvrsBitOutput* output);
+
+/**
+* Get a safe copy of the current text in the output.  The memory allocated for
+* the text is assumed to be under the management of the application and will
+* not be affected by subsequent calls to GVRS bit operations.
+* @param output a valid instance.
+* @param nBytesAllocated a pointer to a variable to receive the number of bytes in the text
+* @param text a pointer to a pointer variable to receive the text.
+* @return if successful, a value of zero; otherwise an error code indicating the cause of the failure.
+*/
+int GvrsBitOutputGetText(GvrsBitOutput* output, int* nBytesInText, GvrsByte** text);
 
 void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);
 void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);

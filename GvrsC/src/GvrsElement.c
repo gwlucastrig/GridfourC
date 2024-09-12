@@ -187,6 +187,8 @@ int  GvrsElementReadFloat(GvrsElement* element, int gridRow, int gridColumn, Gvr
 		return GVRSERR_FILE_ERROR;
 	}
 }
+ 
+
 
 int GvrsElementIsFloat(GvrsElement* element) {
 	return element->elementType == GvrsElementTypeFloat;

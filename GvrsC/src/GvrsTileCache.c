@@ -463,12 +463,13 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 				GvrsCodec* c = gvrs->dataCompressionCodecs[i];
 				if (c->encodeInt) {
 					int bLen = 0;
-					GvrsByte* b = c->encodeInt(nRows, nCols, iData, i, &bLen, &errCode, c->appInfo);
-					if (!b) {
+					GvrsByte* b;
+				    int status = c->encodeInt(nRows, nCols, iData, i, &bLen, &b, c->appInfo);
+					if (status) {
 						if (sData) {
 							free(sData);
 						}
-						return errCode;
+						return status;
 					}
 					if (packing) {
 						if (bLen < packingLength) {
@@ -504,9 +505,10 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 				GvrsCodec* c = gvrs->dataCompressionCodecs[i];
 				if (c->encodeFloat) {
 					int bLen = 0;
-					GvrsByte* b = c->encodeFloat(nRows, nCols, fData, i, &bLen, &errCode, c->appInfo);
-					if (!b) {
-						return errCode;
+					GvrsByte* b;
+					int status = c->encodeFloat(nRows, nCols, fData, i, &bLen, &b, c->appInfo);
+					if (status) {
+						return status;
 					}
 					if (packing) {
 						if (bLen < packingLength) {

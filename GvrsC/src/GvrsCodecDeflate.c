@@ -239,17 +239,25 @@ static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32
 }
 
 
-static GvrsByte* encodeInt(int nRow, int nColumn,
+static int encodeInt(int nRow, int nColumn,
 	GvrsInt* data,
 	int index,
-	int* packingLength,
-	int* errCode, void* appInfo) {
-	*errCode = 0;
-	*packingLength = 0;
+	int* packingLengthReference,
+	GvrsByte**packingReference,
+	void* appInfo) {
+	if (!data || !packingLengthReference || !packingReference) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+	*packingLengthReference = 0;
+	*packingReference = 0;
+
+	int packingLength = 0;
 	GvrsByte* packing = 0;
+	int status;
+
 	GvrsInt seed;
 
-	int status;
 	for (int iPack = 1; iPack <= 3; iPack++) {
 		GvrsM32* m32 = 0;
 		if (iPack == 1) {
@@ -262,30 +270,28 @@ static GvrsByte* encodeInt(int nRow, int nColumn,
 			status = GvrsPredictor3encode(nRow, nColumn, data, &seed, &m32);
 		}
 		if (status) {
-			*errCode = status;
 			GvrsM32Free(m32);
 			if (packing) {
 				free(packing);
-				*packingLength = 0;
 			}
-			return 0;
+			return status;
 		}
 
 		int bLen;
-		GvrsByte* b = pack(index, iPack, seed, m32, &bLen, errCode);
+		GvrsByte* b = pack(index, iPack, seed, m32, &bLen, &status);
 		GvrsM32Free(m32);
-		if (!b || *errCode) {
+		if (!b || status) {
 			if (packing) {
 				free(packing);
-				*packingLength = 0;
 			}
-			return 0;
+			return status;
 		}
+
 		if (packing) {
-			if (bLen < *packingLength) {
+			if (bLen < packingLength) {
 				free(packing);
 				packing = b;
-				*packingLength = bLen;
+				packingLength = bLen;
 			}
 			else {
 				free(b);
@@ -293,11 +299,13 @@ static GvrsByte* encodeInt(int nRow, int nColumn,
 		}
 		else {
 			packing = b;
-			*packingLength = bLen;
+			packingLength = bLen;
 		}
 	}
 	
-	return packing;
+	*packingReference = packing;
+	*packingLengthReference = packingLength;
+	return 0;
 }
 
 

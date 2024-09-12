@@ -350,7 +350,6 @@ int GvrsElementReadInt(GvrsElement* element, int row, int column, GvrsInt* value
 */
 int GvrsElementReadFloat(GvrsElement* element, int row, int column, GvrsFloat* value);
 
-
 /**
 * Writes an integer value to the GVRS store. May access the file associated with the specified
 * element.   For integer-coded-float elements, this method will stored the specified integer

@@ -28,6 +28,7 @@ if(ZLIB_FOUND)
 	target_sources(${PROJECT_NAME} PRIVATE
 	src/Gvrs.c
 	src/GvrsBitInput.c
+	src/GvrsBitOutput.c
 	src/GvrsBspline.c
 	src/GvrsBuilder.c
 	src/GvrsChecksum.c
@@ -52,6 +53,7 @@ else()
 	target_sources(${PROJECT_NAME} PRIVATE
 	src/Gvrs.c
 	src/GvrsBitInput.c
+	src/GvrsBitOutput.c
 	src/GvrsBspline.c
 	src/GvrsBuilder.c
 	src/GvrsChecksum.c
@@ -112,6 +114,7 @@ set(public_headers
 	include/Gvrs.h
 	include/GvrsBuilder.h
 	include/GvrsCodec.h
+	include/GvrsCompressHuffman.h
 	include/GvrsCrossPlatform.h
 	include/GvrsError.h
 	include/GvrsFramework.h
