@@ -436,8 +436,6 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 
 	GvrsTileOutputBlock* blocks = tc->outputBlocks;
 
-	int errCode = 0;
-
 	for (int iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
 		GvrsElement* element = gvrs->elements[iElement];
 		if (GvrsElementIsIntegral(element)) {

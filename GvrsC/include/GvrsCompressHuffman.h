@@ -37,7 +37,7 @@ extern "C"
 #endif
  
 
-	int GvrsHuffmanCompress(int nSymbols, GvrsByte* symbols, GvrsBitOutput* output);
+	int GvrsHuffmanCompress(int nSymbols, GvrsByte* symbols, int *nUniqueSymbolsFound, GvrsBitOutput* output);
 	int GvrsHuffmanDecodeTree(GvrsBitInput* input, int* indexSize, GvrsInt** nodeIndexReference);
  
 

@@ -27,15 +27,15 @@ solution for many other use cases.
 The original Gridfour project was implemented in Java. More information about the original implementation
 is available at the [Gridfour Software Project](https://github.com/gwlucastrig/gridfour).
 
-Currently, we have completed a read-only version of GVRS that runs under Windows and Linux.
+Currently, we have completed a version of GVRS that runs under Windows and Linux.
 A cmake file is available for building the GVRS library. We are working on a series of how-to articles on
 our [GridfourC wiki](https://github.com/gwlucastrig/GridfourC/wiki).  Got something you'd like to learn more about?
 Let us know.
 
-We are now turning our attention to implementing the ability for the C API to write data to a GVRS data store.
-The new GvrsBuilder functions provide a partial implementation of the ability to write files.
-Currently, they are limited to only some compression formats and do not yet support metadata.  
-When we have added those features, the GVRS C API will be fully functional and on par with the Java implementation.
+We recently completed features that allow the C API to write data to a GVRS data store.
+The new GvrsBuilder functions provide a way to create new GVRS data stores that
+may be written to and read from application code. We are currently adding functions
+and data elements to make the API more complete and convenient to use.
 
 We are also in the process of adding doxygen-style documentation to our primary header files.
 
