@@ -106,6 +106,11 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 
 	// This particular implementation follows the lead of the original Java
 	// code in that it manages the Huffman tree using an integer array.
+	// In Java, we originally implemented the tree as a series of node objects
+	// that contained left and right child-branch references.  That approach
+	// was cleaner to code and easier to follow. But there was quite a bit of overhead
+	// for following the links and the array approach significantly reduced processing time.
+    //
 	// The array based representation of the Huffman tree
 	// is laid out as triplets of integer values each
 	// representing a node
@@ -279,43 +284,39 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 			cleanUp(output, input, m32, nodeIndex);
 			return status; // probably a memory error
 		}
-		//int value = GvrsM32GetNextSymbol(m32);
-		//int nCell = nRow * nColumn;
-		//for (i = 0; i < nCell; i++) {
-		//	data[i] = value;
-		//}
-		//cleanUp(output, input, m32, nodeIndex);
-		//return 0;
 	}
 	else {
 		for (i = 0; i < nM32; i++) {
-			// start from the root node at nodeIndex[0]
-			// for branch nodes, nodeIndex[filePos] will be -1.  when nodeIndex[filePos] > -1,
+			// In testing with Earth elevation/bathymetry data sets, we've observed an
+			// average of about 4.5 bits per encoded symbol.   The size of the symbol set
+			// (number of leaf nodes in the tree) was typically about 150 unique values.
+			// 
+			// Decoding a value:
+			// Start from the root node at nodeIndex[0]
+			// For branch nodes, nodeIndex[filePos] will be -1.  When nodeIndex[filePos] >= 0,
 			// the traversal has reached a terminal node and is complete.
-			// We know that the root node is always a branch node, so we have a shortcut.
-			// We don't have to check to see if nodeIndex[0] == -1 
-			//int offset = nodeIndex[1 + GvrsBitInputGetBit(input, &errCode)]; // start from the root node
-			//while (nodeIndex[offset] == -1) {
-			//	offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &errCode)];
-			//}
-			//output[i] = (GvrsByte)nodeIndex[offset];
+			// We know that the root node of the tree is always a branch node.
+			// So, we don't have to check to see if nodeIndex[0] == -1.  This gives us a way to reduce
+			// the loop cost by one comparison by implementing it as a do-while loop
+			// rather than a while loop.
+			// 
+			// The "get bit" operation happens so many times that there is a measurable gain
+			// in performance by folding in its logic into the loop.  This old-school approach
+			// reduces access time by about 10 percent.  But it clutters up the code somewhat.
+			// The original code was written as follows:
+			// 
+			//     int offset = 0 //  start from the root node
+			//     do {
+			//	      offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &errCode)];
+			//     }while (nodeIndex[offset] == -1);
+			//     output[i] = (GvrsByte)nodeIndex[offset];
 
-
-			if (input->iBit == 8) {
-				if (input->nBytesProcessed >= input->nBytesInText) {
-					return GVRSERR_FILE_ERROR;
-				}
-				input->scratch = input->text[input->nBytesProcessed++];
-				input->iBit = 0;
-			}
-			int bit = (input->scratch) & 1;
-			(input->scratch) >>= 1;
-			input->iBit++;
-			int offset = nodeIndex[1 + bit]; // start from the root node
-			while (nodeIndex[offset] < 0) {
+			 
+			int offset = 0;
+			do {
 				if (input->iBit == 8) {
 					if (input->nBytesProcessed >= input->nBytesInText) {
-						return GVRSERR_FILE_ERROR;
+						return GVRSERR_COMPRESSION_FAILED;
 					}
 					input->scratch = input->text[input->nBytesProcessed++];
 					input->iBit = 0;
@@ -324,7 +325,7 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 				(input->scratch) >>= 1;
 				input->iBit++;
 				offset = nodeIndex[offset + 1 + bit];
-			}
+			} while (nodeIndex[offset] < 0);
 			output[i] = (GvrsByte)nodeIndex[offset];
 		}
 
