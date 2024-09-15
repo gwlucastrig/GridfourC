@@ -31,7 +31,7 @@
 #include "GvrsCodec.h"
 #include "GvrsCompressHuffman.h"
 
-GvrsCodec* GvrsCodecHuffmanAlloc();
+
 
 typedef struct huffmanAppInfoTag {
 	GvrsInt nDecoded; // both uniform and non-uniform tiles
@@ -128,20 +128,20 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 
 
 
-   // Although it would be simpler to decode the Huffman tree using a recursive
-   // function approach, the depth of the recursion end up being too large
-   // for some software environments. The maximum depth of a Huffman tree is
-   // the number of symbols minus 1. Since there are a maximum of 256
-   // symbols, the maximum depth of the tree could be as large as 255.
-   // While the probability of that actually happening is extremely small
-   // we address it by using a stack-based implementation rather than recursion.
-   //
-   // Initialization:
-   //    The root node is virtually placed on the base of the stack.
-   // It's left and right child-node references are zeroed out.
-   // The node type is set to -1 to indicate a branch node.
-   // The iStack variable is always set to the index of the element
-   // on top of the stack.
+	// Although it would be simpler to decode the Huffman tree using a recursive
+	// function approach, the depth of the recursion end up being too large
+	// for some software environments. The maximum depth of a Huffman tree is
+	// the number of symbols minus 1. Since there are a maximum of 256
+	// symbols, the maximum depth of the tree could be as large as 255.
+	// While the probability of that actually happening is extremely small
+	// we address it by using a stack-based implementation rather than recursion.
+	//
+	// Initialization:
+	//    The root node is virtually placed on the base of the stack.
+	// It's left and right child-node references are zeroed out.
+	// The node type is set to -1 to indicate a branch node.
+	// The iStack variable is always set to the index of the element
+	// on top of the stack.
 
 	int stackSize = nLeafsToDecode + 1;
 	int* stack = calloc(stackSize, sizeof(GvrsInt));
@@ -155,7 +155,7 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 	nodeIndex[0] = -1;
 	nodeIndex[1] = 0;
 	nodeIndex[2] = 0;
- 
+
 
 	int nLeafsDecoded = 0;
 	while (nLeafsDecoded < nLeafsToDecode) {
@@ -173,7 +173,7 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 			nodeIndex[offset + 2] = nodeIndexCount;
 		}
 
-		int bit = GvrsBitInputGetBit(input, &errCode);  
+		int bit = GvrsBitInputGetBit(input, &errCode);
 		if (bit == 1) {
 			if (iStack >= stackSize || nodeIndexCount + 3 >= nodeIndexSize) {
 				free(stack);
@@ -182,7 +182,7 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 			}
 			// leaf node
 			nLeafsDecoded++;
-			nodeIndex[nodeIndexCount++] = GvrsBitInputGetByte(input, &errCode);   
+			nodeIndex[nodeIndexCount++] = GvrsBitInputGetByte(input, &errCode);
 			nodeIndex[nodeIndexCount++] = 0; // not required, just a diagnostic aid
 			nodeIndex[nodeIndexCount++] = 0; // not required, just a diagnostic aid
 
@@ -222,8 +222,73 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 	return 0;
 }
 
-static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo) {
+int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, GvrsByte* output) {
 	int i;
+	if (!input || !output || nSymbolsInOutput <= 0){
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+	if (nNodesInIndex <= 0) {
+		return GVRSERR_COMPRESSION_FAILURE;
+	}
+
+	if (nNodesInIndex == 1) {
+		// special case, uniform encoding.  All the symbols in the decoded output
+		// have the same value.  The text is not Huffman coded.
+		for (i = 0; i < nSymbolsInOutput; i++) {
+			output[i] = nodeIndex[0];
+		}
+	}
+
+	for (i = 0; i < nSymbolsInOutput; i++) {
+		// In testing with Earth elevation/bathymetry data sets, we've observed an
+		// average of about 4.5 bits per encoded symbol.   The size of the symbol set
+		// (number of leaf nodes in the tree) was typically about 150 unique values.
+		// 
+		// Decoding a value:
+		// Start from the root node at nodeIndex[0]
+		// For branch nodes, nodeIndex[filePos] will be -1.  When nodeIndex[filePos] >= 0,
+		// the traversal has reached a terminal node and is complete.
+		// We know that the root node of the tree is always a branch node.
+		// So, we don't have to check to see if nodeIndex[0] == -1.  This gives us a way to reduce
+		// the loop cost by one comparison by implementing it as a do-while loop
+		// rather than a while loop.
+		// 
+		// The "get bit" operation happens so many times that there is a measurable gain
+		// in performance by folding in its logic into the loop.  This old-school approach
+		// reduces access time by about 10 percent.  But it clutters up the code somewhat.
+		// The original code was written as follows:
+		// 
+		//     int offset = 0 //  start from the root node
+		//     do {
+		//	      offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &errCode)];
+		//     }while (nodeIndex[offset] == -1);
+		//     output[i] = (GvrsByte)nodeIndex[offset];
+
+
+		int offset = 0;
+		do {
+			if (input->iBit == 8) {
+				if (input->nBytesProcessed >= input->nBytesInText) {
+					return GVRSERR_COMPRESSION_FAILURE;
+				}
+				input->scratch = input->text[input->nBytesProcessed++];
+				input->iBit = 0;
+			}
+			int bit = (input->scratch) & 1;
+			(input->scratch) >>= 1;
+			input->iBit++;
+			offset = nodeIndex[offset + 1 + bit];
+		} while (nodeIndex[offset] < 0);
+		output[i] = (GvrsByte)nodeIndex[offset];
+	}
+	return 0;
+}
+
+
+
+
+static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo) {
 	int errCode = 0;
 	GvrsByte* output = 0;
 	GvrsBitInput* input = 0;
@@ -276,86 +341,40 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 		// all the values are the same.
 		// TO DO: I also have to review Java code to make sure it's right.
 		//        Are M32 codes even involved in this case?
-		for (i = 0; i < nM32; i++) {
-			output[i] = nodeIndex[0];
-		}
-		status =   GvrsM32Alloc(output, nM32, &m32);
-		if (status) {
-			cleanUp(output, input, m32, nodeIndex);
-			return status; // probably a memory error
-		}
 	}
-	else {
-		for (i = 0; i < nM32; i++) {
-			// In testing with Earth elevation/bathymetry data sets, we've observed an
-			// average of about 4.5 bits per encoded symbol.   The size of the symbol set
-			// (number of leaf nodes in the tree) was typically about 150 unique values.
-			// 
-			// Decoding a value:
-			// Start from the root node at nodeIndex[0]
-			// For branch nodes, nodeIndex[filePos] will be -1.  When nodeIndex[filePos] >= 0,
-			// the traversal has reached a terminal node and is complete.
-			// We know that the root node of the tree is always a branch node.
-			// So, we don't have to check to see if nodeIndex[0] == -1.  This gives us a way to reduce
-			// the loop cost by one comparison by implementing it as a do-while loop
-			// rather than a while loop.
-			// 
-			// The "get bit" operation happens so many times that there is a measurable gain
-			// in performance by folding in its logic into the loop.  This old-school approach
-			// reduces access time by about 10 percent.  But it clutters up the code somewhat.
-			// The original code was written as follows:
-			// 
-			//     int offset = 0 //  start from the root node
-			//     do {
-			//	      offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &errCode)];
-			//     }while (nodeIndex[offset] == -1);
-			//     output[i] = (GvrsByte)nodeIndex[offset];
-
-			 
-			int offset = 0;
-			do {
-				if (input->iBit == 8) {
-					if (input->nBytesProcessed >= input->nBytesInText) {
-						return GVRSERR_COMPRESSION_FAILED;
-					}
-					input->scratch = input->text[input->nBytesProcessed++];
-					input->iBit = 0;
-				}
-				int bit = (input->scratch) & 1;
-				(input->scratch) >>= 1;
-				input->iBit++;
-				offset = nodeIndex[offset + 1 + bit];
-			} while (nodeIndex[offset] < 0);
-			output[i] = (GvrsByte)nodeIndex[offset];
-		}
-
-		int pos1 = GvrsBitInputGetPosition(input);
-		hInfo->nBitsInDecodeBody += (GvrsLong)pos1 - (GvrsLong)pos0;
-		status = GvrsM32Alloc(output, nM32, &m32);
-		if (status) {
-			cleanUp(output, input, m32, nodeIndex);
-			return status;
-		}
+	   
+	status = GvrsHuffmanDecodeText(input, indexSize, nodeIndex, nM32, output);
+	if (status) {
+		return status;
 	}
 
-		switch (predictorIndex) {
-		case 0:
-			status = GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
-			break;
-		case 1:
-			GvrsPredictor1(nRow, nColumn, seed, m32, data);
-			break;
-		case 2:
-			GvrsPredictor2(nRow, nColumn, seed, m32, data);
-			break;
-		case 3:
-			GvrsPredictor3(nRow, nColumn, seed, m32, data);
-			break;
-		default:
-			// should never happen
-			status = GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
-			break;
-		}
+	int pos1 = GvrsBitInputGetPosition(input);
+	hInfo->nBitsInDecodeBody += (GvrsLong)pos1 - (GvrsLong)pos0;
+	status = GvrsM32Alloc(output, nM32, &m32);
+	if (status) {
+		cleanUp(output, input, m32, nodeIndex);
+		return status;
+	}
+	
+
+	switch (predictorIndex) {
+	case 0:
+		status = GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
+		break;
+	case 1:
+		GvrsPredictor1(nRow, nColumn, seed, m32, data);
+		break;
+	case 2:
+		GvrsPredictor2(nRow, nColumn, seed, m32, data);
+		break;
+	case 3:
+		GvrsPredictor3(nRow, nColumn, seed, m32, data);
+		break;
+	default:
+		// should never happen
+		status = GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
+		break;
+	}
 
 	cleanUp(output, input, m32, nodeIndex);
 	return status;

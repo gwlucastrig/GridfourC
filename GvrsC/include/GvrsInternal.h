@@ -221,10 +221,11 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	 
 	int GvrsTileDirectoryAllocEmpty(int nRowsOfTiles, int nColsOfTiles, GvrsTileDirectory** tileDirectoryReference);
 	int GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong fileOffset, GvrsTileDirectory** tileDirectoryReference);
+	int GvrsTileDirectoryWrite(Gvrs* gvrs, GvrsLong* tileDirectoryPos);
 	GvrsTileDirectory* GvrsTileDirectoryFree(GvrsTileDirectory* tileDirectory);
 	GvrsLong GvrsTileDirectoryGetFilePositionByRowColumn(GvrsTileDirectory* tileDir, int tileRow, int tileCol);
 	GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIndex);
-	GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode);
+
 
 	/**
 	* Sets the file position for a tile in the GVRS tile directory. The GVRS specification requires that

@@ -27,17 +27,13 @@
 
 #include "GvrsBuilder.h"
 #include "GvrsError.h"
+
 #include <math.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <limits.h>
  
-GvrsCodec* GvrsCodecHuffmanAlloc();
-#ifdef GVRS_ZLIB
-GvrsCodec* GvrsCodecDeflateAlloc();
-GvrsCodec* GvrsCodecFloatAlloc();
-GvrsCodec* GvrsCodecLsopAlloc();
-#endif
+ 
 
 
 // This method references an error condition as part of the builder.

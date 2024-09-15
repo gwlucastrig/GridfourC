@@ -30,6 +30,7 @@
 #include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
+#include "GvrsCompressHuffman.h"
 #include "zlib.h"
 
 GvrsCodec* GvrsCodecLsopAlloc();
@@ -116,169 +117,19 @@ static GvrsCodec* allocateCodecLsop(struct GvrsCodecTag* codec) {
 	return GvrsCodecLsopAlloc();
 }
  
-static GvrsInt* decodeTree(GvrsBitInput* input,  int *indexSize, int *errCode) {
-	*errCode = 0;
-	int nLeafsToDecode = GvrsBitInputGetByte(input, errCode) + 1;
-	int rootBit = GvrsBitInputGetBit(input, errCode);
-	int* nodeIndex;
-
-	if (rootBit == 1) {
-		// This is the special case where a non-zero root
-		// bit indicates that there is only one symbol in the whole
-		// encoding.   There is not a proper tree, only a single root node.
-		nodeIndex = (GvrsInt*)malloc(sizeof(GvrsInt));
-		if (nodeIndex == 0) {
-			*errCode = GVRSERR_NOMEM;
-			return 0;
-		}
-		nodeIndex[0] = 1;
-		*indexSize = 1;
-		return nodeIndex;
-	}
-
-	// This particular implementation follows the lead of the original Java
-	// code in that it manages the Huffman tree using an integer array.
-	// The array based representation of the Huffman tree
-	// is laid out as triplets of integer values each
-	// representing a node
-	//     [filePos+0] symbol code (or -1 for a branch node)
-	//     [filePos+1] index to left child node (zero if leaf)
-	//     [filePos+2] index to right child node (zero if leaf)
-	// The maximum number of symbols is 256.  The number of nodes in
-	// a Huffman tree is always 2*n-1.  We allocate 3 integers per
-	// node, or 2*n*3.
-	int nodeIndexSize = nLeafsToDecode * 6;
-	nodeIndex = calloc(nodeIndexSize, sizeof(GvrsInt));
-	if (!nodeIndex) {
-		*errCode = GVRSERR_NOMEM;
-		return 0;
-	}
-
-
-
-   // Although it would be simpler to decode the Huffman tree using a recursive
-   // function approach, the depth of the recursion end up being too large
-   // for some software environments. The maximum depth of a Huffman tree is
-   // the number of symbols minus 1. Since there are a maximum of 256
-   // symbols, the maximum depth of the tree could be as large as 255.
-   // While the probability of that actually happening is extremely small
-   // we address it by using a stack-based implementation rather than recursion.
-   //
-   // Initialization:
-   //    The root node is virtually placed on the base of the stack.
-   // It's left and right child-node references are zeroed out.
-   // The node type is set to -1 to indicate a branch node.
-   // The iStack variable is always set to the index of the element
-   // on top of the stack.
-
-	int stackSize = nLeafsToDecode + 1;
-	int* stack = calloc(stackSize, sizeof(GvrsInt));
-	if (!stack) {
-		free(nodeIndex);
-		*errCode = GVRSERR_NOMEM;
-		return 0;
-	}
-
-	int iStack = 0;
-	int nodeIndexCount = 3;
-	nodeIndex[0] = -1;
-	nodeIndex[1] = 0;
-	nodeIndex[2] = 0;
- 
-
-	int nLeafsDecoded = 0;
-	while (nLeafsDecoded < nLeafsToDecode) {
-		int offset = stack[iStack];
-		// We are going to generate a new node. It will be stored
-		// in the node-index array starting at position nodeIndexCount.
-		// We are going to store an integer reference to the new node as
-		// one of the child nodes of the node at the current position
-		// on the stack.  If the left-side node is already populates (filePos+1),
-		// we will store the reference as the right-side child node (filePos+2).
-		if (nodeIndex[offset + 1] == 0) {
-			nodeIndex[offset + 1] = nodeIndexCount;
-		}
-		else {
-			nodeIndex[offset + 2] = nodeIndexCount;
-		}
-
-		int bit = GvrsBitInputGetBit(input, errCode);  
-		if (bit == 1) {
-			if (iStack >= stackSize || nodeIndexCount + 3 >= nodeIndexSize) {
-				free(stack);
-				free(nodeIndex);
-				*errCode = GVRSERR_BAD_COMPRESSION_FORMAT;
-				return 0;
-			}
-			// leaf node
-			nLeafsDecoded++;
-			nodeIndex[nodeIndexCount++] = GvrsBitInputGetByte(input, errCode);   
-			nodeIndex[nodeIndexCount++] = 0; // not required, just a diagnostic aid
-			nodeIndex[nodeIndexCount++] = 0; // not required, just a diagnostic aid
-
-			if (nLeafsDecoded == nLeafsToDecode) {
-				// the tree will be fully populated, all nodes saturated.
-				// there will be no open indices left to populate.
-				// no further processing is required for the tree.
-				break;
-			}
-			// pop upwards on the stack until you find the first node with a
-			// non-populated right-side node reference. This may, in fact,
-			// be the current node on the stack.
-			while (nodeIndex[offset + 2] != 0) {
-				stack[iStack] = 0;
-				iStack--;
-				offset = stack[iStack];
-			}
-		}
-		else {
-			// branch node, create a new branch node an push it on the stack
-			iStack++;
-			if (iStack >= stackSize || nodeIndexCount + 3 >= nodeIndexSize) {
-				free(stack);
-				free(nodeIndex);
-				*errCode = GVRSERR_BAD_COMPRESSION_FORMAT;
-				return 0;
-			}
-			stack[iStack] = nodeIndexCount;
-			nodeIndex[nodeIndexCount++] = -1;
-			nodeIndex[nodeIndexCount++] = 0; // left node not populated
-			nodeIndex[nodeIndexCount++] = 0; // right node not populated
-		}
-	}
-
-	free(stack);
-	*indexSize = nodeIndexCount;
-	return nodeIndex;
-}
 
 static int doHuff(GvrsBitInput* input, int nSymbols, GvrsByte *output) {
-	int i;
 	int indexSize;
 	int errCode = 0;
 	int* nodeIndex;
-	nodeIndex = decodeTree(input,  &indexSize, &errCode);
-	if (!nodeIndex) {
+	errCode = GvrsHuffmanDecodeTree(input, &indexSize, &nodeIndex);
+	if (errCode) {
+		// nodeIndex will be null.
 		return errCode;
 	}
  
-	if (indexSize == 1) {
-		// special case, uniform encoding. 
-		memset(output, nodeIndex[0], nSymbols);
-	} else {
-		for (i = 0; i < nSymbols; i++) {
-			// start from the root node at nodeIndex[0]
-			// for branch nodes, nodeIndex[filePos] will be -1.  when nodeIndex[filePos] > -1,
-			// the traversal has reached a terminal node and is complete.
-			// We know that the root node is always a branch node, so we have a shortcut.
-			// We don't have to check to see if nodeIndex[0] == -1 
-			int offset = nodeIndex[1 + GvrsBitInputGetBit(input, &errCode)]; // start from the root node
-			while (nodeIndex[offset] == -1) {
-				offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &errCode)];
-			}
-			output[i] = (GvrsByte)nodeIndex[offset];
-		}
-	}
+	errCode = GvrsHuffmanDecodeText(input, indexSize, nodeIndex, nSymbols, output);
+ 
 	free(nodeIndex);
 	return errCode;
 }

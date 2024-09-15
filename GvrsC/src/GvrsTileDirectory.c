@@ -201,7 +201,7 @@ GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIn
 }
 
 
-GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode) {
+int GvrsTileDirectoryWrite(Gvrs* gvrs, GvrsLong* tileDirectoryPos) {
 	//GvrsInt row0;
 	//GvrsInt col0;
 	//GvrsInt row1;
@@ -214,8 +214,13 @@ GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode) {
 	//GvrsUnsignedInt* iOffsets;
 	// GvrsLong* lOffsets;
 
+	if (!tileDirectoryPos) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	*tileDirectoryPos = 0;
+
 	int iRow, iCol;
-	*errorCode = 0;
+	int errorCode = 0;
 
 	FILE* fp = gvrs->fp;
 	GvrsTileDirectory* td = gvrs->tileDirectory;
@@ -235,8 +240,7 @@ GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode) {
 	GvrsLong posToStore;
 	status = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTileDir, sizeTileDirectory, &posToStore);
 	if (status) {
-		*errorCode = status;
-		return 0;
+		return status;
 	}
 	GvrsWriteByte(fp, 0);  // Version of tile directory, currently only zero is implemented
 	GvrsWriteBoolean(fp, extendedAddressSpace); // extended address space
@@ -264,11 +268,11 @@ GvrsLong GvrsTileDirectoryWrite(Gvrs* gvrs, int* errorCode) {
 	}
 
 	if (GvrsFileSpaceFinish(gvrs->fileSpaceManager, posToStore)) {
-		*errorCode = GVRSERR_FILE_ERROR;
-		return 0;
+		return  GVRSERR_FILE_ERROR;
 	}
 
-	return posToStore;
+	*tileDirectoryPos = posToStore;
+	return 0;
 }
 
 

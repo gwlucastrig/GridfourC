@@ -34,13 +34,6 @@
 #include <math.h>
 
 
-GvrsCodec* GvrsCodecHuffmanAlloc();
-
-#ifdef GVRS_ZLIB
-GvrsCodec* GvrsCodecDeflateAlloc();
-GvrsCodec* GvrsCodecFloatAlloc();
-GvrsCodec* GvrsCodecLsopAlloc();
-#endif
 
 
 static double to180(double angle) {
@@ -789,7 +782,8 @@ static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 	}
  
 	if (gvrs->tileDirectory) {
-		GvrsLong tileDirectoryPos = GvrsTileDirectoryWrite(gvrs, &status);
+		GvrsLong tileDirectoryPos;
+		status = GvrsTileDirectoryWrite(gvrs, &tileDirectoryPos);
 		if (status) {
 			return status;
 		}

@@ -186,7 +186,7 @@ static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32
 	int status = deflateInit(&strm, 6);
 	if (status != Z_OK) {
 		free(packing);
-		 *errCode = GVRSERR_COMPRESSION_FAILED;
+		 *errCode = GVRSERR_COMPRESSION_FAILURE;
 		 return 0;
 	}
 
@@ -197,7 +197,7 @@ static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32
 	status = deflate(&strm, Z_FINISH);
 	if (status == Z_STREAM_ERROR) {
 		free(packing);
-		*errCode = GVRSERR_COMPRESSION_FAILED;
+		*errCode = GVRSERR_COMPRESSION_FAILURE;
 		return 0;
 	}
 	if (status != Z_STREAM_END || (int)strm.total_out>=nBytesToCompress) {
@@ -205,14 +205,14 @@ static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32
 		// or this compressed format was larger than the input.
 		// This would happen if the data was essentially non-compressible.
 		free(packing);
-		*errCode = GVRSERR_COMPRESSION_FAILED;
+		*errCode = GVRSERR_COMPRESSION_FAILURE;
 		return 0;
 	}
 
 	status = deflateEnd(&strm);
 	if (status != Z_OK) {
 		free(packing);
-		*errCode = GVRSERR_COMPRESSION_FAILED;
+		*errCode = GVRSERR_COMPRESSION_FAILURE;
 		return 0;
 	}
     

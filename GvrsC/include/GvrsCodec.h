@@ -191,6 +191,16 @@ int GvrsPredictor1encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *enco
 int GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, GvrsM32** m32);
 int GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, GvrsM32** m32);
 
+
+GvrsCodec* GvrsCodecHuffmanAlloc();
+#ifdef GVRS_ZLIB
+GvrsCodec* GvrsCodecDeflateAlloc();
+GvrsCodec* GvrsCodecFloatAlloc();
+GvrsCodec* GvrsCodecLsopAlloc();
+#endif
+
+
+
 #ifdef __cplusplus
 }
 #endif
