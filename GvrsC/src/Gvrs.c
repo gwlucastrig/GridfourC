@@ -279,7 +279,7 @@ int GvrsSetTileCacheSize(Gvrs* gvrs, GvrsTileCacheSizeType cacheSize) {
 		}
 		GvrsTileCacheFree(tileCache);
 	}
-	tileCache = GvrsTileCacheAlloc(gvrs, n, &status);
+	status = GvrsTileCacheAlloc(gvrs, n, &tileCache);
 	if (tileCache) {
 		gvrs->tileCache = tileCache;
 		for (i = 0; i < gvrs->nElementsInTupple; i++) {

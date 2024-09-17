@@ -220,7 +220,6 @@ int GvrsTileDirectoryWrite(Gvrs* gvrs, GvrsLong* tileDirectoryPos) {
 	*tileDirectoryPos = 0;
 
 	int iRow, iCol;
-	int errorCode = 0;
 
 	FILE* fp = gvrs->fp;
 	GvrsTileDirectory* td = gvrs->tileDirectory;

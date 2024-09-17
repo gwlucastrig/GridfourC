@@ -246,11 +246,11 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	* @param nRowsOfTiles the number of rows of tiles in the raster
 	* @param nColsOfTiles the number of columns of tiles in the raster
 	* @param cacheSize enumeration giving small, medium, large, and extra large.
-	* @return a positive integer
+	* @return a positive integer giving the computed size.
 	*/
 	int GvrsTileCacheComputeStandardSize(int nRowsOfTiles, int nColsOfTiles, GvrsTileCacheSizeType cacheSize);
 
-	GvrsTileCache* GvrsTileCacheAlloc(void* gvrs, int maxTileCacheSize, int* status);
+	int GvrsTileCacheAlloc(void* gvrspointer, int maxTileCacheSize, GvrsTileCache** tileCacheRefrence);
 	GvrsTileCache* GvrsTileCacheFree(GvrsTileCache* cache);
 	int GvrsTileCacheWritePendingTiles(GvrsTileCache* tc);
 

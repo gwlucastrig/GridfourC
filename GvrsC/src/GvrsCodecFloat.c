@@ -35,7 +35,7 @@
 static const char* identification = "GvrsFloat";
 static const char* description = "Implements the standard GVRS compression for floating-point data";
 
-GvrsCodec* GvrsCodecFloatAlloc();
+
 
 static GvrsCodec* destroyCodecFloat(struct GvrsCodecTag* codec) {
 	if (codec) {
@@ -198,6 +198,200 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 
 
 
+static void encodeDeltas(GvrsByte* scratch, int nRows, int nColumns) {
+	int prior0 = 0;
+	int test;
+	int k = 0;
+	for (int iRow = 0; iRow < nRows; iRow++) {
+		int prior = prior0;
+		prior0 = scratch[k];
+		for (int iCol = 0; iCol < nColumns; iCol++) {
+			test = scratch[k];
+			scratch[k++] = (GvrsByte)(test - prior);
+			prior = test;
+		}
+	}
+}
+
+
+static int doDeflate(int nBytesAvailable, GvrsByte *output, int inputLength, GvrsByte *input, int *lengthCompressed){
+    
+	*lengthCompressed = 0;
+
+	z_stream strm;
+	memset(&strm, 0, sizeof(z_stream));
+	strm.zalloc = Z_NULL;
+	strm.zfree = Z_NULL;
+	strm.opaque = Z_NULL;
+	int status = deflateInit(&strm, 6);
+	if (status != Z_OK) {
+		return  GVRSERR_COMPRESSION_FAILURE;
+	}
+
+	strm.avail_in = inputLength;
+	strm.next_in = input;
+	strm.avail_out = nBytesAvailable-4;
+	strm.next_out = output+4;
+	status = deflate(&strm, Z_FINISH);
+	if (status == Z_STREAM_ERROR) {
+		return  GVRSERR_COMPRESSION_FAILURE;
+	}
+	if (status != Z_STREAM_END || (int)strm.total_out >= inputLength) {
+		// The packing wasn't large enough to store the full compression
+		// or this compressed format was larger than the input.
+		// This would happen if the data was essentially non-compressible.
+		return GVRSERR_COMPRESSION_FAILURE;
+	}
+
+	status = deflateEnd(&strm);
+	if (status != Z_OK) {
+		return  GVRSERR_COMPRESSION_FAILURE;
+	}
+
+	int lenOut = strm.total_out;
+	output[0] = (GvrsByte)(lenOut & 0xff);
+	output[1] = (GvrsByte)((lenOut >> 8) & 0xff);
+	output[2] = (GvrsByte)((lenOut >> 16) & 0xff);
+	output[3] = (GvrsByte)((lenOut >> 24) & 0xff);
+	*lengthCompressed += (4 + lenOut);
+
+	return 0;
+}
+ 
+static int cleanUp(int status, GvrsByte* iData, GvrsByte* packing, GvrsByte *sBits) {
+	if (iData) {
+		free(iData);
+	}
+	if (packing) {
+		free(packing);
+	}
+	if (sBits) {
+		free(sBits);
+	}
+	return status;
+}
+
+
+#define BitsFromF(A, B)   *((unsigned int*)( (A)+(B) ))
+
+static int encodeFloat(int nRow, int nColumn, GvrsFloat* data, int index, int* packingLength, GvrsByte** packingReference, void* appInfo) {
+	if (!data || !packingLength || !packingReference) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+	*packingReference = 0;
+
+	int i;
+	int status;
+	int nCellsInTile = nRow * nColumn;
+	int nBytesInData = nCellsInTile * 4;
+
+	GvrsBitOutput* bitOutput;
+	status = GvrsBitOutputAlloc(&bitOutput);
+	if (status) {
+		return status;
+	}
+
+	GvrsByte* iData = calloc(nBytesInData, sizeof(GvrsByte));
+	if (!iData) {
+		GvrsBitOutputFree(bitOutput);
+		return GVRSERR_NOMEM;
+	}
+
+	GvrsByte* sEx = iData; // 8 bits of exponent
+	GvrsByte* sM1 = iData + nCellsInTile;   // high 7 bits of mantissa
+	GvrsByte* sM2 = sM1 + nCellsInTile;     // middle 8 bits of mantissa
+	GvrsByte* sM3 = sM2 + nCellsInTile;     // low 8 bits of mantissa
+
+	// Copy fragments of floating-point bit patterns into arrays
+	// for processing
+	for (i = 0; i < nCellsInTile; i++) {
+		unsigned int bits = BitsFromF(data, i);
+		GvrsBitOutputPutBit(bitOutput, bits >> 31);
+		sEx[i] = (GvrsByte)((bits >> 23) & 0xff);
+		sM1[i] = (GvrsByte)((bits >> 16) & 0x7f);
+		sM2[i] = (GvrsByte)((bits >> 8) & 0xff);
+		sM3[i] = (GvrsByte)(bits & 0xff);
+	}
+
+	int sBitLength;
+	GvrsByte* sBits;
+
+	status = GvrsBitOutputGetText(bitOutput, &sBitLength, &sBits);
+	if (status) {
+		GvrsBitOutputFree(bitOutput);
+		free(iData);
+		return status;
+	}
+	GvrsBitOutputFree(bitOutput);
+	bitOutput = 0;
+
+	// The exponents are stored as is, but the mantissa fragments are
+	// stored using a differencing format.
+	encodeDeltas(  sM1, nRow, nColumn);
+	encodeDeltas(  sM2, nRow, nColumn);
+	encodeDeltas(  sM3, nRow, nColumn);
+
+
+	int nBytesAvailable = nBytesInData + 2;
+	GvrsByte* packing = calloc(nBytesAvailable, sizeof(GvrsByte));
+	if (!packing) {
+		free(iData);
+		return GVRSERR_NOMEM;
+	}
+	packing[0] = (GvrsByte)index;
+	// packing[1] is currently left as zero
+	nBytesAvailable -= 2;
+
+	int compLength;
+	int nBytesConsumed = 2;
+	status = doDeflate(nBytesAvailable, packing + nBytesConsumed, sBitLength, sBits, &compLength);
+	if (status) {
+		return cleanUp(status, iData, packing, sBits);
+	}
+	free(sBits);
+	sBits = 0;
+
+	nBytesAvailable -= compLength;
+	nBytesConsumed += compLength;
+
+	status = doDeflate(nBytesAvailable, packing + nBytesConsumed, nCellsInTile, sEx, &compLength);
+	if (status) {
+		return cleanUp(status, iData, packing, sBits);
+	}
+	nBytesAvailable -= compLength;
+	nBytesConsumed += compLength;
+
+	status = doDeflate(nBytesAvailable, packing + nBytesConsumed, nCellsInTile, sM1, &compLength);
+	if (status) {
+		return cleanUp(status, iData, packing, sBits);
+	}
+	nBytesAvailable -= compLength;
+	nBytesConsumed += compLength;
+
+	status = doDeflate(nBytesAvailable, packing + nBytesConsumed, nCellsInTile, sM2, &compLength);
+	if (status) {
+		return cleanUp(status, iData, packing, sBits);
+	}
+	nBytesAvailable -= compLength;
+	nBytesConsumed += compLength;
+
+	status = doDeflate(nBytesAvailable, packing + nBytesConsumed, nCellsInTile, sM3, &compLength);
+	if (status) {
+		return cleanUp(status, iData, packing, sBits);
+	}
+	nBytesAvailable -= compLength;
+	nBytesConsumed += compLength;
+
+
+	free(iData);
+	free(sBits);
+	*packingLength = nBytesConsumed;
+	*packingReference = packing;
+	return 0;
+}
+
+
 GvrsCodec* GvrsCodecFloatAlloc() {
 	GvrsCodec* codec = calloc(1, sizeof(GvrsCodec));
 	if (!codec) {
@@ -206,6 +400,7 @@ GvrsCodec* GvrsCodecFloatAlloc() {
 	GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
 	codec->description = GVRS_STRDUP(description);
 	codec->decodeFloat = decodeFloat;
+	codec->encodeFloat = encodeFloat;
 	codec->destroyCodec = destroyCodecFloat;
 	codec->allocateNewCodec = allocateCodecFloat;
 	return codec;
