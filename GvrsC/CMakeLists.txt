@@ -114,7 +114,6 @@ set(public_headers
 	include/Gvrs.h
 	include/GvrsBuilder.h
 	include/GvrsCodec.h
-	include/GvrsCompressHuffman.h
 	include/GvrsCrossPlatform.h
 	include/GvrsError.h
 	include/GvrsFramework.h

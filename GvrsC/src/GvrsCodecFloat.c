@@ -131,7 +131,7 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 		return errCode;
 	}
 	for (i = 0; i < nCellsInTile; i++) {
-		rawInt[i] = GvrsBitInputGetBit(bitInput, &errCode) << 31;
+		rawInt[i] = GvrsBitInputGetBit(bitInput) << 31;
 	}
 	free(signBytes);
 	bitInput = GvrsBitInputFree(bitInput);
@@ -237,9 +237,9 @@ static int doDeflate(int nBytesAvailable, GvrsByte *output, int inputLength, Gvr
 		return  GVRSERR_COMPRESSION_FAILURE;
 	}
 	if (status != Z_STREAM_END || (int)strm.total_out >= inputLength) {
-		// The packing wasn't large enough to store the full compression
-		// or this compressed format was larger than the input.
+		// Compression did not reduce the input to a size less than the source.
 		// This would happen if the data was essentially non-compressible.
+		// For example, random data is non-compressible
 		return GVRSERR_COMPRESSION_FAILURE;
 	}
 

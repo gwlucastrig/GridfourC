@@ -30,7 +30,6 @@
 #include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
-#include "GvrsCompressHuffman.h"
 #include "zlib.h"
 
 GvrsCodec* GvrsCodecLsopAlloc();

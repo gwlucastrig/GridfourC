@@ -62,10 +62,10 @@ GvrsBitInput* GvrsBitInputAlloc(GvrsByte* text, size_t nBytesInText, int *errorC
 	return input;
 }
 
-int GvrsBitInputGetBit(GvrsBitInput* input, int *errorCode) {
+int GvrsBitInputGetBit(GvrsBitInput* input) {
 	if (input->iBit == 8) {
 		if (input->nBytesProcessed >= input->nBytesInText) {
-			*errorCode = GVRSERR_FILE_ERROR;
+			// This is an encoding error.  Just return a zero-value
 			return 0;
 		}
 		input->scratch = input->text[input->nBytesProcessed++];

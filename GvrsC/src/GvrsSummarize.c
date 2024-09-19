@@ -214,6 +214,12 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 		return GVRSERR_FILE_ERROR;
 	}
 
+	if (gvrs->timeOpenedForWritingMS) {
+		// in order to get meaningful statistics, we need to tabulate
+		// the write operations that are still pending.
+		GvrsTileCacheWritePendingTiles(gvrs->tileCache);
+	}
+
 	GvrsTileCache* tc = gvrs->tileCache;
 	GvrsLong nReadsAndWrites = tc->nRasterReads + tc->nRasterWrites;
 	GvrsLong nAccessToCurrentTile = nReadsAndWrites - tc->nCacheSearches;
@@ -243,6 +249,22 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 		fprintf(fp, "    Number of allocations:   %8lld\n", (long long)fsm->nAllocations);
 		fprintf(fp, "    Number of finishes:      %8lld\n", (long long)fsm->nFinish);
 		fprintf(fp, "    Number of deallocations: %8lld\n", (long long)fsm->nDeallocations);
+	}
+
+	if (gvrs->timeOpenedForWritingMS && gvrs->nDataCompressionCodecs) {
+		    int i;
+			fprintf(fp, "\n");
+			fprintf(fp, "Data compression encoding statistics\n");
+			fprintf(fp, "Identification          Times Used        Bytes Encoded        Avg Bits per Symbol\n");
+			for (i = 0; i < gvrs->nDataCompressionCodecs; i++) {
+				GvrsCodec* codec = gvrs->dataCompressionCodecs[i];
+				double avgBitsSymbol = 0;
+				if (codec->nTimesEncoded) {
+					avgBitsSymbol = 8.0 * (double)codec->nBytesEncoded / (double)(codec->nTimesEncoded * gvrs->nCellsInTile);
+				}
+				fprintf(fp, "    %-16.16s      %8ld         %12ld             %6.2f\n",
+					codec->identification, (long)codec->nTimesEncoded, (long)codec->nBytesEncoded, avgBitsSymbol);
+			}
 	}
 	return 0;
 }

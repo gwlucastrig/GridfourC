@@ -29,8 +29,6 @@
 #include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
-#include "GvrsCompressHuffman.h"
-
 
 
 typedef struct huffmanAppInfoTag {
@@ -87,7 +85,7 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 
 	int errCode = 0;
 	int nLeafsToDecode = GvrsBitInputGetByte(input, &errCode) + 1;
-	int rootBit = GvrsBitInputGetBit(input, &errCode);
+	int rootBit = GvrsBitInputGetBit(input);
 	int* nodeIndex;
 
 	if (rootBit == 1) {
@@ -173,7 +171,7 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 			nodeIndex[offset + 2] = nodeIndexCount;
 		}
 
-		int bit = GvrsBitInputGetBit(input, &errCode);
+		int bit = GvrsBitInputGetBit(input);
 		if (bit == 1) {
 			if (iStack >= stackSize || nodeIndexCount + 3 >= nodeIndexSize) {
 				free(stack);

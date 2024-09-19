@@ -37,7 +37,9 @@
 static const char* identification = "GvrsDeflate";
 static const char* description = "Implements the standard GVRS compression using Deflate";
 
-GvrsCodec* GvrsCodecDeflateAlloc();
+typedef struct GvrsDeflateAppInfoTag {
+	int useMaximumCompression;
+}GvrsDeflateAppInfo;
 
 static GvrsCodec* destroyCodecDeflate(struct GvrsCodecTag* codec) {
 	if (codec) {
@@ -45,13 +47,21 @@ static GvrsCodec* destroyCodecDeflate(struct GvrsCodecTag* codec) {
 			free(codec->description);
 			codec->description = 0;
 		}
+		if (codec->appInfo) {
+			free(codec->appInfo);
+			codec->appInfo = 0;
+		}
 		free(codec);
 	}
 	return 0;
 }
  
 static GvrsCodec* allocateCodecDeflate(struct GvrsCodecTag* codec) {
-	return GvrsCodecDeflateAlloc();
+	GvrsCodec* c = GvrsCodecDeflateAlloc();
+	if (c) {
+		memcpy(c->appInfo, codec->appInfo, sizeof(GvrsDeflateAppInfo));
+	}
+	return c;
 }
 
 #ifdef GVRS_TEST_UNPACK
@@ -169,25 +179,30 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 }
 
 
-static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32, int* packingLength, int* errCode){
+static int pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32, int* packingLength, void *appInfo, GvrsByte** packingReference){
+	*packingReference = 0;
 	int nBytesToCompress = m32->offset;
 	int nBytesForPacking = nBytesToCompress + 1024;
 	GvrsByte* packing = malloc(nBytesForPacking*sizeof(GvrsByte));
 	if (!packing) {
-		*errCode =  GVRSERR_NOMEM;
-		return 0;
+		return  GVRSERR_NOMEM;
 	}
 	
+	int level = 6;
+	GvrsDeflateAppInfo* a = (GvrsDeflateAppInfo*)appInfo;
+	if (a->useMaximumCompression) {
+		level = 9;
+	}
+
 	z_stream strm;
 	memset(&strm, 0, sizeof(z_stream));
 	strm.zalloc = Z_NULL;
 	strm.zfree = Z_NULL;
 	strm.opaque = Z_NULL;
-	int status = deflateInit(&strm, 6);
+	int status = deflateInit(&strm, level);
 	if (status != Z_OK) {
 		free(packing);
-		 *errCode = GVRSERR_COMPRESSION_FAILURE;
-		 return 0;
+		return GVRSERR_COMPRESSION_FAILURE;
 	}
 
 	strm.avail_in = m32->offset;
@@ -197,23 +212,21 @@ static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32
 	status = deflate(&strm, Z_FINISH);
 	if (status == Z_STREAM_ERROR) {
 		free(packing);
-		*errCode = GVRSERR_COMPRESSION_FAILURE;
-		return 0;
+		return GVRSERR_COMPRESSION_FAILURE;
 	}
+
 	if (status != Z_STREAM_END || (int)strm.total_out>=nBytesToCompress) {
 		// The packing wasn't large enough to store the full compression
 		// or this compressed format was larger than the input.
 		// This would happen if the data was essentially non-compressible.
 		free(packing);
-		*errCode = GVRSERR_COMPRESSION_FAILURE;
-		return 0;
+		return GVRSERR_COMPRESSION_FAILURE;
 	}
 
 	status = deflateEnd(&strm);
 	if (status != Z_OK) {
 		free(packing);
-		*errCode = GVRSERR_COMPRESSION_FAILURE;
-		return 0;
+		return GVRSERR_COMPRESSION_FAILURE;
 	}
     
 	*packingLength = strm.total_out+10;
@@ -235,7 +248,8 @@ static GvrsByte* pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32
 	//	exit(1);
 	//}
 
-	return packing;
+	*packingReference = packing;
+	return 0;
 }
 
 
@@ -278,9 +292,10 @@ static int encodeInt(int nRow, int nColumn,
 		}
 
 		int bLen;
-		GvrsByte* b = pack(index, iPack, seed, m32, &bLen, &status);
+		GvrsByte* b = 0;
+		status = pack(index, iPack, seed, m32, &bLen, appInfo, &b);
 		GvrsM32Free(m32);
-		if (!b || status) {
+		if (status || !*b) {
 			if (packing) {
 				free(packing);
 			}
@@ -314,6 +329,12 @@ GvrsCodec* GvrsCodecDeflateAlloc() {
 	if (!codec) {
 		return 0;
 	}
+	codec->appInfo = calloc(1, sizeof(GvrsDeflateAppInfo));
+	if (!codec->appInfo) {
+		free(codec);
+		return 0;
+	}
+
     GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
     codec->description = GVRS_STRDUP(description);
     codec->decodeInt = decodeInt;
@@ -321,4 +342,15 @@ GvrsCodec* GvrsCodecDeflateAlloc() {
 	codec->destroyCodec = destroyCodecDeflate;
 	codec->allocateNewCodec = allocateCodecDeflate;
 	return codec;
+}
+
+int
+GvrsDeflateSetMaximumCompression(GvrsCodec* c, int useMaximumCompression) {
+	if (c && strcmp(identification, c->identification) == 0) {
+		GvrsDeflateAppInfo* a = (GvrsDeflateAppInfo*)c->appInfo;
+		a->useMaximumCompression = useMaximumCompression;
+		return 0;
+	}
+	// the input codec was probably not a Deflate codec.  return an error
+	return GVRSERR_COMPRESSION_FAILURE;
 }

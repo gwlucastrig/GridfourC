@@ -649,6 +649,8 @@ void GvrsMapGridToGeo(Gvrs* gvrs, double row, double column, double* latitude, d
 }
 
 
+
+
 int
 GvrsRegisterCodec(Gvrs* gvrs, GvrsCodec* codec) {
 	if (!gvrs || !codec) {
@@ -693,6 +695,19 @@ GvrsRegisterCodec(Gvrs* gvrs, GvrsCodec* codec) {
 	return 0;
 }
 
+GvrsCodec* GvrsGetCodecByName(Gvrs* gvrs, const char* name) {
+	if (gvrs && name && gvrs->dataCompressionCodecs) {
+		int i;
+		for (i = 0; i < gvrs->nDataCompressionCodecs; i++) {
+			GvrsCodec* c = gvrs->dataCompressionCodecs[i];
+			if (strcmp(c->identification, name) == 0) {
+				return c;
+			}
+		}
+	}
+
+	return 0;
+}
 
 static int writeChecksums(Gvrs* gvrs) {
 	int status;

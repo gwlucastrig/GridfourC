@@ -83,6 +83,9 @@ typedef struct GvrsCodecTag {
 	struct GvrsCodecTag* (*allocateNewCodec)(struct GvrsCodecTag* codec);
 
 	void* appInfo;
+
+	GvrsLong nTimesEncoded;
+	GvrsLong nBytesEncoded;
 }GvrsCodec;
 
 
@@ -160,7 +163,7 @@ int GvrsM32AppendSymbol(GvrsM32* m32, int symbol);
 
 GvrsBitInput* GvrsBitInputAlloc(GvrsByte* text, size_t nBytesInText, int *errorCode);
 GvrsBitInput* GvrsBitInputFree( GvrsBitInput* input);
-int GvrsBitInputGetBit( GvrsBitInput* input, int *errorCode);
+int GvrsBitInputGetBit( GvrsBitInput* input);
 int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode);
 int GvrsBitInputGetPosition(GvrsBitInput* input);
 
@@ -192,11 +195,23 @@ int GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *enco
 int GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, GvrsM32** m32);
 
 
+// -------------------------------------------------------------------------------------------
+// The following declarations give the signatures for the standard compressors and
+// any optional functions that support them.  The Huffman declarations are provided
+// the support testing and non-GVRS applications.
+
 GvrsCodec* GvrsCodecHuffmanAlloc();
+int GvrsHuffmanCompress(int nSymbols, GvrsByte* symbols, int* nUniqueSymbolsFound, GvrsBitOutput* output);
+int GvrsHuffmanDecodeTree(GvrsBitInput* input, int* indexSize, GvrsInt** nodeIndexReference);
+int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, GvrsByte* output);
+
 #ifdef GVRS_ZLIB
 GvrsCodec* GvrsCodecDeflateAlloc();
 GvrsCodec* GvrsCodecFloatAlloc();
 GvrsCodec* GvrsCodecLsopAlloc();
+
+int GvrsDeflateSetMaximumCompression(GvrsCodec* codec, int useMaximumCompression);
+
 #endif
 
 

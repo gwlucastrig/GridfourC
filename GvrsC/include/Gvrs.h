@@ -514,6 +514,9 @@ unsigned long  GvrsChecksumUpdateValue(GvrsByte b, unsigned long pcrc);
 */
 int GvrsRegisterCodec(Gvrs* gvrs, GvrsCodec* codec);
 
+
+GvrsCodec* GvrsGetCodecByName(Gvrs* gvrs, const char* name);
+
 /**
 * Get a formatted string from the UUID elements stored in the GVRS data store instance.
 * @param gvrs a valid instance of a GVRS data store.

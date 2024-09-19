@@ -440,6 +440,7 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 
 	for (int iElement = 0; iElement < gvrs->nElementsInTupple; iElement++) {
 		GvrsElement* element = gvrs->elements[iElement];
+		GvrsCodec* codecUsed = 0;
 		if (GvrsElementIsIntegral(element)) {
 			GvrsInt* iData = 0;
 			GvrsShort* sData = 0;
@@ -458,7 +459,6 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 			}
 			int packingLength = 0;
 			GvrsByte* packing = 0;
-
 			for (int i = 0; i < gvrs->nDataCompressionCodecs; i++) {
 				GvrsCodec* c = gvrs->dataCompressionCodecs[i];
 				if (c->encodeInt) {
@@ -476,6 +476,7 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 							free(packing);
 							packing = b;
 							packingLength = bLen;
+							codecUsed = c;
 						}
 						else {
 							free(b);
@@ -484,6 +485,7 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 					else {
 						packing = b;
 						packingLength = bLen;
+						codecUsed = c;
 					}
 				}
 			}
@@ -491,6 +493,10 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 				blocks[iElement].compressed = 1;
 				blocks[iElement].nBytesInOutput = packingLength;
 				blocks[iElement].output = packing;
+				if (codecUsed) {
+					codecUsed->nTimesEncoded++;
+					codecUsed->nBytesEncoded += packingLength;
+				}
 			}
 			if (sData) {
 				free(iData);
@@ -515,6 +521,7 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 							free(packing);
 							packing = b;
 							packingLength = bLen;
+							codecUsed = c;
 						}
 						else {
 							free(b);
@@ -523,6 +530,7 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 					else {
 						packing = b;
 						packingLength = bLen;
+						codecUsed = c;
 					}
 				}
 			}
@@ -530,6 +538,10 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 				blocks[iElement].compressed = 1;
 				blocks[iElement].nBytesInOutput = packingLength;
 				blocks[iElement].output = packing;
+				if (codecUsed) {
+					codecUsed->nTimesEncoded++;
+					codecUsed->nBytesEncoded += packingLength;
+				}
 			}
 		}
 	}
