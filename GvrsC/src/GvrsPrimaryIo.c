@@ -55,8 +55,9 @@ int GvrsReadASCII(FILE* fp, size_t n, size_t bufferSize, char * buffer)
 				return errCode(fp);
 			}
 #else
-			if(fseeko(fp, (off_t)n, SEEK_CUR)){
+			if (fseeko(fp, (off_t)n, SEEK_CUR)) {
 				return errCode(fp);
+			}
 #endif
 		}
 		return 0;
