@@ -274,10 +274,13 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 	if (tileOffset == 0) {
 		return GVRSERR_FILE_ERROR;
 	}
-	GvrsSetFilePosition(fp, tileOffset);
+	int status = GvrsSetFilePosition(fp, tileOffset);
+	if (status) {
+		return GVRSERR_FILE_ERROR;
+	}
 	GvrsInt tileIndexFromFile;
 	GvrsInt totalBytes = 4; // the tile index from file
-	int status = GvrsReadInt(fp, &tileIndexFromFile); 
+	status = GvrsReadInt(fp, &tileIndexFromFile); 
 	if (status) {
 		return GVRSERR_FILE_ERROR;
 	}

@@ -70,7 +70,7 @@ static char* optstrdup(const char* s, int* status) {
 
 
 static int padMultipleOf4(FILE* fp) {
-	long pos = ftell(fp);
+	GvrsLong pos = GvrsGetFilePosition(fp);
 	int k = (int)(pos & 0x3L);
 	if (k > 0) {
 		int i, status;
@@ -1051,7 +1051,7 @@ static int writeHeader(Gvrs* gvrs) {
 	status = GvrsWriteByte(fp, 0);
 	status = GvrsWriteByte(fp, 0);
 
-	GvrsLong filePos = ftell(fp);
+	GvrsLong filePos = GvrsGetFilePosition(fp);
 	status = GvrsWriteLong(fp, 0);  // pos 80, filePos to first (only) tile directory
 
 	// write a block of reservd longs for future use
@@ -1071,7 +1071,7 @@ static int writeHeader(Gvrs* gvrs) {
 	// of the elements in the specification.  At this point,
 	// we will also need to reserve 4 extra bytes for the checksum
 	// and then pad out the record.
-	filePos = ftell(fp);
+	filePos = GvrsGetFilePosition(fp);
 	GvrsLong filePosContent = (filePos + 4LL + 7LL) & 0xfffffff8LL;
 	GvrsInt sizeOfHeaderInBytes = (int)(filePosContent - FILEPOS_OFFSET_TO_HEADER_RECORD);
 	GvrsInt padding = (int)(filePosContent - filePos);

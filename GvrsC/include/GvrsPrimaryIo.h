@@ -71,6 +71,8 @@ int GvrsReadBoolean(FILE* fp, GvrsBoolean *value);
 
 int GvrsSkipBytes(FILE* fp, int  n);
 int GvrsSetFilePosition(FILE* fp, GvrsLong fileOffset);
+GvrsLong GvrsGetFilePosition(FILE* fp);
+GvrsLong GvrsFindFileEnd(FILE* fp);
 
 /**
 * Reads GVRS-formatted string of arbitrary length from a source file or stream.

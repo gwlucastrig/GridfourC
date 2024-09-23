@@ -24,6 +24,10 @@
  * ---------------------------------------------------------------------
  */
 
+#if !(defined(_WIN32) || defined(_WIN64))
+#define _FILE_OFFSET_BITS 64
+#endif
+
 #include "GvrsPrimaryIo.h"
 #include "GvrsError.h"
  
@@ -46,9 +50,14 @@ int GvrsReadASCII(FILE* fp, size_t n, size_t bufferSize, char * buffer)
 			}
 			buffer[bufferSize - 1] = 0;
 			// skip bytes as necessary to advance file position by n bytes
-			if (fseek(fp, (long)(n - k), SEEK_CUR)) {
+#if defined(_WIN32) || defined(_WIN64)
+			if (_fseeki64(fp, (__int64)n, SEEK_CUR)) {
 				return errCode(fp);
 			}
+#else
+			if(fseeko(fp, (off_t)n, SEEK_CUR)){
+				return errCode(fp);
+#endif
 		}
 		return 0;
 	}
@@ -189,7 +198,11 @@ int GvrsReadBoolean(FILE* fp, GvrsBoolean* value)
 
 
 int  GvrsSkipBytes(FILE* fp, int  n) {
-	return fseek(fp, (long)n, SEEK_CUR);
+#if defined(_WIN32) || defined(_WIN64)
+	return _fseeki64(fp, (__int64)n, SEEK_CUR);
+#else
+	return fseeko(fp, (off_t)n, SEEK_CUR);
+#endif
 }
 
 int GvrsReadIdentifier(FILE* fp, size_t bufferSize, char* buffer){
@@ -215,17 +228,6 @@ int GvrsReadIdentifier(FILE* fp, size_t bufferSize, char* buffer){
 }
 
 
-int GvrsSetFilePosition(FILE* fp, GvrsLong fileOffset) {
-	// This method was introduced because it appears that fseek
-	// for large files (bigger than 2 Gigabytes) is not
-	// consistently implemented across Windows and Linux. We will have
-	// to include some conditionally compiled code when we move forward.
-	if (fileOffset < 0) {
-		return GVRSERR_FILE_ACCESS;
-	}
-	return fseek(fp, (long)fileOffset, SEEK_SET);
-}
- 
 
 int GvrsWriteASCII(FILE* fp, size_t bufferSize, const char* buffer)
 {
@@ -348,4 +350,52 @@ int GvrsWriteZeroes(FILE* fp, int nZeroes) {
 		}
 	}
 	return 0;
+}
+
+
+// Code for handling file positioning with support for very large file
+// 
+// Windows and Linux implement different API's for accessing files that are larger
+// than can be addressed using a 32-bit integer (of course they do).  So we wrap
+// file access routines in conditionally compiled code based on OS.
+
+int GvrsSetFilePosition(FILE* fp, GvrsLong fileOffset) {
+	// This method was introduced because it appears that fseek
+	// for large files (bigger than 2 Gigabytes) is not
+	// consistently implemented across Windows and Linux. We will have
+	// to include some conditionally compiled code when we move forward.
+	if (fileOffset < 0) {
+		return GVRSERR_FILE_ACCESS;
+	}
+#if defined(_WIN32) || defined(_WIN64)
+	return _fseeki64(fp, (__int64)fileOffset, SEEK_SET);
+#else
+	return fseeko(fp, (off_t)fileOffset, SEEK_SET);
+#endif
+}
+
+
+GvrsLong GvrsGetFilePosition(FILE* fp) {
+#if defined(_WIN32) || defined(_WIN64)
+	return (GvrsLong)_ftelli64(fp);
+#else
+	return (GvrsLong)ftello(fp);
+#endif
+}
+
+GvrsLong GvrsFindFileEnd(FILE* fp) {
+	int status;
+#if defined(_WIN32) || defined(_WIN64)
+	status= _fseeki64(fp, 0, SEEK_END);
+	if (status) {
+		return status;
+	}
+	return (GvrsLong)_ftelli64(fp);
+#else
+	status = fseeko(fp, 0, SEEK_END);
+	if (status) {
+		return status;
+	}
+	return (GvrsLong)ftello(fp);
+#endif
 }

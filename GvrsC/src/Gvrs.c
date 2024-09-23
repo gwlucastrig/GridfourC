@@ -89,7 +89,7 @@ static int fail(Gvrs *gvrs, FILE *fp, int errorCode) {
 }
 
 static void skipToMultipleOf4(FILE* fp) {
-	long pos = ftell(fp);
+	GvrsLong pos = GvrsGetFilePosition(fp);
 	int k = (int)(pos & 0x3);
 	if (k > 0) {
 		GvrsSkipBytes(fp, 4 - k);

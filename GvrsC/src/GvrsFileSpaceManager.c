@@ -78,7 +78,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 	manager->nAllocations++;
 	FILE* fp = manager->fp;
 	fflush(fp);
-	fseek(fp, 0, SEEK_END);
+	GvrsFindFileEnd(fp);
 
 	// compute the required block size.  The block size includes the overhead for the
 	// record header and checksum (12 bytes) plus what ever padding
@@ -111,7 +111,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		manager->recentRecordPosition = node->filePos;
 		manager->recentRecordSize = blockSize;
 		manager->recentRecordType = recordType;
-		long startOfContent = (long)manager->recentRecordPosition + (long)RECORD_HEADER_SIZE;
+		GvrsLong startOfContent = (GvrsLong)manager->recentRecordPosition + (GvrsLong)RECORD_HEADER_SIZE;
 		manager->recentStartOfContent = startOfContent;
 	
 		if (node->blockSize == blockSize) {
@@ -153,8 +153,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 	// at the end of the file, we can reuse the space that it occupies and just extend
 	// the file size as necessary   The variable "prior" will point to the last free space node
 	// in the file (if any).  And "priorPrior" will point to the node that preceeds prior (if any).
-	fseek(fp, 0, SEEK_END);
-	GvrsLong fileSize = ftell(fp);
+	GvrsLong fileSize = GvrsFindFileEnd(fp);
 	if (fileSize < manager->expectedFileSize) {
 		int n = (int)(manager->expectedFileSize - fileSize);
 		int status = GvrsWriteZeroes(fp, n);
@@ -182,7 +181,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		manager->recentRecordPosition = prior->filePos;
 		manager->recentRecordSize = blockSize;
 		manager->recentRecordType = recordType;
-		long startOfContent = (long)manager->recentRecordPosition + (long)RECORD_HEADER_SIZE;
+		GvrsLong startOfContent = (GvrsLong)manager->recentRecordPosition + (GvrsLong)RECORD_HEADER_SIZE;
 		manager->recentStartOfContent = startOfContent;
 		manager->expectedFileSize = manager->recentRecordPosition + blockSize;
 		
@@ -200,7 +199,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		manager->recentRecordPosition = fileSize;
 		manager->recentRecordSize = blockSize;
 		manager->recentRecordType = recordType;
-		long startOfContent = (long)manager->recentRecordPosition + (long)RECORD_HEADER_SIZE;
+		GvrsLong startOfContent = (GvrsLong)manager->recentRecordPosition + (GvrsLong)RECORD_HEADER_SIZE;
 		manager->recentStartOfContent = startOfContent;
 		manager->expectedFileSize = manager->recentRecordPosition + blockSize;
 	}
@@ -227,7 +226,7 @@ GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, GvrsLong contentPos) {
 	manager->nFinish++;
 	FILE* fp = manager->fp;
 	fflush(fp);
-	GvrsLong currentFilePos = ftell(fp);
+	GvrsLong currentFilePos = GvrsGetFilePosition(fp);
 	GvrsInt allocatedSize;
 	int status = 0;
 	GvrsLong recordPos = contentPos - RECORD_HEADER_SIZE;
@@ -404,12 +403,13 @@ GvrsFileSpaceManager* GvrsFileSpaceManagerAlloc(FILE *fp) {
 	// This step is necessary to ensure that the manager provides
 	// eight-byte alignment for all subsequent calls.
 	fflush(fp);
-	int status = fseek(fp, 0, SEEK_END);
-	if (status) {
+	int status;
+	GvrsLong filePos = GvrsFindFileEnd(fp);
+	if (filePos<0) {
 		// A file error.  Unable to initialize 
 		return 0;
 	}
-	GvrsLong filePos = ftell(fp);
+
 	int misAlignment = (int)(filePos & 0x07L);
 	if (misAlignment) {
 		int n = 8 - misAlignment;
