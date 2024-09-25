@@ -25,7 +25,6 @@
  */
 
 #include "GvrsFramework.h"
-#include <limits.h>
 #include "GvrsPrimaryTypes.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"

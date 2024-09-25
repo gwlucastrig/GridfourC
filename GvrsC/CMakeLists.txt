@@ -6,14 +6,7 @@ cmake_minimum_required (VERSION 3.8)
 project ("GvrsC" C )
 
 find_package(ZLIB)
-if(ZLIB_FOUND)
-	message(STATUS "This project has ZLIB")
-endif()
-
  
-
-
-
 add_library(${PROJECT_NAME} STATIC)
 
 if( CMAKE_COMPILER_IS_GNUCC )
@@ -25,32 +18,10 @@ endif()
 if(ZLIB_FOUND)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE GVRS_ZLIB=1 )
 	include_directories( ${ZLIB_INCLUDE_DIRS} )
-	target_sources(${PROJECT_NAME} PRIVATE
-	src/Gvrs.c
-	src/GvrsBitInput.c
-	src/GvrsBitOutput.c
-	src/GvrsBspline.c
-	src/GvrsBuilder.c
-	src/GvrsChecksum.c
-	src/GvrsCodecDeflate.c
-	src/GvrsCodecFloat.c
-	src/GvrsCodecHuffman.c
-	src/GvrsCodecLsop.c
-	src/GvrsCrossPlatform.c
-	src/GvrsElement.c
-	src/GvrsFileSpaceManager.c
-	src/GvrsInterpolation.c
-	src/GvrsM32.c
-	src/GvrsMetadata.c
-	src/GvrsPredictor.c
-	src/GvrsPrimaryIo.c
-	src/GvrsRecord.c
-	src/GvrsSummarize.c
-	src/GvrsTileCache.c
-	src/GvrsTileDirectory.c
-	)
-else()
-	target_sources(${PROJECT_NAME} PRIVATE
+endif()
+
+
+target_sources(${PROJECT_NAME} PRIVATE
 	src/Gvrs.c
 	src/GvrsBitInput.c
 	src/GvrsBitOutput.c
@@ -71,6 +42,17 @@ else()
 	src/GvrsTileCache.c
 	src/GvrsTileDirectory.c
 	)
+
+
+# The following C files depend on the deflate library (zlib) being available
+# on the system.  Because target_sources is cummulative, we can add them
+# to the library conditionally.
+if(ZLIB_FOUND)
+	target_sources(${PROJECT_NAME} PRIVATE
+		src/GvrsCodecDeflate.c
+		src/GvrsCodecFloat.c
+		src/GvrsCodecLsop.c
+		)
 endif()
 
 

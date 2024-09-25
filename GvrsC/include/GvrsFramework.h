@@ -37,6 +37,7 @@
 #include <string.h>
 #include <wchar.h>
 #include <ctype.h>
+#include <limits.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #define GVRS_STRDUP           _strdup
