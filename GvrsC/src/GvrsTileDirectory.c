@@ -148,30 +148,7 @@ GvrsTileDirectory* GvrsTileDirectoryFree(GvrsTileDirectory* tileDirectory) {
 	return 0;
 }
 
-
-
-GvrsLong GvrsTileDirectoryGetFilePositionByRowColumn(GvrsTileDirectory* tileDir, int tileRow, int tileCol) {
-	if (tileRow < tileDir->row0 || tileCol < tileDir->col0) {
-		return 0;
-	}
-	int iRow = tileRow - tileDir->row0;
-	int iCol = tileCol - tileDir->col0;
-	if (iRow >= tileDir->nRows || iCol >= tileDir->nCols) {
-		return 0;
-	}
-	int tileIndex = iRow * tileDir->nCols + iCol;
-	if (tileDir->iOffsets) {
-		GvrsLong t = (GvrsLong)(tileDir->iOffsets[tileIndex]);
-		return t << 3;
-	}
-	else if (tileDir->lOffsets) {
-		return tileDir->lOffsets[tileIndex];
-	}else{
-		// This is a new file and the tile directory has not yet been populated
-		return 0;
-	}
-}
-
+ 
 
 
 GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIndex) {
@@ -186,12 +163,13 @@ GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIn
 	if (iRow >= tileDir->nRows || iCol >= tileDir->nCols) {
 		return 0;
 	}
+	int offsetTableIndex = iRow * tileDir->nCols + iCol;
 	if (tileDir->iOffsets) {
-		GvrsLong t = (GvrsLong)(tileDir->iOffsets[tileIndex]);
+		GvrsLong t = (GvrsLong)(tileDir->iOffsets[offsetTableIndex]);
 		return t << 3;
 	}
 	else if (tileDir->lOffsets) {
-		return tileDir->lOffsets[tileIndex];
+		return tileDir->lOffsets[offsetTableIndex];
 	}
 	else {
 		// We should never get here.  Perhaps this is a new file
@@ -276,7 +254,25 @@ int GvrsTileDirectoryWrite(Gvrs* gvrs, GvrsLong* tileDirectoryPos) {
 
 
 int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition) {
-	// TO DO: test for filePos greater than 32 GB threshold that is to big for iOffset and requires lOffset  
+	// Test for filePos greater than 32 GB threshold that is too big for iOffset and requires lOffset 
+	if (filePosition >= (1LL << 35) && td->iOffsets) {
+		// The "compact" representation stores file position in a 4-byte unsigned integer.
+		// Four bytes can represent a value up to 4 GB (32 bits, unsigned). But GVRS file records
+		// always start on a file position that is a multiple of 8. So a file position of up to 32 GB (1<<(32+3))
+		// can be stored by dividing its value by 8.  If the input file position is lardger than that,
+		// the API must switch to the 8-byte representation
+		int i;
+		int n = td->nRows * td->nCols;
+		td->lOffsets = (GvrsLong *)malloc(n);
+		if (!td->lOffsets) {
+			return GVRSERR_NOMEM;
+		}
+		for (i = 0; i < n; i++) {
+			td->lOffsets[i] = ((GvrsLong)td->iOffsets[i]) << 3;
+		}
+		free(td->iOffsets);
+		td->iOffsets = 0;
+	}
 	int row = tileIndex / td->nColsOfTiles;
 	int col = tileIndex - row * td->nColsOfTiles;
 	if (td->nCols == 0) {
@@ -303,7 +299,6 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 		int col1X = td->col0 + td->nCols - 1;
 	 
 
-
 		if (row < row0X) {
 			adjustmentNeeded = 1;
 			row0X= row;
@@ -318,7 +313,6 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 			adjustmentNeeded = 1;
 			col1X = col;
 		}
-
 	
 
 		if (adjustmentNeeded) {
@@ -326,16 +320,17 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 			nColsX = col1X - col0X + 1;
 			int n = nRowsX * nColsX;
 			if (td->iOffsets) {
+				int iRow, iCol;
 				GvrsUnsignedInt* iOffsets = td->iOffsets;
 				GvrsUnsignedInt* xOffsets = calloc(n, sizeof(GvrsUnsignedInt));
 				if (!xOffsets) {
 					return GVRSERR_NOMEM;
 				}
 				// TO DO:  replace col loop with memmove?  memcpy?
-				for (int iRow = 0; iRow < nRows; iRow++) {
+				for (iRow = 0; iRow < nRows; iRow++) {
 					int iRowOffset = iRow * nCols; // position of tile position in original grid
 					int xRowOffset = (iRow + row0 - row0X) * nColsX+(col0-col0X); // position in extended grid
-					for (int iCol = 0; iCol < nCols; iCol++) {
+					for (iCol = 0; iCol < nCols; iCol++) {
 						xOffsets[xRowOffset + iCol] = iOffsets[iRowOffset + iCol];
 					}
 				}
@@ -343,16 +338,17 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 				td->iOffsets = xOffsets;
 			}
 			else {
+				int iRow, iCol;
 				GvrsLong* lOffsets = td->lOffsets;
 				GvrsLong* xOffsets = calloc(n, sizeof(GvrsLong));
 				if (!xOffsets) {
 					return GVRSERR_NOMEM;
 				}
 				// TO DO:  replace col loop with memmove?  memcpy?  
-				for (int iRow = 0; iRow < nRows; iRow++) {
+				for (iRow = 0; iRow < nRows; iRow++) {
 					int iRowOffset = iRow * nCols; // position of tile position in original grid
 					int xRowOffset = (iRow + row0 - row0X) * nColsX + (col0 - col0X); // position in extended grid
-					for (int iCol = 0; iCol < nCols; iCol++) {
+					for (iCol = 0; iCol < nCols; iCol++) {
 						xOffsets[xRowOffset + iCol] = lOffsets[iRowOffset + iCol];
 					}
 				}

@@ -544,7 +544,7 @@ int GvrsSummarize(Gvrs* gvrs, FILE* fp);
 */
 int GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp);
 
-
+int GvrsIsTilePopulated(Gvrs* gvrs, int tileIndex);
 
 #ifdef __cplusplus
 }

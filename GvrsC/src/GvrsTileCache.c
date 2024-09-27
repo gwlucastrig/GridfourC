@@ -852,3 +852,22 @@ int GvrsTileCacheComputeStandardSize(int nRowsOfTiles, int nColsOfTiles, GvrsTil
 	}
 }
 	 
+
+int GvrsIsTilePopulated(Gvrs* gvrs, int tileIndex) {
+	if (!gvrs) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+	GvrsTileCache* tc = (GvrsTileCache*)gvrs->tileCache;
+	GvrsTile* node = hashTableLookup(tc, tileIndex);
+	if (node) {
+		return 1;
+	}
+	GvrsLong tileOffset = GvrsTileDirectoryGetFilePosition(tc->tileDirectory, tileIndex);
+	if (tileOffset) {
+		return 1;
+	}
+
+	return 0;
+}
+

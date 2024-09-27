@@ -223,7 +223,6 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	int GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong fileOffset, GvrsTileDirectory** tileDirectoryReference);
 	int GvrsTileDirectoryWrite(Gvrs* gvrs, GvrsLong* tileDirectoryPos);
 	GvrsTileDirectory* GvrsTileDirectoryFree(GvrsTileDirectory* tileDirectory);
-	GvrsLong GvrsTileDirectoryGetFilePositionByRowColumn(GvrsTileDirectory* tileDir, int tileRow, int tileCol);
 	GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIndex);
 
 
