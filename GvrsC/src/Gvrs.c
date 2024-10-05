@@ -559,11 +559,9 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 		if (status) {
 			return fail(gvrs, fp, status);
 		}
-		status = GvrsFileSpaceDirectoryRead(gvrs, gvrs->filePosFileSpaceDirectory, &((GvrsFileSpaceManager*)gvrs->fileSpaceManager));
-		// TO DO:  dealloc the file space for:
-		//            file-space manager directory  (done)
-		//            tile directory (done)
-		//            metadata directory ?
+		GvrsFileSpaceManager* fsMan;
+		status = GvrsFileSpaceDirectoryRead(gvrs, gvrs->filePosFileSpaceDirectory, &fsMan);
+		gvrs->fileSpaceManager = fsMan;
 		if (status) {
 			return fail(gvrs, fp, status);
 		}
