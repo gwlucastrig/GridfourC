@@ -496,27 +496,33 @@ int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition) {
 	return GvrsFileSpaceFinish(manager, contentPos);
 }
 
-GvrsFileSpaceManager *
-GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong fileSpaceDirectoryPosition, int *errCode) {
+int
+GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong fileSpaceDirectoryPosition, GvrsFileSpaceManager** managerRef) {
+	if (!gvrs || !managerRef || fileSpaceDirectoryPosition <= 0) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	*managerRef = 0;
 	FILE* fp = gvrs->fp;
-	*errCode = 0;
+	if (!fp) {
+		return GVRSERR_FILE_ERROR;
+	}
+
 	GvrsFileSpaceManager* manager = GvrsFileSpaceManagerAlloc(fp);
 	if (!manager) {
-		*errCode = GVRSERR_NOMEM;
-		return 0;
+		return GVRSERR_NOMEM;
 	}
 	if (fileSpaceDirectoryPosition) {
 		int status;
 		GvrsInt nFreeSpaceRecords;
 		status = GvrsSetFilePosition(fp, fileSpaceDirectoryPosition);
 		if (status) {
-			*errCode = status;
-			return manager;
+			free(manager);
+			return status;
 		}
 		status = GvrsReadInt(fp, &nFreeSpaceRecords);
 		if (status) {
-			*errCode = status;
-			return manager;
+			free(manager);
+			return status;
 		}
 		GvrsFileSpaceNode* prior = 0;
 		int i;
@@ -527,14 +533,13 @@ GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong fileSpaceDirectoryPosition, int 
 			status1 = GvrsReadLong(fp, &filePos);
 			status2 = GvrsReadInt(fp, &blockSize);
 			if (status1 || status2) {
-				*errCode = status2;
-				return manager;
-
+				free(manager);
+				return status2;
 			}
 			GvrsFileSpaceNode* node = calloc(1, sizeof(GvrsFileSpaceNode));
 			if (!node) {
-				*errCode =  GVRSERR_NOMEM;
-				return manager;
+				free(manager);
+				return  GVRSERR_NOMEM;
 			}
 			node->filePos = filePos;
 			node->blockSize = blockSize;
@@ -547,5 +552,6 @@ GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong fileSpaceDirectoryPosition, int 
 			prior = node;
 		}
 	}
-	return manager;
+	*managerRef = manager;
+	return 0;
 }

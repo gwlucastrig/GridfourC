@@ -292,7 +292,7 @@ static const long FILEPOS_OFFSET_TO_TILE_DIR = 80;
 	int  GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, GvrsLong contentPos);
 	GvrsFileSpaceManager* GvrsFileSpaceManagerAlloc(FILE *fp);
 	GvrsFileSpaceManager* GvrsFileSpaceManagerFree(GvrsFileSpaceManager*);
-	GvrsFileSpaceManager* GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong freeSpaceDirectoryPosition, int* errCode);
+	int GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong freeSpaceDirectoryPosition, GvrsFileSpaceManager** managerRef);
 	int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition);
 
 	Gvrs* GvrsDisposeOfResources(Gvrs* gvrs);

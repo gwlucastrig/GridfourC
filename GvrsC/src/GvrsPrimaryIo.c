@@ -160,30 +160,31 @@ int  GvrsReadDouble(FILE* fp,  double* value)
 	 return fread(value, 8, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-char* GvrsReadString(FILE* fp, int *errorCode)
+int GvrsReadString(FILE* fp, char **stringReference)
 {
-	*errorCode = 0;
+	if (!stringReference) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	*stringReference = 0;
 	uint16_t len = 0;
 	size_t status = fread(&len, 2, 1, fp);
 	if (status < 1) {
-		*errorCode = errCode(fp);
-		return 0;
+		return errCode(fp);
 	}
 	char *string = calloc((size_t)len + 1, 1);
 	if (!string) {
 		// the allocation failed
-		*errorCode =  GVRSERR_NOMEM;
-		return 0;
+		return GVRSERR_NOMEM;
 	}
 
 	status = fread(string, 1, len, fp);
 	if (status < len) {
 		free(string);
-		*errorCode = errCode(fp);
-		return 0;
+		return  errCode(fp);
 	}
 	string[len] = 0;
-	return string;
+	*stringReference = string;
+	return 0;
 }
 
 int GvrsReadBoolean(FILE* fp, GvrsBoolean* value)

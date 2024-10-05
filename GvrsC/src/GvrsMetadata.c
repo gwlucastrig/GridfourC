@@ -241,9 +241,8 @@ int GvrsMetadataRead(FILE* fp, GvrsMetadata **metadata) {
 	m->bytesPerValue = metadataTypeBytesPerValue[m->metadataType];
 	m->nValues = m->dataSize / m->bytesPerValue;
 
-	m->description = GvrsReadString(fp, &status);
- 
-	return 0;
+	status = GvrsReadString(fp, &(m->description));
+	return status;
 }
 
 GvrsMetadataResultSet* GvrsMetadataResultSetFree(GvrsMetadataResultSet* rs) {

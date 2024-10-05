@@ -228,6 +228,8 @@ typedef struct GvrsTag {
 
 	void* fileSpaceManager;
 
+	GvrsBoolean deleteOnClose;
+
 } Gvrs;
 
 
@@ -545,6 +547,7 @@ int GvrsSummarize(Gvrs* gvrs, FILE* fp);
 int GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp);
 
 int GvrsIsTilePopulated(Gvrs* gvrs, int tileIndex);
+void GvrsSetDeleteOnClose(Gvrs* gvrs, int deleteOnClose);
 
 #ifdef __cplusplus
 }

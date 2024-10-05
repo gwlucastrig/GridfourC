@@ -200,9 +200,9 @@ static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int 
 		break; // no action required
 	}
 
-	element->label = GvrsReadString(fp, status);
-	element->description = GvrsReadString(fp, status);
-	element->unitOfMeasure = GvrsReadString(fp, status);
+	GvrsReadString(fp, &(element->label));
+	GvrsReadString(fp, &(element->description));
+	GvrsReadString(fp, &(element->unitOfMeasure));
 	skipToMultipleOf4(fp);
 
 	// compute number of bytes needed for tile.  Note that this size
@@ -477,7 +477,7 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 #ifdef GVRS_ZLIB
 		for (iCompress = 0; iCompress < gvrs->nDataCompressionCodecs; iCompress++) {
 			char* sp = "";
-			sp = GvrsReadString(fp, &status);
+			status = GvrsReadString(fp, &sp);
 			if (status) {
 				return fail(gvrs, fp, status);
 			}
@@ -504,7 +504,7 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 #else
 		for (iCompress = 0; iCompress < gvrs->nDataCompressionCodecs; iCompress++) {
 			unsigned char* sp = "";
-			sp = GvrsReadString(fp, &status);
+			*status = GvrsReadString(fp, &sp);
 			if (*status) {
 				return fail(gvrs, fp, status);
 			}
@@ -523,8 +523,10 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 
 	}
 
-	gvrs->productLabel = GvrsReadString(fp, &status);
-
+	status = GvrsReadString(fp, &(gvrs->productLabel));
+	if (status) {
+		return fail(gvrs, fp, status);
+	}
 
 	GvrsTileDirectory* tileDirectory = 0;
 	status = GvrsTileDirectoryRead(gvrs, gvrs->filePosTileDirectory, &tileDirectory);
@@ -557,7 +559,7 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 		if (status) {
 			return fail(gvrs, fp, status);
 		}
-		gvrs->fileSpaceManager = GvrsFileSpaceDirectoryRead(gvrs, gvrs->filePosFileSpaceDirectory, &status);
+		status = GvrsFileSpaceDirectoryRead(gvrs, gvrs->filePosFileSpaceDirectory, &((GvrsFileSpaceManager*)gvrs->fileSpaceManager));
 		// TO DO:  dealloc the file space for:
 		//            file-space manager directory  (done)
 		//            tile directory (done)
@@ -853,9 +855,17 @@ int GvrsClose(Gvrs* gvrs) {
 	if (!gvrs) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
-	else {
-		int status = 0;
-		if (gvrs->fp && gvrs->timeOpenedForWritingMS) {
+
+	int status = 0;
+	if (gvrs->fp && gvrs->timeOpenedForWritingMS) {
+		if (gvrs->deleteOnClose) {
+			// because the file is going to be deleted, there
+			// is no need to write the closing elements.
+			fclose(gvrs->fp);
+			gvrs->fp = 0;
+			remove(gvrs->path);
+		}
+		else {
 			int status0, status1;
 			status = writeClosingElements(gvrs, gvrs->fp);
 			if (status == 0) {
@@ -867,12 +877,16 @@ int GvrsClose(Gvrs* gvrs) {
 				}
 			}
 		}
-		GvrsDisposeOfResources(gvrs);
-		return status;
 	}
-
+	GvrsDisposeOfResources(gvrs);
+	return status;
 }
 
+void GvrsSetDeleteOnClose(Gvrs* gvrs, int deleteOnClose) {
+	if (gvrs) {
+		gvrs->deleteOnClose = deleteOnClose;
+	}
+}
 
 Gvrs* GvrsDisposeOfResources(Gvrs* gvrs) {
 	if (gvrs) {

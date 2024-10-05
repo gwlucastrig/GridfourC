@@ -769,6 +769,9 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileIndex, int* errCode)
 	// free list or repurpose a tile that is in the cache. In either case,
 	// the "working" tile will be placed at the head of the queue.
 	node = getWorkingTile(tc, tileIndex, errCode);
+	if (!node) {
+		return 0;
+	}
 
 	tc->nTileReads++;
 	int status = readTile(tc->gvrs, tileOffset, node);

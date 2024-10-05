@@ -76,17 +76,18 @@ GvrsLong GvrsFindFileEnd(FILE* fp);
 
 /**
 * Reads GVRS-formatted string of arbitrary length from a source file or stream.
-* Memory for the string is allocated dynamically and returned by this function as a pointer.
+* Memory for the string is allocated dynamically and the stringReference argument
+* is populated with its address.  If the read operation is unsuccessful, the
+* stringReference is set to a null pointer (zero address).
 * It is assumed that the calling function will accept management of the memory.
 * In GVRS, strings are stored using a two-byte length element followed by a corresponding
 * number of bytes. Therefore the return string may be of length zero to 65535.
-* If the function completes successfully,
-* the file position is always set to the end of the string.
+* If the function completes successfully, the file position is always set to the end of the string.
 * @param fp a valid pointer to a file
-* @param errCode a pointer to an integer to store the function status; zero if successful, otherwise an error code.
-* @return if successful, a pointer to a valid memory address; otherwise, a null.
+* @param stringReference a valid pointer to a pointer of type char to receive the result.
+* @return  zero if successful, otherwise an error code.
 */
-char* GvrsReadString(FILE* fp, int *errCode);
+int GvrsReadString(FILE* fp, char **stringReference);
 
 /**
 * Reads a GVRS-formatted identifier from the source file or stream, ensuring that
