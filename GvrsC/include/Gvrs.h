@@ -366,7 +366,19 @@ int GvrsElementReadFloat(GvrsElement* element, int row, int column, GvrsFloat* v
 int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt value);
 int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, GvrsFloat value);
 
-
+/**
+* Uses the element as a counter, reads the existing value at the cell, increments it by one,
+* and stores it in the raster. This operation is defined elements having a data type of either
+* Integer or Short.  It is not defined for floating-point elements.
+* This function can handle counts up to and not exceeding the maximum value of a signed integer.
+* If the count would exceed the value of a signed integer, an error code is returned.
+* @param element a valid instance associated with an GVRS file opened for write access.
+* @param gridRow the row index for a grid cell within the GVRS file.
+* @param gridColumn the column index for a grid cell within the GVRS file.
+* @param count a pointer to an integer variable to receive the resulting count for the specified grid cell.
+* @return if successful, a zero; otherwise an error code.
+*/
+int GvrsElementCount(GvrsElement* element, int gridRow, int gridColumn, GvrsInt* count);
 
 
 /**
@@ -542,11 +554,41 @@ int GvrsSummarize(Gvrs* gvrs, FILE* fp);
 * Write a summary of access statistics from the specified GVRS data store.
 * @param gvrs A valid GVRS data store.
 * @param fp A valid output stream (file, standard output, etc).
-* @return if successful, zero; otherwise an error code.
+* @return if successful, zero; otherwise, an error code.
 */
 int GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp);
 
+/**
+* Writes a line showing progress for a potentially time-consuming process.  The
+* process is assumed to consist of a distinct number of parts that are processed
+* at an approximately uniform rate. Logic is implemented to estimate
+* how much time is remaining in the process and at what time it will be complete.
+* If sufficient information is available, the output will include time-related
+* information.
+* @param fp A valid output stream (file, standard output, etc).
+* @param time0 The time at which the process started or zero if unavailable.
+* @param partName A label for the part to be output (i&period;e&period; row, block, segment, part, etc).
+* @param part The number of parts completed so far.
+* @param nParts The total number of parts to be completed.
+* @return if successful, the number of bytes written to output; otherwise, an error code.
+*/
+int GvrsSummarizeProgress(FILE* fp, GvrsLong time0, const char* partName, int part, int nParts);
+
+/**
+* Indicates whether the specified tile is populated.
+* @param gvrs A valid GVRS data store.
+* @param tileIndex a positive value giving the index of the tile of interest.
+* @ return 1 if populated; otherwise, zero.
+*/
 int GvrsIsTilePopulated(Gvrs* gvrs, int tileIndex);
+
+/**
+* Sets an option controlling whether a GVRS file will be deleted when
+* the GvrsClose() operation is explicitly invoked.
+* This operation applies only for files opened with write access.
+* @param gvrs A valid GVRS data store.
+* @param non-zero if the file is to be deleted when closed; zero to suppress the deletion function.
+*/
 void GvrsSetDeleteOnClose(Gvrs* gvrs, int deleteOnClose);
 
 #ifdef __cplusplus

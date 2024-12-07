@@ -268,3 +268,33 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 	}
 	return 0;
 }
+
+
+
+int GvrsSummarizeProgress(FILE *fp, GvrsLong time0, const char *partName, int part, int nParts) {
+	if (!fp) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+	GvrsLong time1 = GvrsTimeMS();
+	GvrsLong deltaT = time1 - time0;
+	int nPartsRemaining = nParts - part;
+	int status;
+	if (time0 && deltaT > 100 && part >0 && nPartsRemaining > 0) {
+		// there is enough information to give a detailed summary
+		double rate = (double)part/(double)deltaT;   // parts per millisecond
+		GvrsLong remainingMS = (GvrsLong)(nPartsRemaining/rate + 0.5);
+		long remainingSec = (long)(remainingMS / 1000LL);
+		GvrsLong finishTimeMS = time1 + remainingMS;
+		time_t finishTimeSec = (time_t)(finishTimeMS / 1000LL);
+		char endTimeStr[64];
+		struct tm endTM;
+		GVRS_GMTIME(&endTM, &finishTimeSec);
+		strftime(endTimeStr, sizeof(endTimeStr), "%Y-%m-%d %H:%M:%S", &endTM);
+		status = fprintf(fp, "Processed %s %4d of %4d. Estimated time remaining %ld sec, completetion at %s\n",
+			partName, part, nParts, remainingSec, endTimeStr);
+	}
+	else {
+		status = fprintf(fp, "Processed %s %4d of %4d.\n", partName, part, nParts);
+	}
+	return status;
+}

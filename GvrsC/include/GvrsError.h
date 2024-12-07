@@ -58,6 +58,7 @@ extern "C"
 #define GVRSERR_INTERNAL_ERROR              -21
 #define GVRSERR_NAME_NOT_UNIQUE             -22
 #define GVRSERR_INVALID_PARAMETER           -23
+#define GVRSERR_COUNTER_OVERFLOW            -24
 
 
 #ifdef __cplusplus

@@ -858,7 +858,7 @@ int GvrsTileCacheComputeStandardSize(int nRowsOfTiles, int nColsOfTiles, GvrsTil
 
 int GvrsIsTilePopulated(Gvrs* gvrs, int tileIndex) {
 	if (!gvrs) {
-		return GVRSERR_NULL_ARGUMENT;
+		return 0;
 	}
 
 	GvrsTileCache* tc = (GvrsTileCache*)gvrs->tileCache;

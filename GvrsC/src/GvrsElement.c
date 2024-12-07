@@ -426,4 +426,109 @@ int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, Gvr
 	}
 }
 
-  
+ 
+
+
+
+int GvrsElementCount(GvrsElement* element, int gridRow, int gridColumn, GvrsInt* count) {
+	if (!element || !count) {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+	*count = 0;
+	Gvrs* gvrs = element->gvrs;
+	if (gvrs) {
+		if (!gvrs->timeOpenedForWritingMS) {
+			return GVRSERR_NOT_OPENED_FOR_WRITING;
+		}
+	}
+	else {
+		return GVRSERR_NULL_ARGUMENT;
+	}
+
+
+	GvrsTileCache* tc = (GvrsTileCache*)element->tileCache;
+	if ((unsigned int)gridRow >= tc->nRowsInRaster || (unsigned int)gridColumn >= tc->nColsInRaster) {
+		return GVRSERR_COORDINATE_OUT_OF_BOUNDS;
+	}
+	tc->nRasterReads++;
+	tc->nRasterWrites++;
+	int nRowsInTile = tc->nRowsInTile;
+	int nColsInTile = tc->nColsInTile;
+	int nColsOfTiles = tc->nColsOfTiles;
+	int tileRow = gridRow / nRowsInTile;
+	int tileCol = gridColumn / nColsInTile;
+	int tileIndex = tileRow * nColsOfTiles + tileCol;
+	int rowInTile = gridRow - tileRow * nRowsInTile;
+	int colInTile = gridColumn - tileCol * nColsInTile;
+	int indexInTile = rowInTile * nColsInTile + colInTile;
+
+	int tileIsNew = 0;
+	int errCode;
+	GvrsTile* tile;
+	if (tc->firstTileIndex == tileIndex) {
+		tile = tc->firstTile;
+	}
+	else {
+		tile = GvrsTileCacheFetchTile(tc, tileIndex, &errCode);
+		if (!tile) {
+			// The tile reference is null. Usually, a null indicate that the grid cell
+			// for the input row and column is not-populated (or populated with fill values).
+			// In such cases, the errCode will be zero.  The appropriate action is to
+			// populate the *value argument with the integer fill value.
+			// In the uncommon event of an error, the error code will be set to a non-zero value
+			// an the appropriate action is to just return it to the calling function.
+			if (errCode != 0) {
+				return errCode;
+			}
+			tile = GvrsTileCacheStartNewTile(tc, tileIndex, &errCode);
+			if (errCode) {
+				return errCode;
+			}
+			tileIsNew = 1;
+		}
+	}
+
+	tile->writePending = 1;
+	GvrsByte* data = tile->data + element->dataOffset;
+	GvrsInt* pI;
+	GvrsShort* pS;
+	GvrsInt tempCount;
+	switch (element->elementType) {
+	case GvrsElementTypeInt:
+		pI = ((GvrsInt*)data) + indexInTile;
+		if (tileIsNew) {
+			tempCount = 0;
+		}
+		else {
+			tempCount = *pI;
+			if (tempCount == INT_MAX) {
+				return GVRSERR_COUNTER_OVERFLOW;
+			}
+		}
+		*pI = tempCount + 1;
+		*count = tempCount + 1;
+		return 0;
+
+	case GvrsElementTypeIntCodedFloat:
+		return  GVRSERR_FILE_ERROR;
+	case GvrsElementTypeFloat:
+		return  GVRSERR_FILE_ERROR;
+	case GvrsElementTypeShort:
+		pS = ((GvrsShort*)data) + indexInTile;
+		if (tileIsNew) {
+			tempCount = 0;
+		}
+		else {
+			tempCount = *pS;
+			if (tempCount == SHRT_MAX) {
+				return GVRSERR_COUNTER_OVERFLOW;
+			}
+		}
+		*pS = tempCount + 1;
+		*count = tempCount + 1;
+		return 0;
+	default:
+		return GVRSERR_FILE_ERROR;
+	}
+}
