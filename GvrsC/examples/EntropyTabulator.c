@@ -65,7 +65,6 @@ int main(int argc, char* argv[]) {
     GvrsElement* eInput;
     GvrsElement* eCount;
     int iRow, iCol, xRow, xCol;
-    unsigned int nSymbols = 0;
     GvrsLong nCellsInput;
     char eName[GVRS_ELEMENT_NAME_SZ + 4];
     status = GvrsOpen(&gInput, inputFile, "r");
@@ -81,7 +80,7 @@ int main(int argc, char* argv[]) {
 
     // For debugging, we can reduce the number of input rows and columns so that the
     // input file gets processed faster.
-    // nRowsInput = 100;   // for debugging
+    // nRowsInput = 1000;   // for debugging
     // nColsInput = 180;
 
     eInput = 0;
@@ -199,9 +198,6 @@ int main(int argc, char* argv[]) {
                     GvrsSummarizeAccessStatistics(gCount, stdout);
                     exit(1);
                 }
-                if (iCount == 1) {
-                    nSymbols++;
-                }
                 if (iValue == fillValueInt) {
                     fillCount++;
                 }else if (iCount > maxCount) {
@@ -257,9 +253,6 @@ int main(int argc, char* argv[]) {
                     GvrsSummarizeAccessStatistics(gCount, stdout);
                     exit(1);
                 }
-                if (iCount == 1) {
-                    nSymbols++;
-                }
                 if (fillValueIsNan && isnan(*fValue) || *fValue == fillValueFloat) {
                     fillCount++;
                 }else if (iCount > maxCount) {
@@ -291,6 +284,8 @@ int main(int argc, char* argv[]) {
     double entropy = 0;
     double sumCountsD = (double)sumCounts;
     int nTilesPopulated = 0;
+    int nSymbols = 0;
+    int nSymbolsUsedOnce = 0;
     int iTileRow, iTileCol, iValue;
     for (iTileRow = 0; iTileRow < gCount->nRowsOfTiles; iTileRow++) {
         int row0 = iTileRow * gCount->nRowsInTile;
@@ -311,6 +306,10 @@ int main(int argc, char* argv[]) {
                         exit(1);
                     }
                     if (iValue > 0) {
+                        nSymbols++;
+                        if (iValue == 1) {
+                            nSymbolsUsedOnce++;
+                        }
                         double p = (double)iValue / sumCountsD;
                         double pLog = log(p);
                         entropy += p * pLog;
@@ -319,8 +318,10 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+
     entropy = -entropy/log(2.0);
     double aggregate = entropy * nCellsInput/8.0;
+    int nSymbolsUsedMultipleTimes = nSymbols - nSymbolsUsedOnce;
 
     time1 = GvrsTimeMS();
     printf("Entropy computation completed in %lld milliseconds\n", (long long)(time1 - time0));
@@ -331,23 +332,25 @@ int main(int argc, char* argv[]) {
     printf("   File:    %s\n", inputFile);
     printf("   Element: %s\n", eName);
     printf("\n");
-    printf("Entropy rate         %12.6f bits per value\n", entropy);
-    printf("Entropy total        %14.1f bytes\n", aggregate);
-    printf("Cells in input grid: %12lld\n", (long long)nCellsInput);
-    printf("Unique symbols:      %12d\n", nSymbols);
+    printf("Entropy rate          %12.6f bits per value\n", entropy);
+    printf("Entropy aggregate     %14.1f bytes\n", aggregate);
+    printf("Cells in input grid:  %12lld\n", (long long)nCellsInput);
+    printf("Unique symbols:       %12d\n", nSymbols);
+    printf("  Used once:          %12d\n", nSymbolsUsedOnce);
+    printf("  Used multple times: %12d\n", nSymbolsUsedMultipleTimes);
 
     if (overflowEncountered) {
         printf("Some counters exceeded the maximum integer value during processing\n");
     }
     if (elementIsIcf) {
-        printf("Maximum count:       %12ld,  value: %f, int-coded value: %ld\n", (long)maxCount, maxCountValueFloat, maxCountValueInt);
-        printf("Fill value count:    %12ld,  value: %f\n", (long)fillCount, fillValueFloat);
+        printf("  Maximum count:      %12ld,  value: %f, int-coded value: %ld\n", (long)maxCount, maxCountValueFloat, maxCountValueInt);
+        printf("  Fill value count:   %12ld,  value: %f\n", (long)fillCount, fillValueFloat);
     }else if (elementIsFloat ) {
-        printf("Maximum count:       %12ld,  value: %f\n", (long)maxCount, maxCountValueFloat);
-        printf("Fill value count:    %12ld,  value: %f\n", (long)fillCount, fillValueFloat);
+        printf("  Maximum count:      %12ld,  value: %f\n", (long)maxCount, maxCountValueFloat);
+        printf("  Fill value count:   %12ld,  value: %f\n", (long)fillCount, fillValueFloat);
     }else {
-        printf("Maximum count:       %12ld,  value: %ld\n", (long)maxCount, maxCountValueInt);
-        printf("Fill value count:    %12ld,  value: %ld\n", (long)fillCount, fillValueInt);
+        printf("  Maximum count:      %12ld,  value: %ld\n", (long)maxCount, maxCountValueInt);
+        printf("  Fill value count:   %12ld,  value: %ld\n", (long)fillCount, fillValueInt);
     }
     
     printf("\n");
