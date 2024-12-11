@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
     GvrsElementSpecSetRangeInt(spec, 0, INT_MAX);
 
     Gvrs* gCount;
-    const char* countFile = "c:\\Tinfour\\Gridfour1\\junk\\EntropyTabulation.gvrs";
+    const char* countFile = "EntropyTabulationTemp.gvrs";
     remove(countFile);
     status = GvrsBuilderOpenNewGvrs(builder, countFile, &gCount);
     if (status) {
