@@ -130,8 +130,8 @@ int  GvrsM32Alloc(uint8_t* buffer, int32_t bufferLength, GvrsM32** m32);
 
 /**
 * Deallocates the memory associated with the m32 codec.
-* @param a valid m32 reference.
-* @return a null.
+* @param m32 a valid m32 reference.
+* @return a null pointer.
 */
 GvrsM32* GvrsM32Free(GvrsM32* m32);
 
@@ -157,6 +157,7 @@ GvrsM32* GvrsM32AllocForOutput();
 /**
 * Appends the specified integer value to the specified m32 encoding.
 * @param m32 a valid instance, initialized for output.
+* @param symbol an arbitrary integer value to be appended to the M32 instance. 
 * @return if successful, zero; otherwise an integer value indicating an error condition.
 */
 int GvrsM32AppendSymbol(GvrsM32* m32, int symbol);
@@ -180,7 +181,7 @@ GvrsBitOutput* GvrsBitOutputFree(GvrsBitOutput* output);
 * the text is assumed to be under the management of the application and will
 * not be affected by subsequent calls to GVRS bit operations.
 * @param output a valid instance.
-* @param nBytesAllocated a pointer to a variable to receive the number of bytes in the text
+* @param nBytesInText a pointer to a variable to receive the number of bytes in the text
 * @param text a pointer to a pointer variable to receive the text.
 * @return if successful, a value of zero; otherwise an error code indicating the cause of the failure.
 */

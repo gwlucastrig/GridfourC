@@ -566,7 +566,7 @@ int GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp);
 * information.
 * @param fp A valid output stream (file, standard output, etc).
 * @param time0 The time at which the process started or zero if unavailable.
-* @param partName A label for the part to be output (i&period;e&period; row, block, segment, part, etc).
+* @param partName A label for the part to be output (i&#46;e&#46; row, block, segment, part, etc).
 * @param part The number of parts completed so far.
 * @param nParts The total number of parts to be completed.
 * @return if successful, the number of bytes written to output; otherwise, an error code.
@@ -586,7 +586,7 @@ int GvrsIsTilePopulated(Gvrs* gvrs, int tileIndex);
 * the GvrsClose() operation is explicitly invoked.
 * This operation applies only for files opened with write access.
 * @param gvrs A valid GVRS data store.
-* @param non-zero if the file is to be deleted when closed; zero to suppress the deletion function.
+* @param deleteOnClose non-zero if the file is to be deleted when closed; zero to suppress the deletion function.
 */
 void GvrsSetDeleteOnClose(Gvrs* gvrs, int deleteOnClose);
 
