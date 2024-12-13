@@ -76,20 +76,21 @@ int GvrsReadASCII(FILE* fp, size_t n, size_t bufferSize, char * buffer)
 	return 0;
 }
 
+ 
 
-int  GvrsReadByte(FILE * fp, GvrsByte * value)
+int  GvrsReadByte(FILE * fp, uint8_t* value)
 {
 	return fread(value, 1, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int  GvrsReadByteArray(FILE* fp, int nValues, GvrsByte * values)
+int  GvrsReadByteArray(FILE* fp, int nValues, uint8_t* values)
 {
 	size_t status = fread(values, 1, nValues, fp);
 	return status < (size_t)nValues ? errCode(fp) : 0;
 }
 
 
-int  GvrsReadShort(FILE* fp, GvrsShort *value)
+int  GvrsReadShort(FILE* fp, int16_t* value)
 {
 	return fread(value, 2, 1, fp) < 1 ? errCode(fp) : 0;
 }
@@ -99,7 +100,7 @@ int  GvrsReadUnsignedShort(FILE* fp, uint16_t* value)
 	return fread(value, 2, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int GvrsReadShortArray(FILE* fp, int n, GvrsShort* values)
+int GvrsReadShortArray(FILE* fp, int n, int16_t* values)
 {
 	size_t status = fread(values, 2, n, fp);
 	if (status < (size_t)n) {
@@ -108,7 +109,7 @@ int GvrsReadShortArray(FILE* fp, int n, GvrsShort* values)
 	return 0;
 }
 
-int GvrsReadInt(FILE* fp, int32_t *value)
+int GvrsReadInt(FILE* fp, int32_t* value)
 {
 	*value = 0;
 	return fread(value, 4, 1, fp) < 1 ? errCode(fp) : 0;
@@ -119,16 +120,16 @@ int GvrsReadUnsignedInt(FILE *fp, uint16_t* value)
 	return fread(value, 4, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int GvrsReadUnsignedIntArray(FILE* fp, int n, GvrsUnsignedInt* values)
+int GvrsReadUnsignedIntArray(FILE* fp, int n, uint32_t* values)
 {
-	size_t status = fread(values, sizeof(GvrsUnsignedInt), n, fp);
+	size_t status = fread(values, sizeof(uint32_t), n, fp);
 	if (status < (size_t)n) {
 		return errCode(fp);
 	}
 	return 0;
 }
 
-int GvrsReadLong(FILE* fp, int64_t *value)
+int GvrsReadLong(FILE* fp, int64_t* value)
 {
 	*value = 0;
 	return fread(value, 8, 1, fp) < 1 ? errCode(fp) : 0;
@@ -139,9 +140,9 @@ int GvrsReadUnsignedLong(FILE* fp, uint64_t* value)
 	return fread(value, 8, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int GvrsReadLongArray(FILE* fp, int n, GvrsLong* values)
+int GvrsReadLongArray(FILE* fp, int n, int64_t* values)
 {
-	size_t status = fread(values, sizeof(GvrsLong), n, fp);
+	size_t status = fread(values, sizeof(int64_t), n, fp);
 	if (status < (size_t)n) {
 		return errCode(fp);
 	}
@@ -187,7 +188,7 @@ int GvrsReadString(FILE* fp, char **stringReference)
 	return 0;
 }
 
-int GvrsReadBoolean(FILE* fp, GvrsBoolean* value)
+int GvrsReadBoolean(FILE* fp, int* value)
 {
 	uint8_t test;
 	size_t status = fread(&test, 1, 1, fp);
@@ -241,7 +242,7 @@ int GvrsWriteASCII(FILE* fp, size_t bufferSize, const char* buffer)
 }
 
 
-int GvrsWriteBoolean(FILE* fp, GvrsBoolean  value) {
+int GvrsWriteBoolean(FILE* fp, int  value) {
 	if (value) {
 		return GvrsWriteByte(fp, 1);
 	}
@@ -250,52 +251,52 @@ int GvrsWriteBoolean(FILE* fp, GvrsBoolean  value) {
 	}
 }
 
-int  GvrsWriteByte(FILE* fp, GvrsByte value)
+int  GvrsWriteByte(FILE* fp, uint8_t value)
 {
-	GvrsByte b = value;
+	uint8_t b = value;
 	return fwrite(&b, 1, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int GvrsWriteByteArray(FILE* fp, int nValues, GvrsByte *values) {
+int GvrsWriteByteArray(FILE* fp, int nValues, uint8_t* values) {
 	return fwrite(values, 1, nValues, fp) < nValues ? errCode(fp) : 0;
 }
 
 
-int GvrsWriteDouble(FILE* fp, GvrsDouble value)
+int GvrsWriteDouble(FILE* fp, double value)
 {
-	GvrsDouble d = value;
+	double d = value;
 	return fwrite(&d, 8, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int GvrsWriteFloat(FILE* fp, GvrsFloat value)
+int GvrsWriteFloat(FILE* fp, float value)
 {
-	GvrsFloat f = value;
+	float f = value;
 	return fwrite(&f, 4, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
 
 
-int GvrsWriteInt(FILE* fp, GvrsInt value)
+int GvrsWriteInt(FILE* fp, int32_t value)
 {
-	GvrsInt i = value;
+	int32_t i = value;
 	return fwrite(&i, 4, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int GvrsWriteLong(FILE* fp, GvrsLong value)
+int GvrsWriteLong(FILE* fp, int64_t value)
 {
-	GvrsLong i = value;
+	int64_t i = value;
 	return fwrite(&i, 8, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int GvrsWriteShort(FILE* fp, GvrsShort value)
+int GvrsWriteShort(FILE* fp, int16_t value)
 {
-	GvrsShort i = value;
+	int16_t i = value;
 	return fwrite(&i, 2, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int GvrsWriteUnsignedShort(FILE* fp, GvrsUnsignedShort value)
+int GvrsWriteUnsignedShort(FILE* fp, uint16_t value)
 {
-	GvrsUnsignedShort i = value;
+	uint16_t i = value;
 	return fwrite(&i, 2, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
@@ -361,7 +362,7 @@ int GvrsWriteZeroes(FILE* fp, int nZeroes) {
 // than can be addressed using a 32-bit integer (of course they do).  So we wrap
 // file access routines in conditionally compiled code based on OS.
 
-int GvrsSetFilePosition(FILE* fp, GvrsLong fileOffset) {
+int GvrsSetFilePosition(FILE* fp, int64_t fileOffset) {
 	// This method was introduced because it appears that fseek
 	// for large files (bigger than 2 Gigabytes) is not
 	// consistently implemented across Windows and Linux. We will have
@@ -377,27 +378,27 @@ int GvrsSetFilePosition(FILE* fp, GvrsLong fileOffset) {
 }
 
 
-GvrsLong GvrsGetFilePosition(FILE* fp) {
+int64_t GvrsGetFilePosition(FILE* fp) {
 #if defined(_WIN32) || defined(_WIN64)
-	return (GvrsLong)_ftelli64(fp);
+	return (int64_t)_ftelli64(fp);
 #else
-	return (GvrsLong)ftello(fp);
+	return (int64_t)ftello(fp);
 #endif
 }
 
-GvrsLong GvrsFindFileEnd(FILE* fp) {
+int64_t GvrsFindFileEnd(FILE* fp) {
 	int status;
 #if defined(_WIN32) || defined(_WIN64)
 	status= _fseeki64(fp, 0, SEEK_END);
 	if (status) {
 		return status;
 	}
-	return (GvrsLong)_ftelli64(fp);
+	return (int64_t)_ftelli64(fp);
 #else
 	status = fseeko(fp, 0, SEEK_END);
 	if (status) {
 		return status;
 	}
-	return (GvrsLong)ftello(fp);
+	return (int64_t)ftello(fp);
 #endif
 }

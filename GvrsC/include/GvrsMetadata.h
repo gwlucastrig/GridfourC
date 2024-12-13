@@ -29,7 +29,7 @@
 
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 
 #ifndef GVRS_METADATA_H
 #define GVRS_METADATA_H
@@ -60,13 +60,13 @@ extern "C"
 
 	typedef struct GvrsMetadataTag {
 		char name[GVRS_METADATA_NAME_SZ + 4];  // allow room for null terminator
-		GvrsInt recordID;
+		int32_t recordID;
 		GvrsMetadataType metadataType;
-		GvrsInt bytesPerValue;
-		GvrsInt dataSize;
-		GvrsInt nValues;
+		int32_t bytesPerValue;
+		int32_t dataSize;
+		int32_t nValues;
 		char* description;
-		GvrsByte* data;
+		uint8_t* data;
 	}GvrsMetadata;
 
 	typedef struct GvrsMetadataResultSetTag {
@@ -111,7 +111,7 @@ extern "C"
 	* @param bytes a pointer to a pointer variable that will receive the address of the metadata.
 	* @return zero if successful; otherwise, an error code.
 	*/
-	 int GvrsMetadataGetByteArray(GvrsMetadata* m, int* nValues, GvrsByte** bytes);
+	 int GvrsMetadataGetByteArray(GvrsMetadata* m, int* nValues, uint8_t** bytes);
 
 	/**
 	* Gets the content of a metadata element as a pointer to an array of one or more short integers.
@@ -124,7 +124,7 @@ extern "C"
 	* @param data a pointer to a pointer variable that will receive the address of one or more short integers.
 	* @return zero if successful; otherwise, an error code.
 	*/
-	int GvrsMetadataGetShortArray(GvrsMetadata* m, int* nValues, GvrsShort** data);
+	int GvrsMetadataGetShortArray(GvrsMetadata* m, int* nValues, int16_t** data);
 
 
 	/**
@@ -138,7 +138,7 @@ extern "C"
 	* @param data a pointer to a pointer variable that will receive the address of one or more unsigned short integers.
 	* @return zero if successful; otherwise, an error code.
 	*/
-	int GvrsMetadataGetUnsignedShortArray(GvrsMetadata* m, int* nValues, GvrsUnsignedShort** data);
+	int GvrsMetadataGetUnsignedShortArray(GvrsMetadata* m, int* nValues, uint16_t** data);
 
 	/**
 	* Gets the content of a metadata element as a pointer to an array of one or more integers.
@@ -151,7 +151,7 @@ extern "C"
 	* @param data a pointer to a pointer variable that will receive the address of one or more integers.
 	* @return zero if successful; otherwise, an error code.
 	*/
-	int GvrsMetadataGetIntArray(GvrsMetadata* m, int* nValues, GvrsInt** data );
+	int GvrsMetadataGetIntArray(GvrsMetadata* m, int* nValues, int32_t** data );
 
 
 	/**
@@ -165,7 +165,7 @@ extern "C"
 	* @param data a pointer to a pointer variable that will receive the address of one or more unsigned integers.
 	* @return zero if successful; otherwise, an error code.
 	*/
-	int GvrsMetadataGetUnsignedIntArray(GvrsMetadata* m, int* nValues, GvrsUnsignedInt** data);
+	int GvrsMetadataGetUnsignedIntArray(GvrsMetadata* m, int* nValues, uint32_t** data);
 
 
 
@@ -181,7 +181,7 @@ extern "C"
 	* @param data a pointer to a pointer variable that will receive the address of one or more floats.
 	* @return zero if successful; otherwise, an error code.
 	*/
-	int GvrsMetadataGetFloatArray(GvrsMetadata* m, int* nValues, GvrsFloat** data);
+	int GvrsMetadataGetFloatArray(GvrsMetadata* m, int* nValues, float** data);
 
 
 
@@ -197,7 +197,7 @@ extern "C"
 	* @param data a pointer to a pointer variable that will receive the address of one or more doubles.
 	* @return zero if successful; otherwise, an error code.
 	*/
-	int GvrsMetadataGetDoubleArray(GvrsMetadata* m, int* nValues, GvrsDouble** data);
+	int GvrsMetadataGetDoubleArray(GvrsMetadata* m, int* nValues, double** data);
 
 	/**
 	* Gets a static string indicating the name of the metadata type.  Intended for writing reports
@@ -212,7 +212,7 @@ extern "C"
 	* @param metadata a pointer to a pointer for a variable to receive the memory address for the metadata.
 	* @return if successful, zero; otherwise an integer value indicating an error condition.
 	*/
-	int GvrsMetadataInit(const char* name, GvrsInt recordID, GvrsMetadata** metadata);
+	int GvrsMetadataInit(const char* name, int32_t recordID, GvrsMetadata** metadata);
 
 	/**
 	* Frees the memory for the metadata including any elements that it contains.
@@ -241,7 +241,7 @@ extern "C"
 	* @param doubleRef a valid pointer to any array of zero or more unsigned short integer values
 	* @return if successful, zero; otherwise an integer value indicating an error condition.
 	*/
-	int GvrsMetadataSetDouble(GvrsMetadata* metadata, int nValues, GvrsDouble* doubleRef);
+	int GvrsMetadataSetDouble(GvrsMetadata* metadata, int nValues, double* doubleRef);
 
 	/**
 	* Sets the data content for the metadata structure to the specified unsigned short array.
@@ -252,7 +252,7 @@ extern "C"
 	* @param shortRef a valid pointer to any array of zero or more short integer values
 	* @return if successful, zero; otherwise an integer value indicating an error condition.
 	*/
-	int GvrsMetadataSetShort(GvrsMetadata* metadata, int nValues, GvrsShort* shortRef);
+	int GvrsMetadataSetShort(GvrsMetadata* metadata, int nValues, int16_t* shortRef);
 
 
 	/**
@@ -264,7 +264,7 @@ extern "C"
 	* @param unsRef a valid pointer to any array of zero or more unsigned short integer values
 	* @return if successful, zero; otherwise an integer value indicating an error condition.
 	*/
-	int GvrsMetadataSetUnsignedShort(GvrsMetadata* metadata, int nValues, GvrsUnsignedShort* unsRef);
+	int GvrsMetadataSetUnsignedShort(GvrsMetadata* metadata, int nValues, uint16_t* unsRef);
 
 
 	/**

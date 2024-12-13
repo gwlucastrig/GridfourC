@@ -171,7 +171,7 @@ static int performTimeTest(const char* path, TimeTest testType, TestResults* res
 	int iValue;
 	float fValue;
 
-	GvrsLong time0 = GvrsTimeMS();
+	int64_t time0 = GvrsTimeMS();
 
 	switch (testType) {
 	case TimeForTileAccess:
@@ -311,7 +311,7 @@ static int performTimeTest(const char* path, TimeTest testType, TestResults* res
 		return -1;
 	}
 
-	GvrsLong time1 = GvrsTimeMS();
+	int64_t time1 = GvrsTimeMS();
 	results->elapsedTime = (long)(time1 - time0);
 
 	status = GvrsClose(gvrs);

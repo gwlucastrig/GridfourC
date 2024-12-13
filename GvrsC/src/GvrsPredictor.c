@@ -25,14 +25,14 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 
 // Simple differencing
-void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output) {
+void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output) {
 	int i, iRow, iCol;
-	GvrsInt prior = seed;
+	int32_t prior = seed;
 	output[0] = seed;
 	for (i = 1; i < nColumns; i++) {
 		prior += GvrsM32GetNextSymbol(m32);
@@ -51,26 +51,26 @@ void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* ou
 }
 
 
-void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output) {
+void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output) {
 	int iRow, iCol;
-	GvrsLong prior = seed;
+	int64_t prior = seed;
 	output[0] = seed;
-	output[1] = (GvrsInt)(GvrsM32GetNextSymbol(m32) + prior);
+	output[1] = (int32_t)(GvrsM32GetNextSymbol(m32) + prior);
 	for (iRow = 1; iRow < nRows; iRow++) {
 		int index = iRow * nColumns;
-		GvrsLong test = GvrsM32GetNextSymbol(m32) + prior;
-		output[index] = (GvrsInt)test;
+		int64_t test = GvrsM32GetNextSymbol(m32) + prior;
+		output[index] = (int32_t)test;
 		output[index + 1] = (int)(GvrsM32GetNextSymbol(m32) + test);
 		prior = test;
 	}
 	for (iRow = 0; iRow < nRows; iRow++) {
 		int index = iRow * nColumns;
-		GvrsLong a = output[index];
-		GvrsLong b = output[index + 1];
+		int64_t a = output[index];
+		int64_t b = output[index + 1];
 		//accumulate second differences starting at column 2 for row
 		for (iCol = 2; iCol < nColumns; iCol++) {
-			GvrsInt residual = GvrsM32GetNextSymbol(m32);
-			GvrsInt prediction = (int)(2LL * b - a);
+			int32_t residual = GvrsM32GetNextSymbol(m32);
+			int32_t prediction = (int)(2LL * b - a);
 			int c = prediction + residual;
 			output[index + iCol] = c;
 			a = b;
@@ -79,7 +79,7 @@ void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* ou
 	}
 }
 
-void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output) {
+void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output) {
 	int i, iRow, iCol;
 	// The zeroeth row and column are populated using simple differences.
 	// All other columns are populated using the triangle-predictor
@@ -113,7 +113,7 @@ void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* ou
 
 // Simple differencing
 int
- GvrsPredictor1encode(int nRows, int nColumns, GvrsInt *values, GvrsInt *encodedSeed, GvrsM32** m32Reference) {
+ GvrsPredictor1encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32Reference) {
 	if (!values || !encodedSeed || !m32Reference) {
 		return GVRSERR_NULL_ARGUMENT;
     }
@@ -148,7 +148,7 @@ int
 }
 
 int
-GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt* encodedSeed, GvrsM32** m32Reference) {
+GvrsPredictor2encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32Reference) {
 	if (!values || !encodedSeed || !m32Reference) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -195,7 +195,7 @@ GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt* encodedS
 }
 
 int
-GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt* encodedSeed, GvrsM32**m32Reference ) {
+GvrsPredictor3encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32**m32Reference ) {
 	if (!values || !encodedSeed || !m32Reference) {
 		return GVRSERR_NULL_ARGUMENT;
 	}

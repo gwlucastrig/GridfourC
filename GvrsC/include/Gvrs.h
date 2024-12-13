@@ -25,7 +25,6 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
 #include "GvrsCrossPlatform.h"
 #include "GvrsCodec.h"
 #include "GvrsMetadata.h"
@@ -46,12 +45,12 @@ extern "C"
 * Defines parametrs for a 2D affine transform using a 2-by-3 matrix
 */
 typedef struct GvrsAffineTransformTag {
-	GvrsDouble a00;
-	GvrsDouble a01;
-	GvrsDouble a02;
-	GvrsDouble a10;
-	GvrsDouble a11;
-	GvrsDouble a12;
+	double a00;
+	double a01;
+	double a02;
+	double a10;
+	double a11;
+	double a12;
 }GvrsAffineTransform;
 
 
@@ -81,9 +80,9 @@ typedef enum {
 * Provides range of values and default (fill) for a GVRS integer element.
 */
 typedef struct {
-	GvrsInt minValue;
-	GvrsInt maxValue;
-	GvrsInt fillValue;
+	int32_t minValue;
+	int32_t maxValue;
+	int32_t fillValue;
 }GvrsElementSpecInt;
 
 
@@ -93,23 +92,23 @@ typedef struct {
 * filePos value.
 */
 typedef struct GvrsElmSpecIntCodedFloatTag {
-	GvrsFloat minValue;
-	GvrsFloat maxValue;
-	GvrsFloat fillValue;
-	GvrsFloat scale;
-	GvrsFloat offset;
-	GvrsInt iMinValue;
-	GvrsInt iMaxValue;
-	GvrsInt iFillValue;
+	float minValue;
+	float maxValue;
+	float fillValue;
+	float scale;
+	float offset;
+	int32_t iMinValue;
+	int32_t iMaxValue;
+	int32_t iFillValue;
 }GvrsElementSpecIntCodedFloat;
 
 /**
 * Provides range of values and default (fill) for a GVRS floating-point element.
 */
 typedef struct GvrsElmSpecFloatTag {
-	GvrsFloat minValue;
-	GvrsFloat maxValue;
-	GvrsFloat fillValue;
+	float minValue;
+	float maxValue;
+	float fillValue;
 }GvrsElementSpecFloat;
 
 
@@ -117,9 +116,9 @@ typedef struct GvrsElmSpecFloatTag {
 * Provides range of values and default (fill) for a GVRS short (two-byte integer) element.
 */
 typedef struct GvrsElmSpecShortTag {
-	GvrsShort minValue;
-	GvrsShort maxValue;
-	GvrsShort fillValue;
+	int16_t minValue;
+	int16_t maxValue;
+	int16_t fillValue;
 	char pad[2];  // TO DO: is this actually needed?
 }GvrsElementSpecShort;
 
@@ -167,54 +166,54 @@ typedef struct GvrsTag {
 	char* path;
 	FILE* fp;
 
-	GvrsLong offsetToContent;  // file position of first record in file
+	int64_t offsetToContent;  // file position of first record in file
 
-	GvrsLong uuidLow;
-	GvrsLong uuidHigh;
+	int64_t uuidLow;
+	int64_t uuidHigh;
 
-	GvrsLong modTimeMS;
+	int64_t modTimeMS;
 	time_t   modTimeSec;   
 
-	GvrsLong timeOpenedForWritingMS;
+	int64_t timeOpenedForWritingMS;
 
-	GvrsLong filePosFileSpaceDirectory;
-	GvrsLong filePosMetadataDirectory;
-	GvrsLong filePosTileDirectory;
+	int64_t filePosFileSpaceDirectory;
+	int64_t filePosMetadataDirectory;
+	int64_t filePosTileDirectory;
 
-	GvrsBoolean checksumEnabled;
+	int checksumEnabled;
 
 	// grid and coordinate system definition
 
-	GvrsInt rasterSpaceCode;
-	GvrsInt geographicCoordinates;
-	GvrsInt geoWrapsLongitude;
-	GvrsInt geoBracketsLongitude;
-	GvrsInt nRowsInRaster;
-	GvrsInt nColsInRaster;
-	GvrsInt nRowsInTile;
-	GvrsInt nColsInTile;
-	GvrsInt nRowsOfTiles;
-	GvrsInt nColsOfTiles;
-	GvrsInt nCellsInTile;
+	int32_t rasterSpaceCode;
+	int32_t geographicCoordinates;
+	int32_t geoWrapsLongitude;
+	int32_t geoBracketsLongitude;
+	int32_t nRowsInRaster;
+	int32_t nColsInRaster;
+	int32_t nRowsInTile;
+	int32_t nColsInTile;
+	int32_t nRowsOfTiles;
+	int32_t nColsOfTiles;
+	int32_t nCellsInTile;
 
-	GvrsDouble x0;
-	GvrsDouble y0;
-	GvrsDouble x1;
-	GvrsDouble y1;
-	GvrsDouble cellSizeX;
-	GvrsDouble cellSizeY;
-	GvrsDouble xCenter;       // xCenter and xCenterGrid are used by the Geographic coordinate
-	GvrsDouble xCenterGrid;   // transforms to accound for longitude wrapping.
+	double x0;
+	double y0;
+	double x1;
+	double y1;
+	double cellSizeX;
+	double cellSizeY;
+	double xCenter;       // xCenter and xCenterGrid are used by the Geographic coordinate
+	double xCenterGrid;   // transforms to accound for longitude wrapping.
 
 
 	GvrsAffineTransform m2r;
 	GvrsAffineTransform r2m;
 
-	GvrsInt nElementsInTupple;
-	GvrsInt nBytesForTileData;
+	int32_t nElementsInTupple;
+	int32_t nBytesForTileData;
 	GvrsElement** elements;
 
-	GvrsInt nDataCompressionCodecs;
+	int32_t nDataCompressionCodecs;
 	GvrsCodec** dataCompressionCodecs;
 	
 
@@ -228,7 +227,7 @@ typedef struct GvrsTag {
 
 	void* fileSpaceManager;
 
-	GvrsBoolean deleteOnClose;
+	int deleteOnClose;
 
 } Gvrs;
 
@@ -340,7 +339,7 @@ int GvrsElementIsContinuous(GvrsElement* element);
 * @param value a pointer to an integer variable to accept the result from the read operation.
 * @return if successful, a zero; otherwise an error code.
 */
-int GvrsElementReadInt(GvrsElement* element, int row, int column, GvrsInt* value);
+int GvrsElementReadInt(GvrsElement* element, int row, int column, int32_t* value);
 
 /**
 * Reads a floating-point value from GVRS.  May access file associated with the specified element.
@@ -350,7 +349,7 @@ int GvrsElementReadInt(GvrsElement* element, int row, int column, GvrsInt* value
 * @param value a pointer to a floating-point variable to accept the result from the read operation.
 * @return if successful, a zero; otherwise an error code.
 */
-int GvrsElementReadFloat(GvrsElement* element, int row, int column, GvrsFloat* value);
+int GvrsElementReadFloat(GvrsElement* element, int row, int column, float* value);
 
 /**
 * Writes an integer value to the GVRS store. May access the file associated with the specified
@@ -363,8 +362,8 @@ int GvrsElementReadFloat(GvrsElement* element, int row, int column, GvrsFloat* v
 * @param value an interger value to be stored in the file
 * @return if successful, a zero; otherwise an error code.
 */
-int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt value);
-int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, GvrsFloat value);
+int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, int32_t value);
+int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, float value);
 
 /**
 * Uses the element as a counter, reads the existing value at the cell, increments it by one,
@@ -378,7 +377,7 @@ int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, Gvr
 * @param count a pointer to an integer variable to receive the resulting count for the specified grid cell.
 * @return if successful, a zero; otherwise an error code.
 */
-int GvrsElementCount(GvrsElement* element, int gridRow, int gridColumn, GvrsInt* count);
+int GvrsElementCount(GvrsElement* element, int gridRow, int gridColumn, int32_t* count);
 
 
 /**
@@ -498,7 +497,7 @@ int GvrsMetadataDelete(Gvrs* gvrs, const char* name, int recordID);
 * @param pcrc is a cummulative checksum value (usually zero)
 * @return the updated checksum value
 */
-unsigned long  GvrsChecksumUpdateArray(GvrsByte* b, int off, int len, unsigned long pcrc);
+unsigned long  GvrsChecksumUpdateArray(uint8_t* b, int off, int len, unsigned long pcrc);
 
 /**
 * Updates the CRC-32C checksum with the specified byte value. The CRC-32C checksum
@@ -512,7 +511,7 @@ unsigned long  GvrsChecksumUpdateArray(GvrsByte* b, int off, int len, unsigned l
 * @param pcrc is a cummulative checksum value
 * @return the updated checksum value
 */
-unsigned long  GvrsChecksumUpdateValue(GvrsByte b, unsigned long pcrc);
+unsigned long  GvrsChecksumUpdateValue(uint8_t b, unsigned long pcrc);
 
 /**
 * Registers a GVRS compression codec with the specified instance.  If the instance already includes
@@ -572,7 +571,7 @@ int GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp);
 * @param nParts The total number of parts to be completed.
 * @return if successful, the number of bytes written to output; otherwise, an error code.
 */
-int GvrsSummarizeProgress(FILE* fp, GvrsLong time0, const char* partName, int part, int nParts);
+int GvrsSummarizeProgress(FILE* fp, int64_t time0, const char* partName, int part, int nParts);
 
 /**
 * Indicates whether the specified tile is populated.

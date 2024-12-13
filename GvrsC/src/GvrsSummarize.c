@@ -25,7 +25,7 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsPrimaryIo.h"
 #include "Gvrs.h"
 #include "GvrsInternal.h"
@@ -34,8 +34,8 @@
 
 int
 GvrsGetStringUUID(Gvrs* gvrs, size_t uuidStringSize, char* uuidString) {
-	GvrsLong uuidLow = gvrs->uuidLow;
-	GvrsLong uuidHigh = gvrs->uuidHigh;
+	int64_t uuidLow = gvrs->uuidLow;
+	int64_t uuidHigh = gvrs->uuidHigh;
 	return snprintf(uuidString, uuidStringSize,
 		"%07llx-%04llx-%04llx-%04llx-%012llx",
 		(uuidHigh >> 32) & 0xfffffffLL,
@@ -221,8 +221,8 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 	}
 
 	GvrsTileCache* tc = gvrs->tileCache;
-	GvrsLong nReadsAndWrites = tc->nRasterReads + tc->nRasterWrites;
-	GvrsLong nAccessToCurrentTile = nReadsAndWrites - tc->nCacheSearches;
+	int64_t nReadsAndWrites = tc->nRasterReads + tc->nRasterWrites;
+	int64_t nAccessToCurrentTile = nReadsAndWrites - tc->nCacheSearches;
 	fprintf(fp, "\n");
 	fprintf(fp, "Access statistics ------------------------------\n");
 	fprintf(fp, "Number of Reads:        %12lld\n", (long long)tc->nRasterReads);
@@ -235,8 +235,8 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 
 	if (gvrs->fileSpaceManager) {
 		GvrsFileSpaceManager* fsm = gvrs->fileSpaceManager;
-		GvrsInt nFreeRecords = 0;
-		GvrsLong sizeFreeRecords = 0;
+		int32_t nFreeRecords = 0;
+		int64_t sizeFreeRecords = 0;
 		GvrsFileSpaceNode* node = fsm->freeList;
 		while (node) {
 			nFreeRecords++;
@@ -271,20 +271,20 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 
 
 
-int GvrsSummarizeProgress(FILE *fp, GvrsLong time0, const char *partName, int part, int nParts) {
+int GvrsSummarizeProgress(FILE *fp, int64_t time0, const char *partName, int part, int nParts) {
 	if (!fp) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
-	GvrsLong time1 = GvrsTimeMS();
-	GvrsLong deltaT = time1 - time0;
+	int64_t time1 = GvrsTimeMS();
+	int64_t deltaT = time1 - time0;
 	int nPartsRemaining = nParts - part;
 	int status;
 	if (time0 && deltaT > 100 && part >0 && nPartsRemaining > 0) {
 		// there is enough information to give a detailed summary
 		double rate = (double)part/(double)deltaT;   // parts per millisecond
-		GvrsLong remainingMS = (GvrsLong)(nPartsRemaining/rate + 0.5);
+		int64_t remainingMS = (int64_t)(nPartsRemaining/rate + 0.5);
 		long remainingSec = (long)(remainingMS / 1000LL);
-		GvrsLong finishTimeMS = time1 + remainingMS;
+		int64_t finishTimeMS = time1 + remainingMS;
 		time_t finishTimeSec = (time_t)(finishTimeMS / 1000LL);
 		char endTimeStr[64];
 		struct tm endTM;

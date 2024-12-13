@@ -68,7 +68,7 @@ static char* optstrdup(const char* s, int* status) {
 
 
 static int padMultipleOf4(FILE* fp) {
-	GvrsLong pos = GvrsGetFilePosition(fp);
+	int64_t pos = GvrsGetFilePosition(fp);
 	int k = (int)(pos & 0x3L);
 	if (k > 0) {
 		int i, status;
@@ -83,14 +83,14 @@ static int padMultipleOf4(FILE* fp) {
 }
 
 static int checkNumberOfTiles(GvrsBuilder* builder) {
-	GvrsLong nRowsOfTiles = ((GvrsLong)builder->nRowsInRaster + (GvrsLong)builder->nRowsInTile - 1) / (GvrsLong)builder->nRowsInTile;
-	GvrsLong nColsOfTiles = ((GvrsLong)builder->nColsInRaster + (GvrsLong)builder->nColsInTile - 1) / (GvrsLong)builder->nColsInTile;
-	GvrsLong n = nRowsOfTiles * nColsOfTiles;
+	int64_t nRowsOfTiles = ((int64_t)builder->nRowsInRaster + (int64_t)builder->nRowsInTile - 1) / (int64_t)builder->nRowsInTile;
+	int64_t nColsOfTiles = ((int64_t)builder->nColsInRaster + (int64_t)builder->nColsInTile - 1) / (int64_t)builder->nColsInTile;
+	int64_t n = nRowsOfTiles * nColsOfTiles;
 	if (n > INT32_MAX) {
 		return recordStatus(builder, GVRSERR_BAD_RASTER_SPECIFICATION);
 	}
-	builder->nRowsOfTiles = (GvrsInt)nRowsOfTiles;
-	builder->nColsOfTiles = (GvrsInt)nColsOfTiles;
+	builder->nRowsOfTiles = (int32_t)nRowsOfTiles;
+	builder->nColsOfTiles = (int32_t)nColsOfTiles;
 	return 0;
 }
 
@@ -523,8 +523,8 @@ int GvrsBuilderAddElementFloat(GvrsBuilder* builder, const char* name, GvrsEleme
 int
 GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder, 
 	const char* name, 
-	GvrsFloat scale,
-	GvrsFloat offset,
+	float scale,
+	float offset,
 	GvrsElementSpec** specReference)
 {
 	int status;
@@ -560,7 +560,7 @@ GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder,
 }
 
 int
-GvrsElementSpecSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax) {
+GvrsElementSpecSetRangeInt(GvrsElementSpec* eSpec, int32_t iMin, int32_t iMax) {
 	if (!eSpec || !eSpec->builder) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -582,15 +582,15 @@ GvrsElementSpecSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax) {
 	}
 		break;
 	case GvrsElementTypeFloat:
-		eSpec->elementSpec.floatSpec.minValue = (GvrsFloat)iMin;
-		eSpec->elementSpec.floatSpec.maxValue = (GvrsFloat)iMax;
+		eSpec->elementSpec.floatSpec.minValue = (float)iMin;
+		eSpec->elementSpec.floatSpec.maxValue = (float)iMax;
 		break;
 	case GvrsElementTypeShort:
 		if (iMin<INT16_MIN || iMax>INT16_MAX) {
 			return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
 		}
-		eSpec->elementSpec.shortSpec.minValue = (GvrsShort)iMin;
-		eSpec->elementSpec.shortSpec.maxValue = (GvrsShort)iMax;
+		eSpec->elementSpec.shortSpec.minValue = (int16_t)iMin;
+		eSpec->elementSpec.shortSpec.maxValue = (int16_t)iMax;
 		break;
 	default:
 		return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
@@ -1027,7 +1027,7 @@ static int writeHeader(Gvrs* gvrs) {
 	status = GvrsWriteByte(fp, 0);
 
 	status = GvrsWriteInt(fp, 0); // the size of the header, to be filled in later
-	status = GvrsWriteByte(fp, (GvrsByte)GvrsRecordTypeHeader);
+	status = GvrsWriteByte(fp, (uint8_t)GvrsRecordTypeHeader);
 	status = GvrsWriteByte(fp, 0);
 	status = GvrsWriteByte(fp, 0);
 	status = GvrsWriteByte(fp, 0);
@@ -1049,7 +1049,7 @@ static int writeHeader(Gvrs* gvrs) {
 	status = GvrsWriteByte(fp, 0);
 	status = GvrsWriteByte(fp, 0);
 
-	GvrsLong filePos = GvrsGetFilePosition(fp);
+	int64_t filePos = GvrsGetFilePosition(fp);
 	status = GvrsWriteLong(fp, 0);  // pos 80, filePos to first (only) tile directory
 
 	// write a block of reservd longs for future use
@@ -1070,9 +1070,9 @@ static int writeHeader(Gvrs* gvrs) {
 	// we will also need to reserve 4 extra bytes for the checksum
 	// and then pad out the record.
 	filePos = GvrsGetFilePosition(fp);
-	GvrsLong filePosContent = (filePos + 4LL + 7LL) & 0xfffffff8LL;
-	GvrsInt sizeOfHeaderInBytes = (int)(filePosContent - FILEPOS_OFFSET_TO_HEADER_RECORD);
-	GvrsInt padding = (int)(filePosContent - filePos);
+	int64_t filePosContent = (filePos + 4LL + 7LL) & 0xfffffff8LL;
+	int32_t sizeOfHeaderInBytes = (int)(filePosContent - FILEPOS_OFFSET_TO_HEADER_RECORD);
+	int32_t padding = (int)(filePosContent - filePos);
 	GvrsWriteZeroes(fp, padding);
 	fflush(fp);
 
@@ -1159,7 +1159,7 @@ int GvrsBuilderRegisterDataCompressionCodec(GvrsBuilder* builder, GvrsCodec* cod
 
 
 int 
-GvrsElementSpecSetFillValueInt(GvrsElementSpec* spec, GvrsInt fillValue) {
+GvrsElementSpecSetFillValueInt(GvrsElementSpec* spec, int32_t fillValue) {
 	if (!spec || !spec->builder) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -1182,14 +1182,14 @@ GvrsElementSpecSetFillValueInt(GvrsElementSpec* spec, GvrsInt fillValue) {
 	}
 									 return 0;
 	case GvrsElementTypeFloat:
-		spec->elementSpec.floatSpec.fillValue = (GvrsFloat)fillValue;
+		spec->elementSpec.floatSpec.fillValue = (float)fillValue;
 		return 0;
 	case GvrsElementTypeShort:
 		if (fillValue<SHRT_MIN || fillValue>SHRT_MAX) {
 			builder->errorCode = GVRSERR_BAD_ELEMENT_SPEC;
 			return builder->errorCode;
 		}
-		spec->elementSpec.shortSpec.fillValue = (GvrsShort)fillValue;
+		spec->elementSpec.shortSpec.fillValue = (int16_t)fillValue;
 		return 0;
 	default:
 		builder->errorCode = GVRSERR_BAD_ELEMENT_SPEC;
@@ -1239,8 +1239,8 @@ GvrsElementSpecSetRangeFloat(GvrsElementSpec* eSpec, float min, float max) {
 		if (min<INT16_MIN || max>INT16_MAX) {
 			return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);
 		}
-		eSpec->elementSpec.shortSpec.minValue = (GvrsShort)min;
-		eSpec->elementSpec.shortSpec.maxValue = (GvrsShort)max;
+		eSpec->elementSpec.shortSpec.minValue = (int16_t)min;
+		eSpec->elementSpec.shortSpec.maxValue = (int16_t)max;
 		break;
 	default:
 		return recordStatus(eSpec->builder, GVRSERR_BAD_ELEMENT_SPEC);

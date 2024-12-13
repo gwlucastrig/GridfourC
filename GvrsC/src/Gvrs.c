@@ -26,7 +26,7 @@
 
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsPrimaryIo.h"
 #include "Gvrs.h"
 #include "GvrsInternal.h"
@@ -89,7 +89,7 @@ static int fail(Gvrs *gvrs, FILE *fp, int errorCode) {
 }
 
 static void skipToMultipleOf4(FILE* fp) {
-	GvrsLong pos = GvrsGetFilePosition(fp);
+	int64_t pos = GvrsGetFilePosition(fp);
 	int k = (int)(pos & 0x3);
 	if (k > 0) {
 		GvrsSkipBytes(fp, 4 - k);
@@ -138,7 +138,7 @@ static GvrsElement* readElement(Gvrs* gvrs, int iElement, int nCellsInTile, int 
 	element->elementIndex = iElement;
 	element->dataOffset = offsetWithinTileData;
 
-	GvrsByte eType;
+	uint8_t eType;
 	*status = GvrsReadByte(fp, &eType);
 	if (*status || eType < 0 || eType>3) {
 		free(element);
@@ -354,7 +354,7 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 	}
 
 	GvrsSkipBytes(fp, 2);
-	GvrsInt sizeOfHeaderInBytes;
+	int32_t sizeOfHeaderInBytes;
 	GvrsReadInt(fp, &sizeOfHeaderInBytes);
 	gvrs->offsetToContent = sizeOfHeaderInBytes;
 	GvrsSkipBytes(fp, 4);
@@ -374,7 +374,7 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 	GvrsReadLong(fp, &gvrs->filePosFileSpaceDirectory);
 	GvrsReadLong(fp, &gvrs->filePosMetadataDirectory);
 
-	GvrsShort nLevels = 0;
+	int16_t nLevels = 0;
 	GvrsReadShort(fp, &nLevels);
 
 	GvrsSkipBytes(fp, 6);
@@ -392,7 +392,7 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 	gvrs->nCellsInTile = gvrs->nRowsInTile * gvrs->nColsInTile;
 
 	GvrsSkipBytes(fp, 8);
-	GvrsByte scratch;
+	uint8_t scratch;
 	GvrsReadBoolean(fp, &gvrs->checksumEnabled);
 	GvrsReadByte(fp, &scratch);
 	gvrs->rasterSpaceCode = scratch;
@@ -449,7 +449,7 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 
 	// The format for data within the file is a set of the following
 	// for each element:
-	//     0.   GvrsInt indicating the number of bytes used to store data
+	//     0.   int32_t indicating the number of bytes used to store data
 	//     1.   The bytes for the data
 	// If the data is uncompressed, then the bytes for the data will be
 	// just the type-size times the number of cells (padded to a multiple of 4)
@@ -487,7 +487,7 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 			else if (strcmp("GvrsDeflate", sp) == 0) {
 				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecDeflateAlloc();
 			}
-			else if (strcmp("GvrsFloat", sp) == 0) {
+			else if (strcmp("float", sp) == 0) {
 				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecFloatAlloc();
 	}
 			else if (strcmp("LSOP12", sp)==0) {
@@ -717,9 +717,9 @@ static int writeChecksums(Gvrs* gvrs) {
 	}
 	FILE* fp = gvrs->fp;
 	fflush(fp);
-	GvrsInt recordSize;
+	int32_t recordSize;
 	
-	GvrsLong recordFilePos = FILEPOS_OFFSET_TO_HEADER_RECORD;
+	int64_t recordFilePos = FILEPOS_OFFSET_TO_HEADER_RECORD;
 	int k = 0;
 	while (1) {
 		GvrsSetFilePosition(fp, recordFilePos);
@@ -734,19 +734,19 @@ static int writeChecksums(Gvrs* gvrs) {
 	
 
 		unsigned long crc = 0;
-		crc = GvrsChecksumUpdateValue((GvrsByte)(recordSize & 0xff), crc);
-		crc = GvrsChecksumUpdateValue((GvrsByte)((recordSize >> 8) & 0xff), crc);
-		crc = GvrsChecksumUpdateValue((GvrsByte)((recordSize >> 16) & 0xff), crc);
-		crc = GvrsChecksumUpdateValue((GvrsByte)((recordSize >> 24) & 0xff), crc);
-		GvrsByte b1;
+		crc = GvrsChecksumUpdateValue((uint8_t)(recordSize & 0xff), crc);
+		crc = GvrsChecksumUpdateValue((uint8_t)((recordSize >> 8) & 0xff), crc);
+		crc = GvrsChecksumUpdateValue((uint8_t)((recordSize >> 16) & 0xff), crc);
+		crc = GvrsChecksumUpdateValue((uint8_t)((recordSize >> 24) & 0xff), crc);
+		uint8_t b1;
 		status = GvrsReadByte(fp, &b1);
 		if (status) {
 			return status;
 		}
 		crc = GvrsChecksumUpdateValue(b1, crc);
-		crc = GvrsChecksumUpdateValue((GvrsByte)0, crc);
-		crc = GvrsChecksumUpdateValue((GvrsByte)0, crc);
-		crc = GvrsChecksumUpdateValue((GvrsByte)0, crc);
+		crc = GvrsChecksumUpdateValue((uint8_t)0, crc);
+		crc = GvrsChecksumUpdateValue((uint8_t)0, crc);
+		crc = GvrsChecksumUpdateValue((uint8_t)0, crc);
 	
 		// because the content of a free-space record doesn't matter, it is not
 		// computed as part of the checksum.  However, for information assurance purposes
@@ -758,7 +758,7 @@ static int writeChecksums(Gvrs* gvrs) {
 			GvrsWriteZeroes(fp, contentSize);
 		}
 		else {
-			GvrsByte* b = malloc(recordSize);
+			uint8_t* b = malloc(recordSize);
 			if (!b) {
 				return GVRSERR_NOMEM;
 			}
@@ -776,8 +776,8 @@ static int writeChecksums(Gvrs* gvrs) {
 				return status;
 			}
 		}
-		GvrsSetFilePosition(fp, (GvrsLong)(recordFilePos + recordSize - 4));
-		status = GvrsWriteInt(fp, (GvrsInt)(crc & 0xFFFFFFFFL));
+		GvrsSetFilePosition(fp, (int64_t)(recordFilePos + recordSize - 4));
+		status = GvrsWriteInt(fp, (int32_t)(crc & 0xFFFFFFFFL));
 		if (status) {
 			return status;
 		}
@@ -797,7 +797,7 @@ static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 	}
  
 	if (gvrs->tileDirectory) {
-		GvrsLong tileDirectoryPos;
+		int64_t tileDirectoryPos;
 		status = GvrsTileDirectoryWrite(gvrs, &tileDirectoryPos);
 		if (status) {
 			return status;
@@ -811,7 +811,7 @@ static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 
 	GvrsMetadataDirectory* mDir = gvrs->metadataDirectory;
 	if (mDir && mDir->writePending){
-		GvrsLong filePosMetadataDirectory;
+		int64_t filePosMetadataDirectory;
 		status = GvrsMetadataDirectoryWrite(gvrs, &filePosMetadataDirectory);
 		if (status) {
 			return status;
@@ -824,7 +824,7 @@ static int writeClosingElements(Gvrs* gvrs, FILE* fp) {
 	}
 
 	if (gvrs->fileSpaceManager) {
-		GvrsLong freeSpaceDirectoryPos;
+		int64_t freeSpaceDirectoryPos;
 		status = GvrsFileSpaceDirectoryWrite(gvrs, &freeSpaceDirectoryPos);
 		if (!status && freeSpaceDirectoryPos) {
 			GvrsSetFilePosition(fp, FILEPOS_OFFSET_TO_FILESPACE_DIR);

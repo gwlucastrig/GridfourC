@@ -25,12 +25,12 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 
 
-int GvrsM32Alloc(GvrsByte* input, GvrsInt inputLength, GvrsM32** m32Reference) {
+int GvrsM32Alloc(uint8_t* input, int32_t inputLength, GvrsM32** m32Reference) {
 	if (!input || !m32Reference) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -67,7 +67,7 @@ static int segmentBaseValue[] = {
 int GvrsM32GetNextSymbol(GvrsM32 *m32) {
 	int i;
 	int limit = m32->bufferLimit;
-	GvrsByte* buffer = m32->buffer;
+	uint8_t* buffer = m32->buffer;
 
 	if (m32->offset >= limit) {
 		return INT_MIN; // arbitrary null data code
@@ -80,7 +80,7 @@ int GvrsM32GetNextSymbol(GvrsM32 *m32) {
 	}
 
 	// The M32 codes treat the initial byte as a signed quantity.
-	// Since GvrsByte is unsigned, we need to do some manipulation
+	// Since uint8_t is unsigned, we need to do some manipulation
 	// to convert the value to a signed integer.   If the symbol is in the
 	// range -127 < symbol < 127, it is complete in one-byte
 	if (symbol & 0x80) {
@@ -154,7 +154,7 @@ GvrsM32AppendSymbol(GvrsM32* m32, int symbol) {
 	// remaining in the buffer to hold 6 bytes.
 	if (m32->offset + 6 >= m32->bufferLimit) {
 		m32->bufferLimit += 8192;
-		GvrsByte* b = realloc(m32->buffer, m32->bufferLimit);
+		uint8_t* b = realloc(m32->buffer, m32->bufferLimit);
 		if (!b) {
 			// malloc failed, do nothing
 			return GVRSERR_NOMEM;
@@ -162,58 +162,58 @@ GvrsM32AppendSymbol(GvrsM32* m32, int symbol) {
 		m32->buffer = b;
 
 	}
-	GvrsByte* buffer = m32->buffer;
+	uint8_t* buffer = m32->buffer;
 	int absValue;
 	if (symbol < 0) {
 		if (symbol == INT_MIN) {
-			buffer[m32->offset++] = (GvrsByte)(-128);   // 0x80
+			buffer[m32->offset++] = (uint8_t)(-128);   // 0x80
 			return 0;
 		}
 		else if (symbol > -127) {
-			buffer[m32->offset++] = (GvrsByte)symbol;
+			buffer[m32->offset++] = (uint8_t)symbol;
 			return 0;
 		}
-		buffer[m32->offset++] = (GvrsByte)(-127);
+		buffer[m32->offset++] = (uint8_t)(-127);
 		absValue = -symbol;
 	}
 	else {
 		if (symbol < 127) {
-			buffer[m32->offset++] = (GvrsByte)symbol;
+			buffer[m32->offset++] = (uint8_t)symbol;
 			return 0;
 		}
-		buffer[m32->offset++] = (GvrsByte)127;
+		buffer[m32->offset++] = (uint8_t)127;
 		absValue = symbol;
 	}
 
 	if (absValue <= 254) {
 		int delta = absValue - 127;
-		buffer[m32->offset++] = (GvrsByte)delta;
+		buffer[m32->offset++] = (uint8_t)delta;
 	}
 	else if (absValue <= 16638) {
 		int delta = absValue - 255;
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 7) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(delta & loMask);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 7) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(delta & loMask);
 	}
 	else if (absValue <= 2113790) {
 		int delta = absValue - 16639;
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 14) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 7) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(delta & loMask);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 14) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 7) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(delta & loMask);
 	}
 	else if (absValue <= 270549246) {
 		int delta = absValue - 2113791;
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 21) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 14) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 7) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(delta & loMask);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 21) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 14) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 7) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(delta & loMask);
 	}
 	else {
 		int delta = absValue - 270549247;
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 28) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 21) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 14) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(((delta >> 7) & loMask) | hiBit);
-		buffer[m32->offset++] = (GvrsByte)(delta & loMask);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 28) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 21) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 14) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(((delta >> 7) & loMask) | hiBit);
+		buffer[m32->offset++] = (uint8_t)(delta & loMask);
 	}
 	return 0;
 }

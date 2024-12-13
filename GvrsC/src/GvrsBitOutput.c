@@ -25,7 +25,7 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 
@@ -54,7 +54,7 @@ int GvrsBitOutputAlloc(GvrsBitOutput** outputReference) {
 	if (!bout) {
 		return GVRSERR_NOMEM;
 	}
-	bout->text = calloc(TEXT_GROWTH_FACTOR, sizeof(GvrsByte));
+	bout->text = calloc(TEXT_GROWTH_FACTOR, sizeof(uint8_t));
 	bout->nBytesAllocated = TEXT_GROWTH_FACTOR;
 	if (!bout->text) {
 		free(bout);
@@ -81,7 +81,7 @@ GvrsBitOutput* GvrsBitOutputFree(GvrsBitOutput* output) {
 
  int growText(GvrsBitOutput* output, int growthSize) {
 	int nGrowth = output->nBytesAllocated + growthSize;
-	GvrsByte* p = (GvrsByte *)malloc((size_t)nGrowth * sizeof(GvrsByte));
+	uint8_t* p = (uint8_t* )malloc((size_t)nGrowth * sizeof(uint8_t));
 	if (!p) {
 		return GVRSERR_NOMEM;
 	}
@@ -115,7 +115,7 @@ int GvrsBitOutputPutBit(GvrsBitOutput* output, int bit) {
 
 int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol) {
 	if (output->iBit == 0) {
-		output->text[output->nBytesProcessed++] = (GvrsByte)(symbol&0xff);
+		output->text[output->nBytesProcessed++] = (uint8_t)(symbol&0xff);
 	}
 	else {
 		// if we get here, iBit is not aligned with a byte boundary.
@@ -125,9 +125,9 @@ int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol) {
 		// and then advance to the next text position, storing the high-order bits in scratch.
 		int nBitsConsumed = output->iBit;
 		int nBitsAvailable = 8 - nBitsConsumed;
-		output->scratch |= (GvrsByte)((symbol << nBitsConsumed) & 0xff);
+		output->scratch |= (uint8_t)((symbol << nBitsConsumed) & 0xff);
 		output->text[output->nBytesProcessed++] = output->scratch;
-		output->scratch = (GvrsByte)((symbol>>nBitsAvailable) & mask[nBitsConsumed]);  // TO DO: is mask required?
+		output->scratch = (uint8_t)((symbol>>nBitsAvailable) & mask[nBitsConsumed]);  // TO DO: is mask required?
 		// output->iBit = nBitsConsumed;   iBit doesn't actually change
 	}
 
@@ -137,7 +137,7 @@ int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol) {
 	return 0;
 }
 
-int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, GvrsByte** reservedByteReference){
+int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, uint8_t** reservedByteReference){
 	if (!output || !reservedByteReference) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -150,7 +150,7 @@ int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, GvrsBy
 	if (output->iBit) {
 		// one or more bits in the scratch element have not yet been transferred
 		// to the internal text array.  This action is essentially a flush operation.
-		output->text[output->nBytesProcessed++] = (GvrsByte)(output->scratch & 0xff);
+		output->text[output->nBytesProcessed++] = (uint8_t)(output->scratch & 0xff);
 		output->iBit = 0;
 	}
 	int available = output->nBytesAllocated - (output->nBytesProcessed + nBytesToReserve + 1);
@@ -167,13 +167,13 @@ int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, GvrsBy
 	return 0;
 }
 
-int GvrsBitOutputGetText(GvrsBitOutput* output, int* nBytesInText, GvrsByte** text) {
+int GvrsBitOutputGetText(GvrsBitOutput* output, int* nBytesInText, uint8_t** text) {
 	if (!output || !output->text || !text || !nBytesInText) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	*nBytesInText = 0;
 	*text = 0;
-	GvrsByte* t = malloc((size_t)(output->nBytesProcessed + 1)*sizeof(GvrsByte));
+	uint8_t* t = malloc((size_t)(output->nBytesProcessed + 1)*sizeof(uint8_t));
 	if (!t) {
 		return GVRSERR_NOMEM;
 	}
@@ -181,7 +181,7 @@ int GvrsBitOutputGetText(GvrsBitOutput* output, int* nBytesInText, GvrsByte** te
 	if (output->iBit) {
 		// one or more bits in the scratch element have not yet been transferred
 		// to the internal text array
-		t[output->nBytesProcessed] = (GvrsByte)(output->scratch&0xff);
+		t[output->nBytesProcessed] = (uint8_t)(output->scratch&0xff);
 		*nBytesInText = output->nBytesProcessed + 1;
 	}
 	else {

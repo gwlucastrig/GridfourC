@@ -49,7 +49,7 @@
 */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsPrimaryIo.h"
 #include "Gvrs.h"
 #include "GvrsInternal.h"
@@ -69,7 +69,7 @@ static int multipleOf8(int value) {
 
 
 int
-GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent, GvrsLong* filePos) {
+GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int sizeOfContent, int64_t* filePos) {
 	if (!manager || !filePos) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -111,7 +111,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		manager->recentRecordPosition = node->filePos;
 		manager->recentRecordSize = blockSize;
 		manager->recentRecordType = recordType;
-		GvrsLong startOfContent = (GvrsLong)manager->recentRecordPosition + (GvrsLong)RECORD_HEADER_SIZE;
+		int64_t startOfContent = (int64_t)manager->recentRecordPosition + (int64_t)RECORD_HEADER_SIZE;
 		manager->recentStartOfContent = startOfContent;
 	
 		if (node->blockSize == blockSize) {
@@ -131,14 +131,14 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 			node->filePos += blockSize;
 			GvrsSetFilePosition(fp, node->filePos);
 			GvrsWriteInt(fp, node->blockSize);
-			GvrsWriteByte(fp, (GvrsByte)GvrsRecordTypeFreespace);
+			GvrsWriteByte(fp, (uint8_t)GvrsRecordTypeFreespace);
 			GvrsWriteZeroes(fp, 3);
 		}
 		// Set the position for the newly allocated record and write the record header.  This action
 		// will leave the file position set to the start of the content for the newly allocated record.
 		GvrsSetFilePosition(fp, manager->recentRecordPosition);
 		GvrsWriteInt(fp, blockSize);
-		GvrsWriteByte(fp, (GvrsByte)recordType);
+		GvrsWriteByte(fp, (uint8_t)recordType);
 		int status = GvrsWriteZeroes(fp, 3);
 		if (status) {
 			return status;
@@ -153,7 +153,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 	// at the end of the file, we can reuse the space that it occupies and just extend
 	// the file size as necessary   The variable "prior" will point to the last free space node
 	// in the file (if any).  And "priorPrior" will point to the node that preceeds prior (if any).
-	GvrsLong fileSize = GvrsFindFileEnd(fp);
+	int64_t fileSize = GvrsFindFileEnd(fp);
 	if (fileSize < manager->expectedFileSize) {
 		int n = (int)(manager->expectedFileSize - fileSize);
 		int status = GvrsWriteZeroes(fp, n);
@@ -181,7 +181,7 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		manager->recentRecordPosition = prior->filePos;
 		manager->recentRecordSize = blockSize;
 		manager->recentRecordType = recordType;
-		GvrsLong startOfContent = (GvrsLong)manager->recentRecordPosition + (GvrsLong)RECORD_HEADER_SIZE;
+		int64_t startOfContent = (int64_t)manager->recentRecordPosition + (int64_t)RECORD_HEADER_SIZE;
 		manager->recentStartOfContent = startOfContent;
 		manager->expectedFileSize = manager->recentRecordPosition + blockSize;
 		
@@ -199,14 +199,14 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
 		manager->recentRecordPosition = fileSize;
 		manager->recentRecordSize = blockSize;
 		manager->recentRecordType = recordType;
-		GvrsLong startOfContent = (GvrsLong)manager->recentRecordPosition + (GvrsLong)RECORD_HEADER_SIZE;
+		int64_t startOfContent = (int64_t)manager->recentRecordPosition + (int64_t)RECORD_HEADER_SIZE;
 		manager->recentStartOfContent = startOfContent;
 		manager->expectedFileSize = manager->recentRecordPosition + blockSize;
 	}
 	// write out the record header
 	GvrsSetFilePosition(fp, manager->recentRecordPosition);
 	GvrsWriteInt(fp, manager->recentRecordSize);
-	GvrsWriteByte(fp, (GvrsByte)recordType);
+	GvrsWriteByte(fp, (uint8_t)recordType);
 	int n = (int)(blockSize - RECORD_HEADER_SIZE) + 3;
 	status = GvrsWriteZeroes(fp, n);
 	if (status) {
@@ -222,14 +222,14 @@ GvrsFileSpaceAlloc(GvrsFileSpaceManager* manager, GvrsRecordType recordType, int
  
 
 int
-GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, GvrsLong contentPos) {
+GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, int64_t contentPos) {
 	manager->nFinish++;
 	FILE* fp = manager->fp;
 	fflush(fp);
-	GvrsLong currentFilePos = GvrsGetFilePosition(fp);
-	GvrsInt allocatedSize;
+	int64_t currentFilePos = GvrsGetFilePosition(fp);
+	int32_t allocatedSize;
 	int status = 0;
-	GvrsLong recordPos = contentPos - RECORD_HEADER_SIZE;
+	int64_t recordPos = contentPos - RECORD_HEADER_SIZE;
 	if (recordPos == manager->recentRecordPosition) {
 		allocatedSize = manager->recentRecordSize;
 	}
@@ -240,7 +240,7 @@ GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, GvrsLong contentPos) {
 	manager->recentStartOfContent = 0;
 	manager->recentRecordSize = 0;
 
-	GvrsLong endOfRecord = recordPos + (GvrsLong)allocatedSize;
+	int64_t endOfRecord = recordPos + (int64_t)allocatedSize;
 
 	// To finish the record, we need to ensure that the last 4 bytes are the checksum
 	// (or zero if checksums are not used).  Also, due to the requirement that a record size
@@ -258,7 +258,7 @@ GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, GvrsLong contentPos) {
 	//  If checksums are enabled, we will overwrite that value afterwards when the GVRS file is closed.
 
 	if (contentPos <= currentFilePos && currentFilePos < endOfRecord) {
-		GvrsLong shortfall = endOfRecord - currentFilePos;
+		int64_t shortfall = endOfRecord - currentFilePos;
 		if (shortfall > 0) {
 			GvrsWriteZeroes(fp, (int)shortfall);
 		}
@@ -275,14 +275,14 @@ GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, GvrsLong contentPos) {
 }
 
 int
-GvrsFileSpaceDealloc(GvrsFileSpaceManager* manager, GvrsLong contentPosition) {
+GvrsFileSpaceDealloc(GvrsFileSpaceManager* manager, int64_t contentPosition) {
 	manager->nDeallocations++;
 	FILE* fp = manager->fp;
 	int status;
 	manager->recentRecordPosition = 0;
 	manager->recentStartOfContent = 0;
 	manager->recentRecordSize = 0;
-	GvrsLong releasePos = contentPosition - (GvrsLong)RECORD_HEADER_SIZE;
+	int64_t releasePos = contentPosition - (int64_t)RECORD_HEADER_SIZE;
 	
 	// There is a block of bytes in the file that is to be released.  It is defined by:
 	//    releasePos     (position of record header)
@@ -313,8 +313,8 @@ GvrsFileSpaceDealloc(GvrsFileSpaceManager* manager, GvrsLong contentPosition) {
 	}
  
 
-	GvrsInt releaseSize;
-	GvrsByte releaseType; // a diagnostic
+	int32_t releaseSize;
+	uint8_t releaseType; // a diagnostic
 	GvrsRecordType freeSpaceRecordType = GvrsRecordTypeFreespace;
 	GvrsSetFilePosition(fp, releasePos);
 	status = GvrsReadInt(fp, &releaseSize);
@@ -404,7 +404,7 @@ GvrsFileSpaceManager* GvrsFileSpaceManagerAlloc(FILE *fp) {
 	// eight-byte alignment for all subsequent calls.
 	fflush(fp);
 	int status;
-	GvrsLong filePos = GvrsFindFileEnd(fp);
+	int64_t filePos = GvrsFindFileEnd(fp);
 	if (filePos<0) {
 		// A file error.  Unable to initialize 
 		return 0;
@@ -446,7 +446,7 @@ GvrsFileSpaceManager* GvrsFileSpaceManagerFree(GvrsFileSpaceManager* manager) {
 
 
 #define BYTES_PER_FS_NODE 12
-int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition) {
+int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, int64_t* filePosition) {
 
 	*filePosition = 0;
 	GvrsFileSpaceManager* manager = gvrs->fileSpaceManager;
@@ -468,7 +468,7 @@ int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition) {
 	//        actually reduce the number of free nodes if it merges blocks).
 	int nBytesRequired = 4 + (kNode+1)*BYTES_PER_FS_NODE;
 	int status;
-	GvrsLong contentPos;
+	int64_t contentPos;
 	status = GvrsFileSpaceAlloc(manager, GvrsRecordTypeFilespaceDir, nBytesRequired, &contentPos);
 	if (!contentPos) {
 		return status;
@@ -497,7 +497,7 @@ int GvrsFileSpaceDirectoryWrite(Gvrs* gvrs, GvrsLong* filePosition) {
 }
 
 int
-GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong fileSpaceDirectoryPosition, GvrsFileSpaceManager** managerRef) {
+GvrsFileSpaceDirectoryRead(Gvrs* gvrs, int64_t fileSpaceDirectoryPosition, GvrsFileSpaceManager** managerRef) {
 	if (!gvrs || !managerRef || fileSpaceDirectoryPosition <= 0) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -513,7 +513,7 @@ GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong fileSpaceDirectoryPosition, Gvrs
 	}
 	if (fileSpaceDirectoryPosition) {
 		int status;
-		GvrsInt nFreeSpaceRecords;
+		int32_t nFreeSpaceRecords;
 		status = GvrsSetFilePosition(fp, fileSpaceDirectoryPosition);
 		if (status) {
 			free(manager);
@@ -527,8 +527,8 @@ GvrsFileSpaceDirectoryRead(Gvrs* gvrs, GvrsLong fileSpaceDirectoryPosition, Gvrs
 		GvrsFileSpaceNode* prior = 0;
 		int i;
 		for (i = 0; i < nFreeSpaceRecords; i++) {
-			GvrsLong filePos;
-			GvrsInt blockSize;
+			int64_t filePos;
+			int32_t blockSize;
 			int status1, status2;
 			status1 = GvrsReadLong(fp, &filePos);
 			status2 = GvrsReadInt(fp, &blockSize);

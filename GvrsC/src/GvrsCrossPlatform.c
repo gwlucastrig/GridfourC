@@ -32,15 +32,15 @@
 
 #include "Gvrs.h"
 
-GvrsLong GvrsTimeMS() {
+int64_t GvrsTimeMS() {
 #if defined(_WIN32) || defined(_WIN64)
 	struct timeb timex;
 	ftime(&timex);
-	return  1000LL * (GvrsLong)timex.time + (GvrsLong)timex.millitm;
+	return  1000LL * (int64_t)timex.time + (int64_t)timex.millitm;
 #else
 	struct timespec ts;
 	clock_gettime(CLOCK_REALTIME, &ts);
-	return (GvrsLong)ts.tv_sec * 1000LL + (GvrsLong)ts.tv_nsec / 1000000LL;
+	return (int64_t)ts.tv_sec * 1000LL + (int64_t)ts.tv_nsec / 1000000LL;
 #endif
 
 }

@@ -25,7 +25,7 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsPrimaryIo.h"
 #include "Gvrs.h"
 #include "GvrsInternal.h"
@@ -101,7 +101,7 @@ static int readFailed(GvrsMetadataDirectory* dir, int status) {
 }
 
 int
-GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDirectory, GvrsMetadataDirectory** directory) {
+GvrsMetadataDirectoryRead(FILE *fp, int64_t filePosMetadataDirectory, GvrsMetadataDirectory** directory) {
 	int status;
 	if (!fp || !directory) {
 		return GVRSERR_NULL_ARGUMENT;
@@ -131,7 +131,7 @@ GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDirectory, GvrsMetad
 	}
 
 
-	GvrsInt nRecords;
+	int32_t nRecords;
 	status = GvrsReadInt(fp, &nRecords);
 	if (status) {
 		return readFailed(dir, status);
@@ -159,7 +159,7 @@ GvrsMetadataDirectoryRead(FILE *fp, GvrsLong filePosMetadataDirectory, GvrsMetad
 		if (status) {
 			return readFailed(dir, status);
 		}
-		GvrsByte typeCode;
+		uint8_t typeCode;
 		status = GvrsReadByte(fp, &typeCode);
 		if (status) {
 			return readFailed(dir, status);
@@ -196,7 +196,7 @@ int GvrsMetadataRead(FILE* fp, GvrsMetadata **metadata) {
 		return status;
 	}
 	GvrsReadInt(fp, &m->recordID);
-	GvrsByte typeCode;
+	uint8_t typeCode;
 	GvrsReadByte(fp, &typeCode);
 	m->metadataType = (GvrsMetadataType)typeCode;
 	GvrsSkipBytes(fp, 3); // reserved for future use
@@ -221,7 +221,7 @@ int GvrsMetadataRead(FILE* fp, GvrsMetadata **metadata) {
 
 	// it is possible to have an empty metadata element, though it's not encouraged.
 	if (n > 0) {
-		m->data = (GvrsByte*)malloc(n);
+		m->data = (uint8_t*)malloc(n);
 		if (!m->data) {
 			GvrsMetadataFree(m);
 			return GVRSERR_NOMEM;
@@ -397,13 +397,13 @@ int  GvrsMetadataGetString(GvrsMetadata* metadata, char **string) {
 
 
 int
-GvrsMetadataGetDoubleArray(GvrsMetadata* m, int* nValues, GvrsDouble** data) {
+GvrsMetadataGetDoubleArray(GvrsMetadata* m, int* nValues, double** data) {
 	if (argumentCheck(m, nValues, data)) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	if (m->metadataType == GvrsMetadataTypeDouble) {
 		*nValues = m->nValues;
-		*data = (GvrsDouble*)(m->data);
+		*data = (double*)(m->data);
 		return 0;
 	}
 	else {
@@ -415,13 +415,13 @@ GvrsMetadataGetDoubleArray(GvrsMetadata* m, int* nValues, GvrsDouble** data) {
 
 
 int
-GvrsMetadataGetFloatArray(GvrsMetadata* m, int* nValues, GvrsFloat** data) {
+GvrsMetadataGetFloatArray(GvrsMetadata* m, int* nValues, float** data) {
 	if (argumentCheck(m, nValues, data)) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	if (m->metadataType == GvrsMetadataTypeFloat) {
 		*nValues = m->nValues;
-		*data = (GvrsFloat*)(m->data);
+		*data = (float*)(m->data);
 		return 0;
 	}
 	else {
@@ -432,13 +432,13 @@ GvrsMetadataGetFloatArray(GvrsMetadata* m, int* nValues, GvrsFloat** data) {
 
 
 int
-GvrsMetadataGetShortArray(GvrsMetadata* m, int* nValues, GvrsShort** data) {
+GvrsMetadataGetShortArray(GvrsMetadata* m, int* nValues, int16_t** data) {
 	if (argumentCheck(m, nValues, data)) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	if (m->metadataType == GvrsMetadataTypeShort || m->metadataType == GvrsMetadataTypeUnsignedShort) {
 		*nValues = m->nValues;
-		*data = (GvrsShort*)(m->data);
+		*data = (int16_t*)(m->data);
 		return 0;
 	}
 	else {
@@ -448,13 +448,13 @@ GvrsMetadataGetShortArray(GvrsMetadata* m, int* nValues, GvrsShort** data) {
 }
 
 
-int GvrsMetadataGetUnsignedShortArray(GvrsMetadata* m, int* nValues, GvrsUnsignedShort** data) {
+int GvrsMetadataGetUnsignedShortArray(GvrsMetadata* m, int* nValues, uint16_t** data) {
 	if (argumentCheck(m, nValues, data)) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	if (m->metadataType == GvrsMetadataTypeShort || m->metadataType == GvrsMetadataTypeUnsignedShort) {
 		*nValues = m->nValues;
-		*data = (GvrsUnsignedShort*)(m->data);
+		*data = (uint16_t*)(m->data);
 		return 0;
 	}
 	else {
@@ -467,13 +467,13 @@ int GvrsMetadataGetUnsignedShortArray(GvrsMetadata* m, int* nValues, GvrsUnsigne
 
 
 int
-GvrsMetadataGetIntArray(GvrsMetadata* m, int* nValues, GvrsInt** data) {
+GvrsMetadataGetIntArray(GvrsMetadata* m, int* nValues, int32_t** data) {
 	if (argumentCheck(m, nValues, data)) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	if (m->metadataType == GvrsMetadataTypeInt || m->metadataType == GvrsMetadataTypeUnsignedInt) {
 		*nValues = m->nValues;
-		*data = (GvrsInt*)(m->data);
+		*data = (int32_t*)(m->data);
 		return 0;
 	}else{
 		*nValues = 0;
@@ -482,13 +482,13 @@ GvrsMetadataGetIntArray(GvrsMetadata* m, int* nValues, GvrsInt** data) {
 }
 
 int
-GvrsMetadataGetUnsignedIntArray(GvrsMetadata* m, int* nValues, GvrsUnsignedInt** data) {
+GvrsMetadataGetUnsignedIntArray(GvrsMetadata* m, int* nValues, uint32_t** data) {
 	if (argumentCheck(m, nValues, data)) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
 	if (m->metadataType == GvrsMetadataTypeInt || m->metadataType == GvrsMetadataTypeUnsignedInt) {
 		*nValues = m->nValues;
-		*data = (GvrsUnsignedInt*)(m->data);
+		*data = (uint32_t*)(m->data);
 		return 0;
 	}
 	else {
@@ -499,7 +499,7 @@ GvrsMetadataGetUnsignedIntArray(GvrsMetadata* m, int* nValues, GvrsUnsignedInt**
 
  
 
-int GvrsMetadataGetByteArray(GvrsMetadata* metadata, int* nValues, GvrsByte** bytes) {
+int GvrsMetadataGetByteArray(GvrsMetadata* metadata, int* nValues, uint8_t** bytes) {
 	if (argumentCheck(metadata, nValues, bytes)) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -603,14 +603,14 @@ GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
 	}
 
 	int n = computeMetadataSize(metadata);
-	GvrsLong filePos;
+	int64_t filePos;
 	status = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeMetadata, n, &filePos);
 	if (status) {
 		return status;
 	}
 	GvrsWriteString(fp, metadata->name);
 	GvrsWriteInt(fp, metadata->recordID);
-	GvrsWriteByte(fp, (GvrsByte)(metadata->metadataType));
+	GvrsWriteByte(fp, (uint8_t)(metadata->metadataType));
 	GvrsWriteZeroes(fp, 3); // reserved for future use
 	GvrsWriteInt(fp, metadata->dataSize);
  
@@ -691,7 +691,7 @@ GvrsMetadataWrite(Gvrs *gvrs, GvrsMetadata* metadata) {
 	return 0;
 }
 
-int  GvrsMetadataDirectoryWrite(void * gvrsReference, GvrsLong *filePosMetadataDirectory) {
+int  GvrsMetadataDirectoryWrite(void * gvrsReference, int64_t* filePosMetadataDirectory) {
 	if (!gvrsReference || !filePosMetadataDirectory) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -721,7 +721,7 @@ int  GvrsMetadataDirectoryWrite(void * gvrsReference, GvrsLong *filePosMetadataD
 	}
 
 	int status;
-	GvrsLong filePos;
+	int64_t filePos;
 	status = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeMetadataDir, n, &filePos);
 	if (status) {
 		return status;
@@ -732,7 +732,7 @@ int  GvrsMetadataDirectoryWrite(void * gvrsReference, GvrsLong *filePosMetadataD
 		GvrsWriteLong(fp, r->filePos);
 		GvrsWriteString(fp, r->name);
 		GvrsWriteInt(fp, r->recordID);
-		GvrsWriteByte(fp, (GvrsByte)(r->metadataType));
+		GvrsWriteByte(fp, (uint8_t)(r->metadataType));
 	}
 	status = GvrsFileSpaceFinish(gvrs->fileSpaceManager, filePos);
 	if (status) {
@@ -766,7 +766,7 @@ static int checkIdentifier(const char* name, int maxLength) {
 }
 
 
-int GvrsMetadataInit(const char* name, GvrsInt recordID,  GvrsMetadata** metadata) {
+int GvrsMetadataInit(const char* name, int32_t recordID,  GvrsMetadata** metadata) {
 	if (!name || !*name || !metadata) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -820,14 +820,14 @@ int GvrsMetadataSetAscii(GvrsMetadata* metadata, const char* string) {
 	else {
 		// allocate room for the null terminator
 		int n = (int)strlen(string);
-		metadata->data = (GvrsByte*)malloc((n + 5));
+		metadata->data = (uint8_t*)malloc((n + 5));
 		if (!metadata->data) {
 			return GVRSERR_NOMEM;
 		}
-		metadata->data[0] = (GvrsByte)(n & 0xff);
-		metadata->data[1] = (GvrsByte)((n>>8) & 0xff);
-		metadata->data[2] = (GvrsByte)((n>>16) & 0xff);
-		metadata->data[3] = (GvrsByte)((n>>24) & 0xff);
+		metadata->data[0] = (uint8_t)(n & 0xff);
+		metadata->data[1] = (uint8_t)((n>>8) & 0xff);
+		metadata->data[2] = (uint8_t)((n>>16) & 0xff);
+		metadata->data[3] = (uint8_t)((n>>24) & 0xff);
 		memcpy(metadata->data + 4, string, n);
 		metadata->data[n + 4] = 0;
 		metadata->nValues = 1;
@@ -838,19 +838,19 @@ int GvrsMetadataSetAscii(GvrsMetadata* metadata, const char* string) {
 }
 
 
-int GvrsMetadataSetDouble(GvrsMetadata* metadata, int nValues, GvrsDouble* doubleRef) {
-	size_t dataSize = nValues * sizeof(GvrsDouble);
+int GvrsMetadataSetDouble(GvrsMetadata* metadata, int nValues, double* doubleRef) {
+	size_t dataSize = nValues * sizeof(double);
 	return GvrsMetadataSetData(metadata, GvrsMetadataTypeDouble, dataSize, doubleRef);
 }
 
-int GvrsMetadataSetShort(GvrsMetadata* metadata, int nValues, GvrsShort* shortRef) {
-	size_t dataSize = nValues * sizeof(GvrsShort);
+int GvrsMetadataSetShort(GvrsMetadata* metadata, int nValues, int16_t* shortRef) {
+	size_t dataSize = nValues * sizeof(int16_t);
 	return GvrsMetadataSetData(metadata, GvrsMetadataTypeShort, dataSize, shortRef);
 }
 
 
-int GvrsMetadataSetUnsignedShort(GvrsMetadata* metadata, int nValues, GvrsUnsignedShort* unsRef) {
-	size_t dataSize = nValues * sizeof(GvrsUnsignedShort);
+int GvrsMetadataSetUnsignedShort(GvrsMetadata* metadata, int nValues, uint16_t* unsRef) {
+	size_t dataSize = nValues * sizeof(uint16_t);
 	return GvrsMetadataSetData(metadata, GvrsMetadataTypeUnsignedShort, dataSize, unsRef);
 }
  
@@ -888,7 +888,7 @@ int GvrsMetadataSetData(GvrsMetadata* metadata,  GvrsMetadataType metadataType, 
 	
 	metadata->nValues = nValues;
 	metadata->dataSize = nValues * nBytesPerValue;
-	metadata->data = (GvrsByte*)malloc(metadata->dataSize);
+	metadata->data = (uint8_t*)malloc(metadata->dataSize);
 	if (!metadata->data) {
 		metadata->dataSize = 0;
 		metadata->nValues = 0;

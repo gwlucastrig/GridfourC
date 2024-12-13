@@ -80,42 +80,42 @@ extern "C"
 		int errorCode;
 
 
-		GvrsLong uuidLow;
-		GvrsLong uuidHigh;
+		int64_t uuidLow;
+		int64_t uuidHigh;
 
-		GvrsLong modTimeMS;
+		int64_t modTimeMS;
 		time_t   modTimeSec;
 
-		GvrsLong timeOpenedForWritingMS;
+		int64_t timeOpenedForWritingMS;
 
-		GvrsLong filePosFileSpaceDirectory;
-		GvrsLong filePosMetadataDirectory;
-		GvrsLong filePosTileDirectory;
+		int64_t filePosFileSpaceDirectory;
+		int64_t filePosMetadataDirectory;
+		int64_t filePosTileDirectory;
 
-		GvrsBoolean checksumEnabled;
+		int checksumEnabled;
 
 		// grid and coordinate system definition
 
-		GvrsInt rasterSpaceCode;
-		GvrsInt geographicCoordinates;
-		GvrsInt geoWrapsLongitude;
-		GvrsInt geoBracketsLongitude;
-		GvrsInt nRowsInRaster;
-		GvrsInt nColsInRaster;
-		GvrsInt nRowsInTile;
-		GvrsInt nColsInTile;
-		GvrsInt nRowsOfTiles;
-		GvrsInt nColsOfTiles;
-		GvrsInt nCellsInTile;
+		int32_t rasterSpaceCode;
+		int32_t geographicCoordinates;
+		int32_t geoWrapsLongitude;
+		int32_t geoBracketsLongitude;
+		int32_t nRowsInRaster;
+		int32_t nColsInRaster;
+		int32_t nRowsInTile;
+		int32_t nColsInTile;
+		int32_t nRowsOfTiles;
+		int32_t nColsOfTiles;
+		int32_t nCellsInTile;
 
-		GvrsDouble x0;
-		GvrsDouble y0;
-		GvrsDouble x1;
-		GvrsDouble y1;
-		GvrsDouble cellSizeX;
-		GvrsDouble cellSizeY;
-		GvrsDouble xCenter;       // xCenter and xCenterGrid are used by the Geographic coordinate
-		GvrsDouble xCenterGrid;   // transforms to accound for longitude wrapping.
+		double x0;
+		double y0;
+		double x1;
+		double y1;
+		double cellSizeX;
+		double cellSizeY;
+		double xCenter;       // xCenter and xCenterGrid are used by the Geographic coordinate
+		double xCenterGrid;   // transforms to accound for longitude wrapping.
 
 
 		GvrsAffineTransform m2r;
@@ -125,7 +125,7 @@ extern "C"
 		int nElementSpecs;
 		GvrsElementSpec** elementSpecs;
 
-		GvrsInt nDataCompressionCodecs;
+		int32_t nDataCompressionCodecs;
 		GvrsCodec** dataCompressionCodecs;
 
 	}GvrsBuilder;
@@ -209,13 +209,13 @@ extern "C"
 	int GvrsBuilderAddElementShort(GvrsBuilder* builder, const char* name, GvrsElementSpec** spec);
 	int GvrsBuilderAddElementInt(GvrsBuilder* builder, const char* name, GvrsElementSpec** spec);
 	int GvrsBuilderAddElementFloat(GvrsBuilder* builder, const char* name, GvrsElementSpec** spec);
-	int GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder, const char* name, GvrsFloat scale, GvrsFloat offset, GvrsElementSpec** spec);
+	int GvrsBuilderAddElementIntCodedFloat(GvrsBuilder* builder, const char* name, float scale, float offset, GvrsElementSpec** spec);
 
 
 	int GvrsElementSpecSetRangeFloat(GvrsElementSpec* eSpec, float min, float max);
-	int GvrsElementSpecSetRangeInt(GvrsElementSpec* eSpec, GvrsInt iMin, GvrsInt iMax);
+	int GvrsElementSpecSetRangeInt(GvrsElementSpec* eSpec, int32_t iMin, int32_t iMax);
 	int GvrsElementSpecSetFillValueFloat(GvrsElementSpec* eSpec, float fillValue);
-	int GvrsElementSpecSetFillValueInt(GvrsElementSpec* eSpec, GvrsInt iFillValue);
+	int GvrsElementSpecSetFillValueInt(GvrsElementSpec* eSpec, int32_t iFillValue);
 
 	/**
 	* Sets a flag indicating whether the data for the raster represents a continous surface

@@ -79,8 +79,8 @@ int main(int argc, char *argv[]) {
 		if (e->elementType == GvrsElementTypeInt || e->elementType == GvrsElementTypeShort) {
 			long long sumValue = 0;
 			long      nGood = 0;
-			GvrsInt iValue;
-			GvrsLong time0 = GvrsTimeMS();
+			int32_t iValue;
+			int64_t time0 = GvrsTimeMS();
 			for (iRow = 0; iRow < nRows; iRow++) {
 				for (iCol = 0; iCol < nCols; iCol++) {
 					int status = GvrsElementReadInt(e, iRow, iCol, &iValue);
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 					}
 				}
 			}
-			GvrsLong time1 = GvrsTimeMS();
+			int64_t time1 = GvrsTimeMS();
 			printf("Processing completed in %lld ms\n", (long long)(time1-time0));
 			if (nGood) {
 				double avgValue = (double)sumValue / (double)nGood;
@@ -110,8 +110,8 @@ int main(int argc, char *argv[]) {
 		else {
 			double     sumValue = 0;
 			long       nGood = 0;
-			GvrsFloat fValue;
-			GvrsLong time0 = GvrsTimeMS();
+			float fValue;
+			int64_t time0 = GvrsTimeMS();
 			for (iRow = 0; iRow < nRows; iRow++) {
 				for (iCol = 0; iCol < nCols; iCol++) {
 					int status = GvrsElementReadFloat(e, iRow, iCol, &fValue);
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
 					}
 				}
 			}
-			GvrsLong time1 = GvrsTimeMS();
+			int64_t time1 = GvrsTimeMS();
 			printf("Processing completed in %lld ms\n", (long long)(time1-time0));
 			if (nGood) {
 				double avgValue = (double)sumValue / (double)nGood;

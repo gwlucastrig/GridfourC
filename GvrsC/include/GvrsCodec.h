@@ -28,7 +28,7 @@
 #define GVRS_CODEC_H
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 
 #ifdef __cplusplus
 extern "C"
@@ -47,11 +47,11 @@ typedef struct GvrsCodecTag {
 	// The GVRS runtime will check to see whether a function pointer is populated
 	// before invoking it.  When encoding data, the GVRS API uses the pointer
 	// to indicate if an encoding is applicable to a particular data type.
-	int (*decodeInt)(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo);
-	int (*decodeFloat)(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsFloat* data, void *appInfo);
+	int (*decodeInt)(int nRow, int nColumn, int packingLength, uint8_t* packing, int32_t* data, void *appInfo);
+	int (*decodeFloat)(int nRow, int nColumn, int packingLength, uint8_t* packing, float* data, void *appInfo);
 
-	int (*encodeInt)(  int nRow, int nColumn, GvrsInt* data,   int index, int* packingLength, GvrsByte** packingReference, void *appInfo);
-	int (*encodeFloat)(int nRow, int nColumn, GvrsFloat* data, int index, int* packingLength, GvrsByte** packingReference, void *appInfo);
+	int (*encodeInt)(  int nRow, int nColumn, int32_t* data,   int index, int* packingLength, uint8_t** packingReference, void *appInfo);
+	int (*encodeFloat)(int nRow, int nColumn, float* data, int index, int* packingLength, uint8_t** packingReference, void *appInfo);
 
 	/**
 	* Free any memory associated with the codec and otherwise dispose of resources.
@@ -84,20 +84,20 @@ typedef struct GvrsCodecTag {
 
 	void* appInfo;
 
-	GvrsLong nTimesEncoded;
-	GvrsLong nBytesEncoded;
+	int64_t nTimesEncoded;
+	int64_t nBytesEncoded;
 }GvrsCodec;
 
 
 typedef struct GvrsM32Tag {
-	GvrsByte* buffer;
-	GvrsInt   bufferLimit;
-	GvrsInt   offset;
+	uint8_t* buffer;
+	int32_t   bufferLimit;
+	int32_t   offset;
 	int       bufferIsManaged;
 }GvrsM32;
 
 typedef struct GvrsBitInputTag {
-	GvrsByte* text;
+	uint8_t* text;
 	int iBit;
 	int nBytesInText;
 	int nBytesProcessed;
@@ -105,7 +105,7 @@ typedef struct GvrsBitInputTag {
 }GvrsBitInput;
 
 typedef struct GvrsBitOutputTag {
-	GvrsByte* text;
+	uint8_t* text;
 	int iBit;
 	int nBytesAllocated;
 	int nBytesProcessed;
@@ -126,7 +126,7 @@ typedef struct GvrsBitOutputTag {
 * @param m32 a pointer to a pointer for a variable to receive the address for the GvrsM32 structure.
 * @return if successful, zero; otherwise an integer value indicating an error condition.
 */
-int  GvrsM32Alloc(GvrsByte* buffer, GvrsInt bufferLength, GvrsM32** m32);
+int  GvrsM32Alloc(uint8_t* buffer, int32_t bufferLength, GvrsM32** m32);
 
 /**
 * Deallocates the memory associated with the m32 codec.
@@ -143,7 +143,7 @@ GvrsM32* GvrsM32Free(GvrsM32* m32);
 * @param m32 a valid instance of a M32 codec.
 * @return if successful, a valid integer; otherwise an INT_MIN.
 */
-GvrsInt  GvrsM32GetNextSymbol(GvrsM32* m32);
+int32_t  GvrsM32GetNextSymbol(GvrsM32* m32);
 
 /**
 * Allocates a M32 structure, including internal buffer.  The internal buffer is assumed
@@ -161,7 +161,7 @@ GvrsM32* GvrsM32AllocForOutput();
 */
 int GvrsM32AppendSymbol(GvrsM32* m32, int symbol);
 
-GvrsBitInput* GvrsBitInputAlloc(GvrsByte* text, size_t nBytesInText, int *errorCode);
+GvrsBitInput* GvrsBitInputAlloc(uint8_t* text, size_t nBytesInText, int *errorCode);
 GvrsBitInput* GvrsBitInputFree( GvrsBitInput* input);
 int GvrsBitInputGetBit( GvrsBitInput* input);
 int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode);
@@ -170,7 +170,7 @@ int GvrsBitInputGetPosition(GvrsBitInput* input);
 int GvrsBitOutputAlloc(GvrsBitOutput** outputReference);
 int GvrsBitOutputPutBit(GvrsBitOutput* output, int bit);
 int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol);
-int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, GvrsByte** reservedByteReference);
+int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, uint8_t** reservedByteReference);
 int GvrsBitOutputGetBitCount(GvrsBitOutput* output);
 int GvrsBitOutputFlush(GvrsBitOutput* output);
 GvrsBitOutput* GvrsBitOutputFree(GvrsBitOutput* output);
@@ -184,15 +184,15 @@ GvrsBitOutput* GvrsBitOutputFree(GvrsBitOutput* output);
 * @param text a pointer to a pointer variable to receive the text.
 * @return if successful, a value of zero; otherwise an error code indicating the cause of the failure.
 */
-int GvrsBitOutputGetText(GvrsBitOutput* output, int* nBytesInText, GvrsByte** text);
+int GvrsBitOutputGetText(GvrsBitOutput* output, int* nBytesInText, uint8_t** text);
 
-void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);
-void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);
-void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, GvrsInt* output);
+void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output);
+void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output);
+void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output);
 
-int GvrsPredictor1encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, GvrsM32** m32);
-int GvrsPredictor2encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, GvrsM32** m32);
-int GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *encodedSeed, GvrsM32** m32);
+int GvrsPredictor1encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
+int GvrsPredictor2encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
+int GvrsPredictor3encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
 
 
 // -------------------------------------------------------------------------------------------
@@ -201,9 +201,9 @@ int GvrsPredictor3encode(int nRows, int nColumns, GvrsInt* values, GvrsInt *enco
 // the support testing and non-GVRS applications.
 
 GvrsCodec* GvrsCodecHuffmanAlloc();
-int GvrsHuffmanCompress(int nSymbols, GvrsByte* symbols, int* nUniqueSymbolsFound, GvrsBitOutput* output);
-int GvrsHuffmanDecodeTree(GvrsBitInput* input, int* indexSize, GvrsInt** nodeIndexReference);
-int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, GvrsByte* output);
+int GvrsHuffmanCompress(int nSymbols, uint8_t* symbols, int* nUniqueSymbolsFound, GvrsBitOutput* output);
+int GvrsHuffmanDecodeTree(GvrsBitInput* input, int* indexSize, int32_t** nodeIndexReference);
+int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, uint8_t* output);
 
 #ifdef GVRS_ZLIB
 GvrsCodec* GvrsCodecDeflateAlloc();

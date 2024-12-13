@@ -28,7 +28,7 @@
 #define GVRS_PRIMARY_IO_H
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 
 
 #ifdef __cplusplus
@@ -49,30 +49,30 @@ extern "C"
 */
 int GvrsReadASCII( FILE *fp, size_t n, size_t bufferSize, char* buffer);
 
-int GvrsReadByte(     FILE *fp, GvrsByte *value);
-int GvrsReadByteArray(FILE* fp, int nValues, GvrsByte* values);
+int GvrsReadByte(     FILE *fp, uint8_t* value);
+int GvrsReadByteArray(FILE* fp, int nValues, uint8_t* values);
 
-int GvrsReadShort(        FILE *fp, GvrsShort *value);
-//int GvrsReadUnsignedShort(FILE *fp, GvrsUnsignedShort *value);
-int GvrsReadShortArray(FILE* fp, int n, GvrsShort* values);
+int GvrsReadShort(        FILE *fp, int16_t* value);
+//int GvrsReadUnsignedShort(FILE *fp, uint16_t* value);
+int GvrsReadShortArray(FILE* fp, int n, int16_t* values);
 
-int GvrsReadInt(        FILE *fp, int32_t *value);
-int GvrsReadUnsignedInt(FILE* fp, uint16_t *value);
-int GvrsReadUnsignedIntArray(FILE* fp, int n, GvrsUnsignedInt* values);
+int GvrsReadInt(        FILE *fp, int32_t* value);
+int GvrsReadUnsignedInt(FILE* fp, uint16_t* value);
+int GvrsReadUnsignedIntArray(FILE* fp, int n, uint32_t* values);
 
 int GvrsReadLong(        FILE *fp, int64_t*          value);
-int GvrsReadUnsignedLong(FILE* fp, GvrsUnsignedLong* value);
-int GvrsReadLongArray(   FILE* fp, int n, GvrsLong*  values);
+int GvrsReadUnsignedLong(FILE* fp, uint64_t* value);
+int GvrsReadLongArray(   FILE* fp, int n, int64_t*  values);
  
 int GvrsReadFloat( FILE *fp, float *value);
 int GvrsReadDouble(FILE *fp, double* value);
 
-int GvrsReadBoolean(FILE* fp, GvrsBoolean *value);
+int GvrsReadBoolean(FILE* fp, int *value);
 
 int GvrsSkipBytes(FILE* fp, int  n);
-int GvrsSetFilePosition(FILE* fp, GvrsLong fileOffset);
-GvrsLong GvrsGetFilePosition(FILE* fp);
-GvrsLong GvrsFindFileEnd(FILE* fp);
+int GvrsSetFilePosition(FILE* fp, int64_t fileOffset);
+int64_t GvrsGetFilePosition(FILE* fp);
+int64_t GvrsFindFileEnd(FILE* fp);
 
 /**
 * Reads GVRS-formatted string of arbitrary length from a source file or stream.
@@ -118,25 +118,25 @@ int GvrsReadIdentifier(FILE* fp, size_t bufferSize, char* buffer);
 */
 int GvrsWriteASCII(FILE* fp, size_t bufferSize, const char* buffer);
 
-int GvrsWriteBoolean(FILE* fp, GvrsBoolean  value);
+int GvrsWriteBoolean(FILE* fp, int  value);
 
-int  GvrsWriteByte(FILE* fp, GvrsByte value);
+int  GvrsWriteByte(FILE* fp, uint8_t value);
 
-int GvrsWriteByteArray(FILE* fp, int nValues, GvrsByte* values);
+int GvrsWriteByteArray(FILE* fp, int nValues, uint8_t* values);
 
-int GvrsWriteDouble(FILE* fp, GvrsDouble value);
+int GvrsWriteDouble(FILE* fp, double value);
 
-int GvrsWriteFloat(FILE* fp, GvrsFloat value);
+int GvrsWriteFloat(FILE* fp, float value);
 
-int GvrsWriteInt(FILE* fp, GvrsInt value);
+int GvrsWriteInt(FILE* fp, int32_t value);
 
-int GvrsWriteLong(FILE* fp, GvrsLong value);
+int GvrsWriteLong(FILE* fp, int64_t value);
 
-int GvrsWriteShort(FILE* fp, GvrsShort value);
+int GvrsWriteShort(FILE* fp, int16_t value);
 
 int GvrsWriteString(FILE* fp, const char* string);
 
-int GvrsWriteUnsignedShort(FILE* fp, GvrsUnsignedShort value);
+int GvrsWriteUnsignedShort(FILE* fp, uint16_t value);
 
 int GvrsWriteZeroes(FILE* fp, int nZeroes);
 

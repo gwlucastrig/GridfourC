@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
     GvrsElement* eInput;
     GvrsElement* eCount;
     int iRow, iCol, xRow, xCol;
-    GvrsLong nCellsInput;
+    int64_t nCellsInput;
     char eName[GVRS_ELEMENT_NAME_SZ + 4];
     status = GvrsOpen(&gInput, inputFile, "r");
     if (status) {
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     int nRowsInput = gInput->nRowsInRaster;
     int nColsInput = gInput->nColsInRaster;
-    nCellsInput = (GvrsLong)nRowsInput * (GvrsLong)nColsInput;
+    nCellsInput = (int64_t)nRowsInput * (int64_t)nColsInput;
 
     // For debugging, we can reduce the number of input rows and columns so that the
     // input file gets processed faster.
@@ -145,15 +145,15 @@ int main(int argc, char* argv[]) {
     printf("   File:    %s\n", inputFile);
     printf("   Element: %s\n", eInput->name);
 
-    GvrsLong time0 = 0;
-    GvrsLong time1 = 0;
-    GvrsLong sumCounts = 0;
-    GvrsInt  overflowEncountered = 0;
-    GvrsInt iCount;
-    GvrsInt maxCount = 0;
-    GvrsInt maxCountValueInt = 0;
-    GvrsFloat maxCountValueFloat = 0;
-    GvrsInt fillCount = 0;
+    int64_t time0 = 0;
+    int64_t time1 = 0;
+    int64_t sumCounts = 0;
+    int32_t  overflowEncountered = 0;
+    int32_t iCount;
+    int32_t maxCount = 0;
+    int32_t maxCountValueInt = 0;
+    float maxCountValueFloat = 0;
+    int32_t fillCount = 0;
 
     // The program closes the GVRS input file as soon as it is done
     // counting.  At that point, the memory for the input GvrsElement structure, eInput,
@@ -169,7 +169,7 @@ int main(int argc, char* argv[]) {
     int elementIsIntegral = GvrsElementIsIntegral(eInput);
     int elementIsIcf = eInput->elementType == GvrsElementTypeIntCodedFloat;
 
-    GvrsFloat fillValueFloat = eInput->fillValueFloat;
+    float fillValueFloat = eInput->fillValueFloat;
     int fillValueInt = eInput->fillValueInt;
 
     time0 = GvrsTimeMS();
@@ -225,8 +225,8 @@ int main(int argc, char* argv[]) {
         // four-byte integer.
         elementIsFloat = 1;
         int fillValueIsNan =  isnan(fillValueFloat);
-        GvrsUnsignedInt iValue = 0;
-        GvrsFloat* fValue = (GvrsFloat*)(&iValue);
+        uint32_t iValue = 0;
+        float* fValue = (float*)(&iValue);
         for (iRow = 0; iRow < nRowsInput; iRow++) {
             if ((iRow < 1000 && (iRow % 100) == 0) || (iRow % 1000) == 0) {
                 GvrsSummarizeProgress(stdout, time0, "row", iRow, nRowsInput);

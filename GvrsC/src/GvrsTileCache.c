@@ -25,7 +25,7 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsPrimaryIo.h"
 #include "GvrsError.h"
 #include "Gvrs.h"
@@ -216,8 +216,8 @@ static int hashTableRemove(GvrsTileCache* tc, GvrsTile* tile) {
 
 
 
-static int readAndDecomp(Gvrs *gvrs, GvrsInt n, GvrsElement* element, GvrsByte* data) {
-	GvrsByte* packing = (GvrsByte*)malloc(n);
+static int readAndDecomp(Gvrs *gvrs, int32_t n, GvrsElement* element, uint8_t* data) {
+	uint8_t* packing = (uint8_t*)malloc(n);
 	if (!packing) {
 		return GVRSERR_NOMEM;
 	}
@@ -236,10 +236,10 @@ static int readAndDecomp(Gvrs *gvrs, GvrsInt n, GvrsElement* element, GvrsByte* 
 		GvrsCodec* codec = gvrs->dataCompressionCodecs[compressorIndex];
 		if (codec) {
 			if (element->elementType == GvrsElementTypeInt && codec->decodeInt) {
-				status = codec->decodeInt(nRows, nCols, n, packing, (GvrsInt *)data, codec->appInfo);
+				status = codec->decodeInt(nRows, nCols, n, packing, (int32_t* )data, codec->appInfo);
 			}
 			else if (element->elementType == GvrsElementTypeShort && codec->decodeInt) {
-				GvrsInt* iData = (GvrsInt*)malloc(nCells * sizeof(GvrsInt));
+				int32_t* iData = (int32_t*)malloc(nCells * sizeof(int32_t));
 				if (iData) {
 					status = codec->decodeInt(nRows, nCols, n, packing, iData, codec->appInfo);
 					if (status == 0) {
@@ -251,9 +251,9 @@ static int readAndDecomp(Gvrs *gvrs, GvrsInt n, GvrsElement* element, GvrsByte* 
 				}
 			}
 			else if (element->elementType == GvrsElementTypeFloat && codec->decodeFloat) {
-				status = codec->decodeFloat(nRows, nCols, n, packing, (GvrsFloat *)data, codec->appInfo);
+				status = codec->decodeFloat(nRows, nCols, n, packing, (float *)data, codec->appInfo);
 			}else if (element->elementType == GvrsElementTypeIntCodedFloat && codec->decodeInt) {
-				status = codec->decodeInt(nRows, nCols, n, packing, (GvrsInt*)data, codec->appInfo);
+				status = codec->decodeInt(nRows, nCols, n, packing, (int32_t*)data, codec->appInfo);
 			}else {
 				status = GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
 			}
@@ -267,7 +267,7 @@ static int readAndDecomp(Gvrs *gvrs, GvrsInt n, GvrsElement* element, GvrsByte* 
  
 
 
-static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
+static int readTile(Gvrs* gvrs, int64_t tileOffset, GvrsTile*tile) {
 	int i;
 	FILE* fp = gvrs->fp;
 
@@ -278,8 +278,8 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 	if (status) {
 		return GVRSERR_FILE_ERROR;
 	}
-	GvrsInt tileIndexFromFile;
-	GvrsInt totalBytes = 4; // the tile index from file
+	int32_t tileIndexFromFile;
+	int32_t totalBytes = 4; // the tile index from file
 	status = GvrsReadInt(fp, &tileIndexFromFile); 
 	if (status) {
 		return GVRSERR_FILE_ERROR;
@@ -295,7 +295,7 @@ static int readTile(Gvrs* gvrs, GvrsLong tileOffset, GvrsTile*tile) {
 
 	for (i = 0; i < gvrs->nElementsInTupple; i++) {
 		GvrsElement* element = gvrs->elements[i];
-		GvrsInt n;
+		int32_t n;
 		GvrsReadInt(fp, &n);  // this will tell us if it's compressed or not
 		totalBytes += 4;
 		totalBytes += n;
@@ -445,28 +445,28 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 		GvrsElement* element = gvrs->elements[iElement];
 		GvrsCodec* codecUsed = 0;
 		if (GvrsElementIsIntegral(element)) {
-			GvrsInt* iData = 0;
-			GvrsShort* sData = 0;
+			int32_t* iData = 0;
+			int16_t* sData = 0;
 			if (element->elementType == GvrsElementTypeShort) {
-				iData = calloc(nCells, sizeof(GvrsInt));
+				iData = calloc(nCells, sizeof(int32_t));
 				if (!iData) {
 					return GVRSERR_NOMEM;
 				}
-			    sData = (GvrsShort *)(tile->data + element->dataOffset);
+			    sData = (int16_t* )(tile->data + element->dataOffset);
 				for (int iCell = 0; iCell < nCells; iCell++) {
 					iData[iCell] = sData[iCell];
 				}
 			}
 			else {
-				iData = (GvrsInt *)(tile->data + element->dataOffset);
+				iData = (int32_t* )(tile->data + element->dataOffset);
 			}
 			int packingLength = 0;
-			GvrsByte* packing = 0;
+			uint8_t* packing = 0;
 			for (int i = 0; i < gvrs->nDataCompressionCodecs; i++) {
 				GvrsCodec* c = gvrs->dataCompressionCodecs[i];
 				if (c->encodeInt) {
 					int bLen = 0;
-					GvrsByte* b;
+					uint8_t* b;
 				    int status = c->encodeInt(nRows, nCols, iData, i, &bLen, &b, c->appInfo);
 					if (status) {
 						if (sData) {
@@ -506,15 +506,15 @@ static int compressElements(Gvrs* gvrs, GvrsTile *tile) {
 			}
 		}
 		else if (GvrsElementIsFloat(element)) {
-			GvrsFloat* fData = (GvrsFloat*)(tile->data + element->dataOffset);
+			float* fData = (float*)(tile->data + element->dataOffset);
 			int packingLength = 0;
-			GvrsByte* packing = 0;
+			uint8_t* packing = 0;
 
 			for (int i = 0; i < gvrs->nDataCompressionCodecs; i++) {
 				GvrsCodec* c = gvrs->dataCompressionCodecs[i];
 				if (c->encodeFloat) {
 					int bLen = 0;
-					GvrsByte* b;
+					uint8_t* b;
 					int status = c->encodeFloat(nRows, nCols, fData, i, &bLen, &b, c->appInfo);
 					if (status) {
 						return status;
@@ -568,7 +568,7 @@ static int writeTile(GvrsTileCache* tc, GvrsTile* tile) {
 	FILE* fp = gvrs->fp;
 
 	int tileIndex = tile->tileIndex;
-	GvrsLong filePosition;
+	int64_t filePosition;
 	int status;
 
 	clearOutputBlock(tc);
@@ -736,7 +736,7 @@ GvrsTile* GvrsTileCacheStartNewTile(GvrsTileCache* tc, int tileIndex, int* errCo
 		int i;
 		for (i = 0; i < gvrs->nElementsInTupple; i++) {
 			GvrsElement* element = gvrs->elements[i];
-			GvrsByte* data = tile->data + element->dataOffset;
+			uint8_t* data = tile->data + element->dataOffset;
 			GvrsElementFillData(element, data, gvrs->nCellsInTile);
 		}
 		// The content was sucessfully read into the target node.
@@ -759,7 +759,7 @@ GvrsTile* GvrsTileCacheFetchTile(GvrsTileCache* tc, int tileIndex, int* errCode)
  
 	// The tile does not exist in the cache.  It will need to be read
 	// from the source file.  Check to see if it is populated at all.
-	GvrsLong tileOffset = GvrsTileDirectoryGetFilePosition(tc->tileDirectory, tileIndex);
+	int64_t tileOffset = GvrsTileDirectoryGetFilePosition(tc->tileDirectory, tileIndex);
 	if (!tileOffset) {
 		*errCode = 0;
 		return 0; // tile not found
@@ -866,7 +866,7 @@ int GvrsIsTilePopulated(Gvrs* gvrs, int tileIndex) {
 	if (node) {
 		return 1;
 	}
-	GvrsLong tileOffset = GvrsTileDirectoryGetFilePosition(tc->tileDirectory, tileIndex);
+	int64_t tileOffset = GvrsTileDirectoryGetFilePosition(tc->tileDirectory, tileIndex);
 	if (tileOffset) {
 		return 1;
 	}

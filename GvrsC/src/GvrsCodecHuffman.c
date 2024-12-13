@@ -25,24 +25,24 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 
 
 typedef struct huffmanAppInfoTag {
-	GvrsInt nDecoded; // both uniform and non-uniform tiles
-	GvrsInt nDecodedUniform;
-	GvrsLong nBitsInDecodeTree;
-	GvrsLong nBitsInDecodeBody;
+	int32_t nDecoded; // both uniform and non-uniform tiles
+	int32_t nDecodedUniform;
+	int64_t nBitsInDecodeTree;
+	int64_t nBitsInDecodeBody;
 }huffmanAppInfo;
 
 // TO DO:  test the one-symbol special case.  It is possible that
 //         even the baseline Java code is not correctly implemented.
 
 
-static void cleanUp( GvrsByte* output, GvrsBitInput *input, GvrsM32 *m32, int *nodeIndex) {
+static void cleanUp( uint8_t* output, GvrsBitInput *input, GvrsM32 *m32, int *nodeIndex) {
 	if (output) {
 		free(output);
 	}
@@ -75,7 +75,7 @@ static GvrsCodec* allocateCodecHuffman(struct GvrsCodecTag* codec) {
 	return GvrsCodecHuffmanAlloc();
 }
  
-int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIndexReference) {
+int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, int32_t** nodeIndexReference) {
 	if (!input || !indexSize || !nodeIndexReference) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -92,7 +92,7 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 		// This is the special case where a non-zero root
 		// bit indicates that there is only one symbol in the whole
 		// encoding.   There is not a proper tree, only a single root node.
-		nodeIndex = (GvrsInt*)malloc(sizeof(GvrsInt));
+		nodeIndex = (int32_t*)malloc(sizeof(int32_t));
 		if (nodeIndex == 0) {
 			return GVRSERR_NOMEM;
 		}
@@ -119,7 +119,7 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 	// a Huffman tree is always 2*n-1.  We allocate 3 integers per
 	// node, or 2*n*3.
 	int nodeIndexSize = nLeafsToDecode * 6;
-	nodeIndex = calloc(nodeIndexSize, sizeof(GvrsInt));
+	nodeIndex = calloc(nodeIndexSize, sizeof(int32_t));
 	if (!nodeIndex) {
 		return  GVRSERR_NOMEM;
 	}
@@ -142,7 +142,7 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 	// on top of the stack.
 
 	int stackSize = nLeafsToDecode + 1;
-	int* stack = calloc(stackSize, sizeof(GvrsInt));
+	int* stack = calloc(stackSize, sizeof(int32_t));
 	if (!stack) {
 		free(nodeIndex);
 		return GVRSERR_NOMEM;
@@ -220,7 +220,7 @@ int GvrsHuffmanDecodeTree(GvrsBitInput* input,  int *indexSize, GvrsInt** nodeIn
 	return 0;
 }
 
-int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, GvrsByte* output) {
+int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, uint8_t* output) {
 	int i;
 	if (!input || !output || nSymbolsInOutput <= 0){
 		return GVRSERR_NULL_ARGUMENT;
@@ -261,7 +261,7 @@ int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex
 		//     do {
 		//	      offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &errCode)];
 		//     }while (nodeIndex[offset] == -1);
-		//     output[i] = (GvrsByte)nodeIndex[offset];
+		//     output[i] = (uint8_t)nodeIndex[offset];
 
 
 		int offset = 0;
@@ -278,7 +278,7 @@ int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex
 			input->iBit++;
 			offset = nodeIndex[offset + 1 + bit];
 		} while (nodeIndex[offset] < 0);
-		output[i] = (GvrsByte)nodeIndex[offset];
+		output[i] = (uint8_t)nodeIndex[offset];
 	}
 	return 0;
 }
@@ -286,9 +286,9 @@ int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex
 
 
 
-static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo) {
+static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing, int32_t* data, void *appInfo) {
 	int errCode = 0;
-	GvrsByte* output = 0;
+	uint8_t* output = 0;
 	GvrsBitInput* input = 0;
 	GvrsM32* m32 = 0;
 	int* nodeIndex = 0;
@@ -315,7 +315,7 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 	int indexSize;
    
 	errCode = GvrsHuffmanDecodeTree(input, &indexSize, &nodeIndex);
-	// GvrsInt nBitsInTree = GvrsBitInputGetPosition(input);
+	// int32_t nBitsInTree = GvrsBitInputGetPosition(input);
 	if (!nodeIndex) {
 		cleanUp(output, input, m32, nodeIndex);
 		return errCode;
@@ -347,7 +347,7 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 	}
 
 	int pos1 = GvrsBitInputGetPosition(input);
-	hInfo->nBitsInDecodeBody += (GvrsLong)pos1 - (GvrsLong)pos0;
+	hInfo->nBitsInDecodeBody += (int64_t)pos1 - (int64_t)pos0;
 	status = GvrsM32Alloc(output, nM32, &m32);
 	if (status) {
 		cleanUp(output, input, m32, nodeIndex);
@@ -387,7 +387,7 @@ typedef struct SymbolNodeTag {
 	int bit;
 	int codeOffset;
 	int nBitsInCode;
-	GvrsByte* code;
+	uint8_t* code;
 
 	struct SymbolNodeTag* parent;
 	struct SymbolNodeTag* left;
@@ -418,7 +418,7 @@ static SymbolNode* makeBranch(SymbolNode* left, SymbolNode* right, int* nBaseNod
 	return node;
 }
 
-static int encodeTree(GvrsBitOutput *output, SymbolNode* root, int nLeafNodes, GvrsByte** codeSequenceReference) {
+static int encodeTree(GvrsBitOutput *output, SymbolNode* root, int nLeafNodes, uint8_t** codeSequenceReference) {
 	if (!output || !root || !codeSequenceReference) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -428,7 +428,7 @@ static int encodeTree(GvrsBitOutput *output, SymbolNode* root, int nLeafNodes, G
 	// be in the range 1 to 256.  Since it will never be zero, we subtract one from
 	// it. This offset puts the count into the range 0 to 255, allowing it
 	// to fit within a single byte.
-	GvrsBitOutputPutByte(output, (GvrsByte)(nLeafNodes - 1));
+	GvrsBitOutputPutByte(output, (uint8_t)(nLeafNodes - 1));
 	
 	// Traverse the tree and record it to the bit output.  The simplest implementation
 	// of this action would probably be accomplished by using recursion.  Unfortunately,
@@ -499,7 +499,7 @@ static int encodeTree(GvrsBitOutput *output, SymbolNode* root, int nLeafNodes, G
 					// The branch node is the root and the entire tree has been
 					// traversed.  No further traversal is required.
 					int nBytesInText;
-					GvrsByte* t = 0;
+					uint8_t* t = 0;
 					status = GvrsBitOutputGetText(codeSequence, &nBytesInText, &t);
 					GvrsBitOutputFree(codeSequence);
 					if (status) {
@@ -539,7 +539,7 @@ static int encodeTree(GvrsBitOutput *output, SymbolNode* root, int nLeafNodes, G
 
 
 
-int GvrsHuffmanCompress(int nSymbols, GvrsByte* symbols,  int *nUniqueSymbolsFound,  GvrsBitOutput *output) {
+int GvrsHuffmanCompress(int nSymbols, uint8_t* symbols,  int *nUniqueSymbolsFound,  GvrsBitOutput *output) {
 	if (nSymbols <= 0 || !symbols || !nUniqueSymbolsFound || !output) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -643,7 +643,7 @@ int GvrsHuffmanCompress(int nSymbols, GvrsByte* symbols,  int *nUniqueSymbolsFou
 	 
 	
 	
-	GvrsByte* codeSequenceReference;  // not accessed directly, should be freed at end of processing
+	uint8_t* codeSequenceReference;  // not accessed directly, should be freed at end of processing
 	encodeTree(output, root, nLeafNodes, &codeSequenceReference);
 	 
 	// Add the Huffman codes for the symbols to the output
@@ -671,11 +671,11 @@ int GvrsHuffmanCompress(int nSymbols, GvrsByte* symbols,  int *nUniqueSymbolsFou
 	// Diagnostic, decode the tree just encoded.
 
 	//int nBytesInText;
-	//GvrsByte* text;
+	//uint8_t* text;
 	//status = GvrsBitOutputGetText(output, &nBytesInText, &text);
 	//GvrsBitInput* input =	GvrsBitInputAlloc(text+reservedIntroBytes, nBytesInText-reservedIntroText, &status);
 	//int indexSize;
-	//GvrsInt* nodeIndex = decodeTree(input, &indexSize, &status);
+	//int32_t* nodeIndex = decodeTree(input, &indexSize, &status);
 	//printf("Tree status %d, indexSize %d\n", status, indexSize);
 	//for (int i = 0; i < nSymbols; i++) {
 	//	// start from the root node at nodeIndex[0]
@@ -687,7 +687,7 @@ int GvrsHuffmanCompress(int nSymbols, GvrsByte* symbols,  int *nUniqueSymbolsFou
 	//	while (nodeIndex[offset] == -1) {
 	//		offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &status)];
 	//	}
-	//	int testValue = (GvrsByte)nodeIndex[offset];
+	//	int testValue = (uint8_t)nodeIndex[offset];
 	//	printf("test sym,val:  %d,%d\n", symbols[i], testValue);
 	//}
 
@@ -704,10 +704,10 @@ int GvrsHuffmanCompress(int nSymbols, GvrsByte* symbols,  int *nUniqueSymbolsFou
 
 
 static int encodeInt(int nRow, int nColumn,
-	GvrsInt* data,
+	int32_t* data,
 	int index,
 	int* packingLengthReference,
-	GvrsByte** packingReference,
+	uint8_t** packingReference,
 	void* appInfo) {
 	if (!data || !packingLengthReference || !packingReference) {
 		return GVRSERR_NULL_ARGUMENT;
@@ -717,8 +717,8 @@ static int encodeInt(int nRow, int nColumn,
 	*packingReference = 0;
 
 	int packingLength = 0;
-	GvrsByte* packing = 0;
-	GvrsInt seed;
+	uint8_t* packing = 0;
+	int32_t seed;
 
 	int status;
 	for (int iPack = 1; iPack <= 3; iPack++) {
@@ -749,9 +749,9 @@ static int encodeInt(int nRow, int nColumn,
 			return status;
 		}
 		int nBytesToCompress = m32->offset;
-		GvrsByte* bytesToCompress = m32->buffer;
+		uint8_t* bytesToCompress = m32->buffer;
 
-		GvrsByte* h;
+		uint8_t* h;
 		status = GvrsBitOutputReserveBytes(bitOutput, 10, &h);
 		if (status) {
 			if (packing) {
@@ -759,19 +759,19 @@ static int encodeInt(int nRow, int nColumn,
 				return status;
 			}
 		}
-		h[0] = (GvrsByte)index;
-		h[1] = (GvrsByte)(iPack);
-		h[2] = (GvrsByte)(seed & 0xff);
-		h[3] = (GvrsByte)((seed >> 8) & 0xff);
-		h[4] = (GvrsByte)((seed >> 16) & 0xff);
-		h[5] = (GvrsByte)((seed >> 24) & 0xff);
-		h[6] = (GvrsByte)((nBytesToCompress & 0xff));
-		h[7] = (GvrsByte)((nBytesToCompress >> 8) & 0xff);
-		h[8] = (GvrsByte)((nBytesToCompress >> 16) & 0xff);
-		h[9] = (GvrsByte)((nBytesToCompress >> 24) & 0xff);
+		h[0] = (uint8_t)index;
+		h[1] = (uint8_t)(iPack);
+		h[2] = (uint8_t)(seed & 0xff);
+		h[3] = (uint8_t)((seed >> 8) & 0xff);
+		h[4] = (uint8_t)((seed >> 16) & 0xff);
+		h[5] = (uint8_t)((seed >> 24) & 0xff);
+		h[6] = (uint8_t)((nBytesToCompress & 0xff));
+		h[7] = (uint8_t)((nBytesToCompress >> 8) & 0xff);
+		h[8] = (uint8_t)((nBytesToCompress >> 16) & 0xff);
+		h[9] = (uint8_t)((nBytesToCompress >> 24) & 0xff);
 
 
-		GvrsByte* b = 0;;
+		uint8_t* b = 0;;
 		int bLen = 0;
 		int nUniqueSymbolsFound;
 		status = GvrsHuffmanCompress(nBytesToCompress, bytesToCompress, &nUniqueSymbolsFound, bitOutput);

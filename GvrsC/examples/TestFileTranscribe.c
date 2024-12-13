@@ -78,8 +78,8 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
     
     GvrsElement** eOutput = GvrsGetElements(gOutput, &nElements);
 
-    GvrsLong time0 = GvrsTimeMS();
-    GvrsInt iValue;
+    int64_t time0 = GvrsTimeMS();
+    int32_t iValue;
     for (int iRow = 0; iRow < nRows; iRow++) {
         if ((iRow % 100) == 0) {
             printf("row %d\n", iRow);
@@ -100,7 +100,7 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
             }
         }
     }
-    GvrsLong time1 = GvrsTimeMS();
+    int64_t time1 = GvrsTimeMS();
     printf("copy operation completed in %lld ms\n", (long long)(time1 - time0));
     GvrsSummarizeAccessStatistics(gOutput, stdout);
  
@@ -149,9 +149,9 @@ void TestFileTranscribe(const char* input, const char* output, int compress) {
     
 
     time0 = GvrsTimeMS();
-    GvrsInt iValue0, iValue1;
-    GvrsLong iSum = 0;
-    GvrsInt nSum = 0;
+    int32_t iValue0, iValue1;
+    int64_t iSum = 0;
+    int32_t nSum = 0;
     for (int iRow = 0; iRow < nRows; iRow++) {
         if ((iRow % 1000) == 0) {
             printf("verifying row %d\n", iRow);

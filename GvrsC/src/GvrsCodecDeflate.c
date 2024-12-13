@@ -25,7 +25,7 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
@@ -65,7 +65,7 @@ static GvrsCodec* allocateCodecDeflate(struct GvrsCodecTag* codec) {
 }
 
 #ifdef GVRS_TEST_UNPACK
-static int testUnpack(GvrsByte* packing, int packingLength, GvrsM32* m32) {
+static int testUnpack(uint8_t* packing, int packingLength, GvrsM32* m32) {
 	int nM32 = m32->offset;
 
 	unsigned char* input = packing + 10;
@@ -105,7 +105,7 @@ static int testUnpack(GvrsByte* packing, int packingLength, GvrsM32* m32) {
 #endif
 
 
-static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsInt* data, void *appInfo) {
+static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing, int32_t* data, void *appInfo) {
 
 	// int compressorIndex = (int)packing[0];
 	int predictorIndex = (int)packing[1];
@@ -179,11 +179,11 @@ static int decodeInt(int nRow, int nColumn, int packingLength, GvrsByte* packing
 }
 
 
-static int pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32, int* packingLength, void *appInfo, GvrsByte** packingReference){
+static int pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32, int* packingLength, void *appInfo, uint8_t** packingReference){
 	*packingReference = 0;
 	int nBytesToCompress = m32->offset;
 	int nBytesForPacking = nBytesToCompress + 1024;
-	GvrsByte* packing = malloc(nBytesForPacking*sizeof(GvrsByte));
+	uint8_t* packing = malloc(nBytesForPacking*sizeof(uint8_t));
 	if (!packing) {
 		return  GVRSERR_NOMEM;
 	}
@@ -230,16 +230,16 @@ static int pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32, int*
 	}
     
 	*packingLength = strm.total_out+10;
-	packing[0] = (GvrsByte)codecIndex;
-	packing[1] = (GvrsByte)predictorIndex;
-	packing[2] = (GvrsByte)(seed & 0xff);
-	packing[3] = (GvrsByte)((seed >> 8) & 0xff);
-	packing[4] = (GvrsByte)((seed >> 16) & 0xff);
-	packing[5] = (GvrsByte)((seed >> 24) & 0xff);
-	packing[6] = (GvrsByte)((nBytesToCompress & 0xff));
-	packing[7] = (GvrsByte)((nBytesToCompress >> 8) & 0xff);
-	packing[8] = (GvrsByte)((nBytesToCompress >> 16) & 0xff);
-	packing[9] = (GvrsByte)((nBytesToCompress >> 24) & 0xff);
+	packing[0] = (uint8_t)codecIndex;
+	packing[1] = (uint8_t)predictorIndex;
+	packing[2] = (uint8_t)(seed & 0xff);
+	packing[3] = (uint8_t)((seed >> 8) & 0xff);
+	packing[4] = (uint8_t)((seed >> 16) & 0xff);
+	packing[5] = (uint8_t)((seed >> 24) & 0xff);
+	packing[6] = (uint8_t)((nBytesToCompress & 0xff));
+	packing[7] = (uint8_t)((nBytesToCompress >> 8) & 0xff);
+	packing[8] = (uint8_t)((nBytesToCompress >> 16) & 0xff);
+	packing[9] = (uint8_t)((nBytesToCompress >> 24) & 0xff);
 	 
 
 	//int testStatus = testUnpack(packing, *packingLength, m32);
@@ -254,10 +254,10 @@ static int pack(int codecIndex, int predictorIndex, int seed, GvrsM32* m32, int*
 
 
 static int encodeInt(int nRow, int nColumn,
-	GvrsInt* data,
+	int32_t* data,
 	int index,
 	int* packingLengthReference,
-	GvrsByte**packingReference,
+	uint8_t**packingReference,
 	void* appInfo) {
 	if (!data || !packingLengthReference || !packingReference) {
 		return GVRSERR_NULL_ARGUMENT;
@@ -267,10 +267,10 @@ static int encodeInt(int nRow, int nColumn,
 	*packingReference = 0;
 
 	int packingLength = 0;
-	GvrsByte* packing = 0;
+	uint8_t* packing = 0;
 	int status;
 
-	GvrsInt seed;
+	int32_t seed;
 
 	for (int iPack = 1; iPack <= 3; iPack++) {
 		GvrsM32* m32 = 0;
@@ -292,7 +292,7 @@ static int encodeInt(int nRow, int nColumn,
 		}
 
 		int bLen;
-		GvrsByte* b = 0;
+		uint8_t* b = 0;
 		status = pack(index, iPack, seed, m32, &bLen, appInfo, &b);
 		GvrsM32Free(m32);
 		if (status || !*b) {

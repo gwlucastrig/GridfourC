@@ -25,7 +25,7 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 
@@ -45,7 +45,7 @@ static int mask[] = {
 	0xff
 };
 
-GvrsBitInput* GvrsBitInputAlloc(GvrsByte* text, size_t nBytesInText, int *errorCode) {
+GvrsBitInput* GvrsBitInputAlloc(uint8_t* text, size_t nBytesInText, int *errorCode) {
 	GvrsBitInput* input = calloc(1, sizeof(GvrsBitInput));
 	if (!input) {
 		*errorCode = GVRSERR_NOMEM;

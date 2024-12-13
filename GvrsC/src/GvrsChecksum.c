@@ -58,7 +58,7 @@
  * -----------------------------------------------------------------------
  */
 
-#include "GvrsPrimaryTypes.h"
+#include <stdint.h>
 
 /**
  * Provides an implementation of the CRC32C checksum based on the
@@ -137,7 +137,7 @@ static const unsigned long LMASK = 0xffffffffL;
 static const int BMASK = 0xff;
 
 
-unsigned long  GvrsChecksumUpdateArray(GvrsByte *b, int off, int len, unsigned long pcrc) {
+unsigned long  GvrsChecksumUpdateArray(uint8_t* b, int off, int len, unsigned long pcrc) {
     unsigned long crc =  pcrc ^ LMASK;
     for (int i = 0; i < len; i++) {
         int index = (int)(crc ^ b[off + i]) & BMASK;
@@ -147,7 +147,7 @@ unsigned long  GvrsChecksumUpdateArray(GvrsByte *b, int off, int len, unsigned l
 }
 
 
-unsigned long  GvrsChecksumUpdateValue(GvrsByte b, unsigned long pcrc) {
+unsigned long  GvrsChecksumUpdateValue(uint8_t b, unsigned long pcrc) {
     unsigned long crc = pcrc ^ LMASK;
         int index = (int)(crc ^ b) & BMASK;
         crc = (CRC_TABLE[index] ^ (crc >> 8)) & LMASK;

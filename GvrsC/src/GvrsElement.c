@@ -48,7 +48,7 @@
 //
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsPrimaryIo.h"
 #include "Gvrs.h"
 #include "GvrsInternal.h"
@@ -57,7 +57,7 @@
  
 
  
-int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt *value) {
+int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, int32_t* value) {
 	if (!element) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -98,7 +98,7 @@ int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsIn
 		 }
 	}
  
-		GvrsByte* data = tile->data + element->dataOffset;
+		uint8_t* data = tile->data + element->dataOffset;
 		switch (element->elementType) {
 		case GvrsElementTypeInt:
 			*value = ((int*)data)[indexInTile];
@@ -119,7 +119,7 @@ int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, GvrsIn
 }
 
 
-int  GvrsElementReadFloat(GvrsElement* element, int gridRow, int gridColumn, GvrsFloat* value) {
+int  GvrsElementReadFloat(GvrsElement* element, int gridRow, int gridColumn, float* value) {
 	if (!element) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -159,7 +159,7 @@ int  GvrsElementReadFloat(GvrsElement* element, int gridRow, int gridColumn, Gvr
 		}
 	}
 
-	GvrsByte* data = tile->data + element->dataOffset;
+	uint8_t* data = tile->data + element->dataOffset;
 	switch (element->elementType) {
 	case GvrsElementTypeInt:
 		*value = (float)(((int*)data)[indexInTile]);
@@ -214,8 +214,8 @@ int GvrsElementIsIntegral(GvrsElement * element) {
 
 
 void
-GvrsElementFillData(GvrsElement* element, GvrsByte* data, int nCells) {
-	//GvrsByte* data = tile->data + element->dataOffset;
+GvrsElementFillData(GvrsElement* element, uint8_t* data, int nCells) {
+	//uint8_t* data = tile->data + element->dataOffset;
 	int i;
 	switch (element->elementType) {
 	case GvrsElementTypeInt: {
@@ -258,7 +258,7 @@ GvrsElementFillData(GvrsElement* element, GvrsByte* data, int nCells) {
 
 
 
-int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsInt value) {
+int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, int32_t value) {
 	if (!element) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -315,7 +315,7 @@ int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsI
 	}
 
 	tile->writePending = 1;
-	GvrsByte* data = tile->data + element->dataOffset;
+	uint8_t* data = tile->data + element->dataOffset;
 	switch (element->elementType) {
 	case GvrsElementTypeInt:
 	     ((int*)data)[indexInTile] = value;
@@ -338,7 +338,7 @@ int GvrsElementWriteInt(GvrsElement* element, int gridRow, int gridColumn, GvrsI
 
 
 
-int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, GvrsFloat value) {
+int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, float value) {
 	if (!element) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -397,7 +397,7 @@ int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, Gvr
 	}
 
 	tile->writePending = 1;
-	GvrsByte* data = tile->data + element->dataOffset;
+	uint8_t* data = tile->data + element->dataOffset;
 	switch (element->elementType) {
 	case GvrsElementTypeInt:
 		((int*)data)[indexInTile] = (int)value;
@@ -430,7 +430,7 @@ int GvrsElementWriteFloat(GvrsElement* element, int gridRow, int gridColumn, Gvr
 
 
 
-int GvrsElementCount(GvrsElement* element, int gridRow, int gridColumn, GvrsInt* count) {
+int GvrsElementCount(GvrsElement* element, int gridRow, int gridColumn, int32_t* count) {
 	if (!element || !count) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -490,13 +490,13 @@ int GvrsElementCount(GvrsElement* element, int gridRow, int gridColumn, GvrsInt*
 	}
 
 	tile->writePending = 1;
-	GvrsByte* data = tile->data + element->dataOffset;
-	GvrsInt* pI;
-	GvrsShort* pS;
-	GvrsInt tempCount;
+	uint8_t* data = tile->data + element->dataOffset;
+	int32_t* pI;
+	int16_t* pS;
+	int32_t tempCount;
 	switch (element->elementType) {
 	case GvrsElementTypeInt:
-		pI = ((GvrsInt*)data) + indexInTile;
+		pI = ((int32_t*)data) + indexInTile;
 		if (tileIsNew) {
 			tempCount = 0;
 		}
@@ -515,7 +515,7 @@ int GvrsElementCount(GvrsElement* element, int gridRow, int gridColumn, GvrsInt*
 	case GvrsElementTypeFloat:
 		return  GVRSERR_FILE_ERROR;
 	case GvrsElementTypeShort:
-		pS = ((GvrsShort*)data) + indexInTile;
+		pS = ((int16_t*)data) + indexInTile;
 		if (tileIsNew) {
 			tempCount = 0;
 		}

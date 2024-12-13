@@ -25,14 +25,14 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 #include "zlib.h"
 
 // case-sensitive name of codec
-static const char* identification = "GvrsFloat";
+static const char* identification = "float";
 static const char* description = "Implements the standard GVRS compression for floating-point data";
 
 
@@ -52,14 +52,14 @@ static GvrsCodec* allocateCodecFloat(struct GvrsCodecTag* codec) {
 	return GvrsCodecFloatAlloc();
 }
 
-static GvrsInt unpackInteger(GvrsByte input[], int offset) {
+static int32_t unpackInteger(uint8_t input[], int offset) {
 	return (input[offset] & 0xff)
 		| ((input[offset + 1] & 0xff) << 8)
 		| ((input[offset + 2] & 0xff) << 16)
 		| ((input[offset + 3] & 0xff) << 24);
 }
 
-static GvrsByte* doInflate(GvrsByte* input, int inputLength, int outputLength, int* errCode) {
+static uint8_t* doInflate(uint8_t* input, int inputLength, int outputLength, int* errCode) {
 	*errCode = 0;
 	unsigned char* output = (unsigned char*)malloc(outputLength);
 	if (!output) {
@@ -90,14 +90,14 @@ static GvrsByte* doInflate(GvrsByte* input, int inputLength, int outputLength, i
 
 
 
-static void decodeDeltas(GvrsByte* scratch, int nRows, int nColumns) {
+static void decodeDeltas(uint8_t* scratch, int nRows, int nColumns) {
 	int iRow, iCol;
 	int prior = 0;
 	int k = 0;
 	for (iRow = 0; iRow < nRows; iRow++) {
 		for (iCol = 0; iCol < nColumns; iCol++) {
 			prior += scratch[k];
-			scratch[k++] = (GvrsByte)prior;
+			scratch[k++] = (uint8_t)prior;
 		}
 		prior = scratch[iRow * nColumns];
 	}
@@ -105,7 +105,7 @@ static void decodeDeltas(GvrsByte* scratch, int nRows, int nColumns) {
 
 
  
-static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packing, GvrsFloat* data, void *appData) {
+static int decodeFloat(int nRow, int nColumn, int packingLength, uint8_t* packing, float* data, void *appData) {
 
 	// the packing layout:
 	//    packing[0]   compression index (can be used as a diagnostic)
@@ -113,7 +113,7 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 	//    packing[2..5]  length of compressed sign-bytes
 	//    packing[6..*]  packed sign-bytes
 
-	GvrsUnsignedInt* rawInt = (GvrsUnsignedInt*)data;
+	uint32_t* rawInt = (uint32_t*)data;
 	int i;
 	int errCode = 0;
 	int nCellsInTile = nRow * nColumn;
@@ -121,7 +121,7 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 	int offset = 2;
 	int lengthSignPacking = unpackInteger(packing, offset);
 	offset += 4;
-	GvrsByte* signBytes = doInflate(packing + offset, lengthSignPacking, nSignBytes, &errCode);
+	uint8_t* signBytes = doInflate(packing + offset, lengthSignPacking, nSignBytes, &errCode);
 	if (!signBytes) {
 		return errCode;
 	}
@@ -138,7 +138,7 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 
 	int lengthExponentPacking = unpackInteger(packing, offset);
 	offset += 4;
-	GvrsByte* exponentBytes = doInflate(packing + offset, lengthExponentPacking, nCellsInTile, &errCode);
+	uint8_t* exponentBytes = doInflate(packing + offset, lengthExponentPacking, nCellsInTile, &errCode);
 	if (!exponentBytes) {
 		return errCode;
 	}
@@ -151,7 +151,7 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 
 	int lengthMan0Packing = unpackInteger(packing, offset);
 	offset += 4;
-	GvrsByte* man0Bytes = doInflate(packing + offset, lengthMan0Packing, nCellsInTile, &errCode);
+	uint8_t* man0Bytes = doInflate(packing + offset, lengthMan0Packing, nCellsInTile, &errCode);
 	if (!man0Bytes) {
 		return errCode;
 	}
@@ -167,7 +167,7 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 
 	int lengthMan1Packing = unpackInteger(packing, offset);
 	offset += 4;
-	GvrsByte* man1Bytes = doInflate(packing + offset, lengthMan1Packing, nCellsInTile, &errCode);
+	uint8_t* man1Bytes = doInflate(packing + offset, lengthMan1Packing, nCellsInTile, &errCode);
 	if (!man1Bytes) {
 		return errCode;
 	}
@@ -182,7 +182,7 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 
 	int lengthMan2Packing = unpackInteger(packing, offset);
 	offset += 4;
-	GvrsByte* man2Bytes = doInflate(packing + offset, lengthMan2Packing, nCellsInTile, &errCode);
+	uint8_t* man2Bytes = doInflate(packing + offset, lengthMan2Packing, nCellsInTile, &errCode);
 	if (!man2Bytes) {
 		return errCode;
 	}
@@ -198,7 +198,7 @@ static int decodeFloat(int nRow, int nColumn, int packingLength, GvrsByte* packi
 
 
 
-static void encodeDeltas(GvrsByte* scratch, int nRows, int nColumns) {
+static void encodeDeltas(uint8_t* scratch, int nRows, int nColumns) {
 	int prior0 = 0;
 	int test;
 	int k = 0;
@@ -207,14 +207,14 @@ static void encodeDeltas(GvrsByte* scratch, int nRows, int nColumns) {
 		prior0 = scratch[k];
 		for (int iCol = 0; iCol < nColumns; iCol++) {
 			test = scratch[k];
-			scratch[k++] = (GvrsByte)(test - prior);
+			scratch[k++] = (uint8_t)(test - prior);
 			prior = test;
 		}
 	}
 }
 
 
-static int doDeflate(int nBytesAvailable, GvrsByte *output, int inputLength, GvrsByte *input, int *lengthCompressed){
+static int doDeflate(int nBytesAvailable, uint8_t* output, int inputLength, uint8_t* input, int *lengthCompressed){
     
 	*lengthCompressed = 0;
 
@@ -249,16 +249,16 @@ static int doDeflate(int nBytesAvailable, GvrsByte *output, int inputLength, Gvr
 	}
 
 	int lenOut = strm.total_out;
-	output[0] = (GvrsByte)(lenOut & 0xff);
-	output[1] = (GvrsByte)((lenOut >> 8) & 0xff);
-	output[2] = (GvrsByte)((lenOut >> 16) & 0xff);
-	output[3] = (GvrsByte)((lenOut >> 24) & 0xff);
+	output[0] = (uint8_t)(lenOut & 0xff);
+	output[1] = (uint8_t)((lenOut >> 8) & 0xff);
+	output[2] = (uint8_t)((lenOut >> 16) & 0xff);
+	output[3] = (uint8_t)((lenOut >> 24) & 0xff);
 	*lengthCompressed += (4 + lenOut);
 
 	return 0;
 }
  
-static int cleanUp(int status, GvrsByte* iData, GvrsByte* packing, GvrsByte *sBits) {
+static int cleanUp(int status, uint8_t* iData, uint8_t* packing, uint8_t* sBits) {
 	if (iData) {
 		free(iData);
 	}
@@ -274,7 +274,7 @@ static int cleanUp(int status, GvrsByte* iData, GvrsByte* packing, GvrsByte *sBi
 
 #define BitsFromF(A, B)   *((unsigned int*)( (A)+(B) ))
 
-static int encodeFloat(int nRow, int nColumn, GvrsFloat* data, int index, int* packingLength, GvrsByte** packingReference, void* appInfo) {
+static int encodeFloat(int nRow, int nColumn, float* data, int index, int* packingLength, uint8_t** packingReference, void* appInfo) {
 	if (!data || !packingLength || !packingReference) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -292,30 +292,30 @@ static int encodeFloat(int nRow, int nColumn, GvrsFloat* data, int index, int* p
 		return status;
 	}
 
-	GvrsByte* iData = calloc(nBytesInData, sizeof(GvrsByte));
+	uint8_t* iData = calloc(nBytesInData, sizeof(uint8_t));
 	if (!iData) {
 		GvrsBitOutputFree(bitOutput);
 		return GVRSERR_NOMEM;
 	}
 
-	GvrsByte* sEx = iData; // 8 bits of exponent
-	GvrsByte* sM1 = iData + nCellsInTile;   // high 7 bits of mantissa
-	GvrsByte* sM2 = sM1 + nCellsInTile;     // middle 8 bits of mantissa
-	GvrsByte* sM3 = sM2 + nCellsInTile;     // low 8 bits of mantissa
+	uint8_t* sEx = iData; // 8 bits of exponent
+	uint8_t* sM1 = iData + nCellsInTile;   // high 7 bits of mantissa
+	uint8_t* sM2 = sM1 + nCellsInTile;     // middle 8 bits of mantissa
+	uint8_t* sM3 = sM2 + nCellsInTile;     // low 8 bits of mantissa
 
 	// Copy fragments of floating-point bit patterns into arrays
 	// for processing
 	for (i = 0; i < nCellsInTile; i++) {
 		unsigned int bits = BitsFromF(data, i);
 		GvrsBitOutputPutBit(bitOutput, bits >> 31);
-		sEx[i] = (GvrsByte)((bits >> 23) & 0xff);
-		sM1[i] = (GvrsByte)((bits >> 16) & 0x7f);
-		sM2[i] = (GvrsByte)((bits >> 8) & 0xff);
-		sM3[i] = (GvrsByte)(bits & 0xff);
+		sEx[i] = (uint8_t)((bits >> 23) & 0xff);
+		sM1[i] = (uint8_t)((bits >> 16) & 0x7f);
+		sM2[i] = (uint8_t)((bits >> 8) & 0xff);
+		sM3[i] = (uint8_t)(bits & 0xff);
 	}
 
 	int sBitLength;
-	GvrsByte* sBits;
+	uint8_t* sBits;
 
 	status = GvrsBitOutputGetText(bitOutput, &sBitLength, &sBits);
 	if (status) {
@@ -334,12 +334,12 @@ static int encodeFloat(int nRow, int nColumn, GvrsFloat* data, int index, int* p
 
 
 	int nBytesAvailable = nBytesInData + 2;
-	GvrsByte* packing = calloc(nBytesAvailable, sizeof(GvrsByte));
+	uint8_t* packing = calloc(nBytesAvailable, sizeof(uint8_t));
 	if (!packing) {
 		free(iData);
 		return GVRSERR_NOMEM;
 	}
-	packing[0] = (GvrsByte)index;
+	packing[0] = (uint8_t)index;
 	// packing[1] is currently left as zero
 	nBytesAvailable -= 2;
 

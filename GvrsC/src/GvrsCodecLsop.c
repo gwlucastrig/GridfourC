@@ -26,7 +26,7 @@
 
 #include <math.h>
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
@@ -56,16 +56,16 @@ int VALUE_CHECKSUM_INCLUDED = 0x80;
 
 
 
-static GvrsInt unpackInteger(GvrsByte input[], int offset) {
+static int32_t unpackInteger(uint8_t input[], int offset) {
 	return (input[offset] & 0xff)
 		| ((input[offset + 1] & 0xff) << 8)
 		| ((input[offset + 2] & 0xff) << 16)
 		| ((input[offset + 3] & 0xff) << 24);
 }
 
-static GvrsFloat unpackFloat(GvrsByte input[], int offset) {
-	GvrsFloat f=0;
-	GvrsInt* p = (GvrsInt *)(&f);
+static float unpackFloat(uint8_t input[], int offset) {
+	float f=0;
+	int32_t* p = (int32_t* )(&f);
 	*p = (input[offset] & 0xff)
 		| ((input[offset + 1] & 0xff) << 8)
 		| ((input[offset + 2] & 0xff) << 16)
@@ -82,8 +82,8 @@ typedef struct LsHeaderTag {
 	int nInteriorCodes;
 	int compressionType;
 	int headerSize;
-	GvrsBoolean valueChecksumIncluded;
-	GvrsInt  valueChecksum;
+	int valueChecksumIncluded;
+	int32_t  valueChecksum;
 }LsHeader;
 
 // the header is 15+N*4 bytes:
@@ -117,7 +117,7 @@ static GvrsCodec* allocateCodecLsop(struct GvrsCodecTag* codec) {
 }
  
 
-static int doHuff(GvrsBitInput* input, int nSymbols, GvrsByte *output) {
+static int doHuff(GvrsBitInput* input, int nSymbols, uint8_t* output) {
 	int indexSize;
 	int errCode = 0;
 	int* nodeIndex;
@@ -135,7 +135,7 @@ static int doHuff(GvrsBitInput* input, int nSymbols, GvrsByte *output) {
 
 
 
-static int doInflate(GvrsByte* input, int inputLength, GvrsByte *output, int outputLength, int *inputUsed) {
+static int doInflate(uint8_t* input, int inputLength, uint8_t* output, int outputLength, int *inputUsed) {
 	Bytef* zInput = (Bytef*)input;
 	z_stream zs;
 	memset(&zs, 0, sizeof(zs));
@@ -161,7 +161,7 @@ static int doInflate(GvrsByte* input, int inputLength, GvrsByte *output, int out
 
 
 
-static void cleanUp(GvrsByte* initializerCodes, GvrsByte* interiorCodes, GvrsBitInput* inputBits) {
+static void cleanUp(uint8_t* initializerCodes, uint8_t* interiorCodes, GvrsBitInput* inputBits) {
 	if (initializerCodes) {
 		free(initializerCodes);
 	}
@@ -174,10 +174,10 @@ static void cleanUp(GvrsByte* initializerCodes, GvrsByte* interiorCodes, GvrsBit
 }
 
 
-static int decodeInt(int nRows, int nColumns, int packingLength, GvrsByte* packing, GvrsInt* values, void *appInfo) {
+static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packing, int32_t* values, void *appInfo) {
 	int i, iRow, iCol;
-	GvrsByte* initializerCodes = 0;
-	GvrsByte* interiorCodes = 0;
+	uint8_t* initializerCodes = 0;
+	uint8_t* interiorCodes = 0;
 	GvrsBitInput* inputBits = 0;
 
 // the header is 15+N*4 bytes:
@@ -198,31 +198,31 @@ static int decodeInt(int nRows, int nColumns, int packingLength, GvrsByte* packi
 		return GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
 	}
 
-	GvrsInt seed = unpackInteger(packing, 2);
+	int32_t seed = unpackInteger(packing, 2);
 	int offset = 6;
-	GvrsFloat u[12]; // room for up to 12 coefficients
+	float u[12]; // room for up to 12 coefficients
 	for (i = 0; i <nCoefficients; i++) {
 		u[i] = unpackFloat(packing, offset);
 		offset += 4;
 	}
-	GvrsInt nInitializerCodes = unpackInteger(packing, offset);
+	int32_t nInitializerCodes = unpackInteger(packing, offset);
 	offset += 4;
-	GvrsInt nInteriorCodes = unpackInteger(packing, offset);
+	int32_t nInteriorCodes = unpackInteger(packing, offset);
 	offset += 4;
 	int method = packing[offset++];
 	int compressionType = method&COMPRESSION_TYPE_MASK;
-	GvrsBoolean valueChecksumIncluded = (method & VALUE_CHECKSUM_INCLUDED) != 0;
+	int valueChecksumIncluded = (method & VALUE_CHECKSUM_INCLUDED) != 0;
 	if (valueChecksumIncluded) {
-		// GvrsInt valueChecksum = unpackInteger(packing, filePos);
+		// int32_t valueChecksum = unpackInteger(packing, filePos);
 		offset += 4;
 	}
 
-	initializerCodes = (GvrsByte *)malloc(nInitializerCodes);
+	initializerCodes = (uint8_t* )malloc(nInitializerCodes);
 	if (!initializerCodes) {
 		cleanUp(initializerCodes, interiorCodes, inputBits);
 		return GVRSERR_NOMEM;
 	}
-	 interiorCodes = (GvrsByte *)malloc(nInteriorCodes);
+	 interiorCodes = (uint8_t* )malloc(nInteriorCodes);
 	if (!interiorCodes) {
 		cleanUp(initializerCodes, interiorCodes, inputBits);
 		return GVRSERR_NOMEM;
@@ -230,7 +230,7 @@ static int decodeInt(int nRows, int nColumns, int packingLength, GvrsByte* packi
 
 
 	int status = 0;
-	GvrsByte* inputBytes = packing + offset;
+	uint8_t* inputBytes = packing + offset;
 	int inputBytesLength = packingLength - offset;
 	if (compressionType == COMPRESSION_TYPE_HUFFMAN) {
 		inputBits = GvrsBitInputAlloc(inputBytes, inputBytesLength, &status);

@@ -102,8 +102,8 @@ int main(int argc, char* argv[]) {
 
     size_t nPlaces = sizeof(places) / sizeof(struct Place);
     int iPlace;
-    GvrsFloat fvalue;
-    GvrsDouble row, col;
+    float fvalue;
+    double row, col;
     GvrsInterpolationResult result;
 
     // for each place defined above, perform a lookup and print results

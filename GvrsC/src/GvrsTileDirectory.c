@@ -25,7 +25,7 @@
  */
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 #include "GvrsPrimaryIo.h"
 #include "GvrsError.h"
 #include "Gvrs.h"
@@ -54,7 +54,7 @@ GvrsTileDirectoryAllocEmpty(int nRowsOfTiles, int nColsOfTiles, GvrsTileDirector
 }
 
 int
-GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong filePosTileDirectory, GvrsTileDirectory** tileDirectoryReference) {
+GvrsTileDirectoryRead(Gvrs* gvrs, int64_t filePosTileDirectory, GvrsTileDirectory** tileDirectoryReference) {
 	if (!gvrs || !tileDirectoryReference) {
 		return GVRSERR_NULL_ARGUMENT;
 	}
@@ -80,8 +80,8 @@ GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong filePosTileDirectory, GvrsTileDirecto
 	//    1:        boolean indicating if extended file offsets are used
 	//    2 to 7:   Reservd for future use
 
-	GvrsByte tileDirectoryFormat;
-	GvrsBoolean useExtendedFileOffset;
+	uint8_t tileDirectoryFormat;
+	int useExtendedFileOffset;
 	GvrsReadByte(fp, &tileDirectoryFormat);
 	GvrsReadBoolean(fp, &useExtendedFileOffset);
 	if (tileDirectoryFormat != 0) {
@@ -112,14 +112,14 @@ GvrsTileDirectoryRead(Gvrs* gvrs, GvrsLong filePosTileDirectory, GvrsTileDirecto
 	}
 
 	if (useExtendedFileOffset) {
-		td->lOffsets = calloc(nTilesInTable, sizeof(GvrsLong));
+		td->lOffsets = calloc(nTilesInTable, sizeof(int64_t));
 		if (!td->iOffsets) {
 			return readFailed(td, GVRSERR_NOMEM);
 		}
 		status = GvrsReadLongArray(fp, nTilesInTable, td->lOffsets);
 	}
 	else {
-		td->iOffsets = calloc(nTilesInTable, sizeof(GvrsUnsignedInt));
+		td->iOffsets = calloc(nTilesInTable, sizeof(uint32_t));
 		if (!td->iOffsets) {
 			return readFailed(td, GVRSERR_NOMEM);
 		}
@@ -151,7 +151,7 @@ GvrsTileDirectory* GvrsTileDirectoryFree(GvrsTileDirectory* tileDirectory) {
  
 
 
-GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIndex) {
+int64_t GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIndex) {
 	int tileRow = tileIndex / tileDir->nColsOfTiles;
 	int tileCol = tileIndex % tileDir->nColsOfTiles;
 
@@ -165,7 +165,7 @@ GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIn
 	}
 	int offsetTableIndex = iRow * tileDir->nCols + iCol;
 	if (tileDir->iOffsets) {
-		GvrsLong t = (GvrsLong)(tileDir->iOffsets[offsetTableIndex]);
+		int64_t t = (int64_t)(tileDir->iOffsets[offsetTableIndex]);
 		return t << 3;
 	}
 	else if (tileDir->lOffsets) {
@@ -179,18 +179,18 @@ GvrsLong GvrsTileDirectoryGetFilePosition(GvrsTileDirectory* tileDir, int tileIn
 }
 
 
-int GvrsTileDirectoryWrite(Gvrs* gvrs, GvrsLong* tileDirectoryPos) {
-	//GvrsInt row0;
-	//GvrsInt col0;
-	//GvrsInt row1;
-	//GvrsInt col1;
-	//GvrsInt nRows;
-	//GvrsInt nCols;
-	//GvrsInt nRowsOfTiles;
+int GvrsTileDirectoryWrite(Gvrs* gvrs, int64_t* tileDirectoryPos) {
+	//int32_t row0;
+	//int32_t col0;
+	//int32_t row1;
+	//int32_t col1;
+	//int32_t nRows;
+	//int32_t nCols;
+	//int32_t nRowsOfTiles;
 	//// one of the following pointers should be set.  iOffsets when
 	//// compact references are used.  lOffsets for extended references.
-	//GvrsUnsignedInt* iOffsets;
-	// GvrsLong* lOffsets;
+	//uint32_t* iOffsets;
+	// int64_t* lOffsets;
 
 	if (!tileDirectoryPos) {
 		return GVRSERR_NULL_ARGUMENT;
@@ -203,7 +203,7 @@ int GvrsTileDirectoryWrite(Gvrs* gvrs, GvrsLong* tileDirectoryPos) {
 	GvrsTileDirectory* td = gvrs->tileDirectory;
 	int nTileCells = td->nRows * td->nCols;
 	int cellSize;
-	GvrsBoolean extendedAddressSpace;
+	int extendedAddressSpace;
 	if (td->iOffsets) {
 		extendedAddressSpace = 0;
 		cellSize = 4;
@@ -214,7 +214,7 @@ int GvrsTileDirectoryWrite(Gvrs* gvrs, GvrsLong* tileDirectoryPos) {
 	}
 	int sizeTileDirectory = 8 + 16 + nTileCells * cellSize;
 	int status;
-	GvrsLong posToStore;
+	int64_t posToStore;
 	status = GvrsFileSpaceAlloc(gvrs->fileSpaceManager, GvrsRecordTypeTileDir, sizeTileDirectory, &posToStore);
 	if (status) {
 		return status;
@@ -253,7 +253,7 @@ int GvrsTileDirectoryWrite(Gvrs* gvrs, GvrsLong* tileDirectoryPos) {
 }
 
 
-int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileIndex, GvrsLong filePosition) {
+int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, int32_t tileIndex, int64_t filePosition) {
 	// Test for filePos greater than 32 GB threshold that is too big for iOffset and requires lOffset 
 	if (filePosition >= (1LL << 35) && td->iOffsets) {
 		// The "compact" representation stores file position in a 4-byte unsigned integer.
@@ -263,12 +263,12 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 		// the API must switch to the 8-byte representation
 		int i;
 		int n = td->nRows * td->nCols;
-		td->lOffsets = (GvrsLong *)malloc(n);
+		td->lOffsets = (int64_t* )malloc(n);
 		if (!td->lOffsets) {
 			return GVRSERR_NOMEM;
 		}
 		for (i = 0; i < n; i++) {
-			td->lOffsets[i] = ((GvrsLong)td->iOffsets[i]) << 3;
+			td->lOffsets[i] = ((int64_t)td->iOffsets[i]) << 3;
 		}
 		free(td->iOffsets);
 		td->iOffsets = 0;
@@ -282,8 +282,8 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 		td->row0 = row;
 		td->col0 = col;
 		td->row1 = row;
-		td->iOffsets = calloc(1, sizeof(GvrsUnsignedInt));
-		td->iOffsets[0] = (GvrsUnsignedInt)(filePosition >> 3);
+		td->iOffsets = calloc(1, sizeof(uint32_t));
+		td->iOffsets[0] = (uint32_t)(filePosition >> 3);
 	}
 	else {
 		int adjustmentNeeded = 0;
@@ -321,8 +321,8 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 			int n = nRowsX * nColsX;
 			if (td->iOffsets) {
 				int iRow, iCol;
-				GvrsUnsignedInt* iOffsets = td->iOffsets;
-				GvrsUnsignedInt* xOffsets = calloc(n, sizeof(GvrsUnsignedInt));
+				uint32_t* iOffsets = td->iOffsets;
+				uint32_t* xOffsets = calloc(n, sizeof(uint32_t));
 				if (!xOffsets) {
 					return GVRSERR_NOMEM;
 				}
@@ -339,8 +339,8 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 			}
 			else {
 				int iRow, iCol;
-				GvrsLong* lOffsets = td->lOffsets;
-				GvrsLong* xOffsets = calloc(n, sizeof(GvrsLong));
+				int64_t* lOffsets = td->lOffsets;
+				int64_t* xOffsets = calloc(n, sizeof(int64_t));
 				if (!xOffsets) {
 					return GVRSERR_NOMEM;
 				}
@@ -364,7 +364,7 @@ int GvrsTileDirectoryRegisterFilePosition(GvrsTileDirectory* td, GvrsInt tileInd
 		}
 		int index = (row - td->row0) * td->nCols + (col - td->col0);
 		if (td->iOffsets) {
-			td->iOffsets[index] = (GvrsUnsignedInt)(filePosition >> 3);
+			td->iOffsets[index] = (uint32_t)(filePosition >> 3);
 		}
 		else {
 			td->lOffsets[index] = filePosition;

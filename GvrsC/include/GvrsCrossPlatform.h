@@ -28,7 +28,7 @@
 #define GVRS_CROSS_PLATFORM_H
 
 #include "GvrsFramework.h"
-#include "GvrsPrimaryTypes.h"
+
 
 
 #ifdef __cplusplus
@@ -44,7 +44,7 @@ extern "C"
  * This function was implemented to address compatibility issues across Windows and Linux operating systems
  * @return a positive integee.
  */ 
-GvrsLong GvrsTimeMS();
+int64_t GvrsTimeMS();
 
 
 /**
