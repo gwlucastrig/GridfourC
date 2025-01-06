@@ -115,7 +115,7 @@ int GvrsReadInt(FILE* fp, int32_t* value)
 	return fread(value, 4, 1, fp) < 1 ? errCode(fp) : 0;
 }
 
-int GvrsReadUnsignedInt(FILE *fp, uint16_t* value)
+int GvrsReadUnsignedInt(FILE *fp, uint32_t* value)
 {
 	return fread(value, 4, 1, fp) < 1 ? errCode(fp) : 0;
 }

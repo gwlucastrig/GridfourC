@@ -57,7 +57,7 @@ int GvrsReadShort(        FILE *fp, int16_t* value);
 int GvrsReadShortArray(FILE* fp, int n, int16_t* values);
 
 int GvrsReadInt(        FILE *fp, int32_t* value);
-int GvrsReadUnsignedInt(FILE* fp, uint16_t* value);
+int GvrsReadUnsignedInt(FILE* fp, uint32_t* value);
 int GvrsReadUnsignedIntArray(FILE* fp, int n, uint32_t* values);
 
 int GvrsReadLong(        FILE *fp, int64_t*          value);
