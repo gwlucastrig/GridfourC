@@ -6,6 +6,10 @@ Welcome to the Gridfour software project's port to the C programming language.  
 started and aspects of this project are still in flux.  Currently, we are focused on
 a C-langage implementation of the GVRS API.
 
+We are also working on support for smaller scale processors and single-board computers.
+See our [project wiki](https://github.com/gwlucastrig/GridfourC/wiki) for information
+about our performance testing in the <b>Raspberry PI</b> environment.
+
 ## What is GVRS?
 The Gridfour Virtual Raster Store (GVRS, pronounced "givers") is a file-backed system
 that provides memory-efficient access to large and very large raster (grid) data sets.
