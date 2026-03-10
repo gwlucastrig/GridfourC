@@ -238,53 +238,75 @@ int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex
 		}
 	}
 
+
+	// In testing with Earth elevation/bathymetry data sets, we've observed an
+	// average of about 4.5 bits per encoded symbol.   The size of the symbol set
+	// (number of leaf nodes in the tree) was typically about 150 unique values.
+	// 
+	// Decoding a value:
+	// Start from the root node at nodeIndex[0]
+	// For branch nodes, nodeIndex[filePos] will be -1.  When nodeIndex[filePos] >= 0,
+	// the traversal has reached a terminal node and is complete.
+	// We know that the root node of the tree is always a branch node.
+	// So, we don't have to check to see if nodeIndex[0] == -1.  This gives us a way to reduce
+	// the loop cost by one comparison by implementing it as a do-while loop
+	// rather than a while loop.
+	// 
+        // The original code for this function depended on the "get bit" operation 
+        // as shown in the snippet below:
+	// 
+	//     int offset = 0 //  start from the root node
+	//     do {
+	//	      offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &errCode)];
+	//     }while (nodeIndex[offset] == -1);
+	//     output[i] = (uint8_t)nodeIndex[offset];
+        //
+	// The "get bit" operation happens so many times that there is a measurable gain
+	// in performance by folding in its logic into the loop.  Testing also revealed a
+        // surprising gain by copying elements from the input structure to local variables
+        // and then accessing those local variables rather than the structure:
+        //    instead of
+        //       input->iBit++, 
+        //    we copy 
+        //       iBit = input->iBit;
+        //   and then operate on local version of iBit until the processing is complete,
+        //   at which point, we copy iBit back into the input structure.
+        //      input->iBit = iBit;
+        //
+        // Clearly, this approach violates a lot of safe-coding practices and involves this
+        // function exposing a lot elements that we would prefer to be safely hidden
+        // inside the GvrsBit functions.   But the performance improvement is substatial,
+        // about 40 percent when testing on a Raspberry PI.
+        
+        int iBit = input->iBit;
+        int scratch = input->scratch;
+        int nBytesProcessed = input->nBytesProcessed;
+        int nBytesInText = input->nBytesInText;
+        uint8_t* text = input->text;
+	int offset;
+
 	for (i = 0; i < nSymbolsInOutput; i++) {
-		// In testing with Earth elevation/bathymetry data sets, we've observed an
-		// average of about 4.5 bits per encoded symbol.   The size of the symbol set
-		// (number of leaf nodes in the tree) was typically about 150 unique values.
-		// 
-		// Decoding a value:
-		// Start from the root node at nodeIndex[0]
-		// For branch nodes, nodeIndex[filePos] will be -1.  When nodeIndex[filePos] >= 0,
-		// the traversal has reached a terminal node and is complete.
-		// We know that the root node of the tree is always a branch node.
-		// So, we don't have to check to see if nodeIndex[0] == -1.  This gives us a way to reduce
-		// the loop cost by one comparison by implementing it as a do-while loop
-		// rather than a while loop.
-		// 
-		// The "get bit" operation happens so many times that there is a measurable gain
-		// in performance by folding in its logic into the loop.  This old-school approach
-		// reduces access time by about 10 percent.  But it clutters up the code somewhat.
-		// The original code was written as follows:
-		// 
-		//     int offset = 0 //  start from the root node
-		//     do {
-		//	      offset = nodeIndex[offset + 1 + GvrsBitInputGetBit(input, &errCode)];
-		//     }while (nodeIndex[offset] == -1);
-		//     output[i] = (uint8_t)nodeIndex[offset];
-
-
-		int offset = 0;
+		offset = 0;
 		do {
-			if (input->iBit == 8) {
-				if (input->nBytesProcessed >= input->nBytesInText) {
+			if (iBit == 8) {
+				if (nBytesProcessed >= nBytesInText) {
 					return GVRSERR_COMPRESSION_FAILURE;
 				}
-				input->scratch = input->text[input->nBytesProcessed++];
-				input->iBit = 0;
+				scratch =text[nBytesProcessed++];
+				iBit = 0;
 			}
-			int bit = (input->scratch) & 1;
-			(input->scratch) >>= 1;
-			input->iBit++;
-			offset = nodeIndex[offset + 1 + bit];
+			// int bit = scratch & 1;
+			offset = nodeIndex[offset + 1 + (scratch & 1)];
+			scratch >>= 1;
+			iBit++;
 		} while (nodeIndex[offset] < 0);
 		output[i] = (uint8_t)nodeIndex[offset];
 	}
+        input->iBit = iBit;
+        input->scratch = scratch;
+        input->nBytesProcessed = nBytesProcessed;
 	return 0;
 }
-
-
-
 
 static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing, int32_t* data, void *appInfo) {
 	int errCode = 0;
