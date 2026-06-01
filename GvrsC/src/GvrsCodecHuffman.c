@@ -279,7 +279,7 @@ int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex
         // about 40 percent when testing on a Raspberry PI.
         
         int iBit = input->iBit;
-        int scratch = input->scratch;
+        unsigned int scratch = input->scratch;
         int nBytesProcessed = input->nBytesProcessed;
         int nBytesInText = input->nBytesInText;
         uint8_t* text = input->text;
@@ -288,17 +288,13 @@ int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex
 	for (i = 0; i < nSymbolsInOutput; i++) {
 		offset = 0;
 		do {
-			if (iBit == 8) {
-				if (nBytesProcessed >= nBytesInText) {
-					return GVRSERR_COMPRESSION_FAILURE;
-				}
-				scratch =text[nBytesProcessed++];
-				iBit = 0;
+			if (iBit == 0) {
+				scratch = text[nBytesProcessed++];
 			}
 			// int bit = scratch & 1;
-			offset = nodeIndex[offset + 1 + (scratch & 1)];
+			offset = nodeIndex[offset + 1 + (scratch & 0x01u)];
 			scratch >>= 1;
-			iBit++;
+			iBit = (iBit+1)&0x07u;
 		} while (nodeIndex[offset] < 0);
 		output[i] = (uint8_t)nodeIndex[offset];
 	}

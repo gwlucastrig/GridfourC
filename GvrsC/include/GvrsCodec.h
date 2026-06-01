@@ -101,7 +101,7 @@ typedef struct GvrsBitInputTag {
 	int iBit;
 	int nBytesInText;
 	int nBytesProcessed;
-	int scratch;
+	unsigned int scratch;
 }GvrsBitInput;
 
 typedef struct GvrsBitOutputTag {

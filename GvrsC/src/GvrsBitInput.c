@@ -33,7 +33,7 @@
 // "scratch" byte that have been consumed.  If it reaches the value 8,
 // then any access operation must advance to the next byte in the input text.
 
-static int mask[] = {
+static unsigned int mask[] = {
 	0x00,
 	0x01,
 	0x03,
@@ -56,38 +56,25 @@ GvrsBitInput* GvrsBitInputAlloc(uint8_t* text, size_t nBytesInText, int *errorCo
 	}
 	input->text = text;
 	input->nBytesInText = (int)nBytesInText;
-	input->scratch = text[0];
 	input->nBytesProcessed = 0;
-	input->iBit = 8;
+	input->iBit = 0;
 	return input;
 }
 
 int GvrsBitInputGetBit(GvrsBitInput* input) {
-	if (input->iBit == 8) {
-		if (input->nBytesProcessed >= input->nBytesInText) {
-			// This is an encoding error.  Just return a zero-value
-			return 0;
-		}
+	if (input->iBit == 0) {
 		input->scratch = input->text[input->nBytesProcessed++];
-		input->iBit = 0;
 	}
-	int bit = (input->scratch) & 1;
+	int bit = (input->scratch) & 0x01u;
 	(input->scratch) >>= 1;
-	input->iBit++;
+	input->iBit = (input->iBit+1)&0x07u;
 	return bit;
 }
 
 int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode){
-	 
-	// at this point, the process is going to require one more byte.
-	// if there is no more data left, an error occurs
-	if (input->nBytesProcessed >= input->nBytesInText) {
-		*errorCode = GVRSERR_FILE_ERROR;
-		return 0;
-	}
 
-	if (input->iBit == 8) {
-		// note that the value of input->iBit will remain as input->iBit = 8;
+	if (input->iBit == 0) {
+		// note that the value of input->iBit will remain as input->iBit = 0;
 		// input->scratch is already invalid, and it will remain so.
 		return input->text[input->nBytesProcessed++];
 	}
