@@ -29,9 +29,9 @@
 #include "GvrsError.h"
 #include "GvrsCodec.h"
 
-// in the logic below, iBit indicates the number of bits from the current
-// "scratch" byte that have been consumed.  If it reaches the value 8,
-// then any access operation must advance to the next byte in the input text.
+ // in the logic below, iBit indicates the number of bits from the current
+ // "scratch" byte that have been consumed.  If it reaches the value 8,
+ // then any access operation must advance to the next byte in the input text.
 
 static unsigned int mask[] = {
 	0x00,
@@ -45,7 +45,7 @@ static unsigned int mask[] = {
 	0xff
 };
 
-GvrsBitInput* GvrsBitInputAlloc(uint8_t* text, size_t nBytesInText, int *errorCode) {
+GvrsBitInput* GvrsBitInputAlloc(uint8_t* text, size_t nBytesInText, int* errorCode) {
 	GvrsBitInput* input = calloc(1, sizeof(GvrsBitInput));
 	if (!input) {
 		*errorCode = GVRSERR_NOMEM;
@@ -67,11 +67,11 @@ int GvrsBitInputGetBit(GvrsBitInput* input) {
 	}
 	int bit = (input->scratch) & 0x01u;
 	(input->scratch) >>= 1;
-	input->iBit = (input->iBit+1)&0x07u;
+	input->iBit = (input->iBit + 1) & 0x07u;
 	return bit;
 }
 
-int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode){
+int GvrsBitInputGetByte(GvrsBitInput* input, int* errorCode) {
 
 	if (input->iBit == 0) {
 		// note that the value of input->iBit will remain as input->iBit = 0;
@@ -82,7 +82,7 @@ int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode){
 	// if we get here, iBit is not aligned with a byte boundary.
 	// We need to combine bits from the current "scratch" byte with
 	// part of the bits in the next symbol.
-	
+
 	int nBitsNeeded = input->iBit;  // the process already consumed iBits from scratch
 	int nBitsRemaining = 8 - nBitsNeeded;
 	int a = input->scratch;
@@ -92,6 +92,49 @@ int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode){
 	input->scratch = b >> nBitsNeeded;
 	input->iBit = nBitsNeeded;
 	return result;
+}
+
+int GvrsBitInputGetBits(GvrsBitInput* input, int nBitsInValue) {
+	if (nBitsInValue > 8 || nBitsInValue < 1) {
+		return 0;
+	}
+
+	int n = (8 - input->iBit) & 0x07;  // n is the number of bits available
+	if (n >= nBitsInValue) {
+		// the scratch field contains enoungh bits to satisfy the request.
+		if (n == nBitsInValue) {
+			input->iBit = 0;
+			return input->scratch;
+		}
+		else {
+			int bits = input->scratch & mask[nBitsInValue];
+			input->scratch >>= nBitsInValue;
+			input->iBit += nBitsInValue;
+			return bits;
+		}
+	}
+	else if (n == 0) {
+		// iBit is zero, there is no meaningful data in scratch
+		// in all cases, we must obtain another byte from the input buffer
+		if (nBitsInValue == 8) {
+			// iBit will stay at zero
+			return input->text[input->nBytesProcessed++];
+		}
+		else {
+			input->scratch = input->text[input->nBytesProcessed++];
+			int bits = input->scratch & mask[nBitsInValue];
+			input->iBit = nBitsInValue;
+			input->scratch >>= nBitsInValue;
+			return bits;
+		}
+	}
+
+	int bits = input->scratch;  // only the low n bits are populated
+	input->scratch = input->text[input->nBytesProcessed++];
+	input->iBit = nBitsInValue - n; // set iBit to the number of bits that will be taken from scratch
+	bits |= ((input->scratch & mask[input->iBit])) << n;
+	input->scratch >>= input->iBit;
+	return bits;
 }
 
 int GvrsBitInputGetPosition(GvrsBitInput* input) {

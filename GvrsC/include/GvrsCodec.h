@@ -37,181 +37,188 @@ extern "C"
 
 #define GVRS_CODEC_IDENTIFICATION_MAXLEN 16
 
-typedef struct GvrsCodecTag {
-	char identification[GVRS_CODEC_IDENTIFICATION_MAXLEN+1]; // follows GVRS Identifier syntax
-	int  index; // populated by GvrsOpen at run time
-	char* description; // arbitrary string supplied by CODEC implementation
+	typedef struct GvrsCodecTag {
+		char identification[GVRS_CODEC_IDENTIFICATION_MAXLEN + 1]; // follows GVRS Identifier syntax
+		int  index; // populated by GvrsOpen at run time
+		char* description; // arbitrary string supplied by CODEC implementation
 
-	// A CODEC has the option of implementing one or more of the following 
-	// functions by populating the appropriate pointer-to-a-function.
-	// The GVRS runtime will check to see whether a function pointer is populated
-	// before invoking it.  When encoding data, the GVRS API uses the pointer
-	// to indicate if an encoding is applicable to a particular data type.
-	int (*decodeInt)(int nRow, int nColumn, int packingLength, uint8_t* packing, int32_t* data, void *appInfo);
-	int (*decodeFloat)(int nRow, int nColumn, int packingLength, uint8_t* packing, float* data, void *appInfo);
+		// A CODEC has the option of implementing one or more of the following 
+		// functions by populating the appropriate pointer-to-a-function.
+		// The GVRS runtime will check to see whether a function pointer is populated
+		// before invoking it.  When encoding data, the GVRS API uses the pointer
+		// to indicate if an encoding is applicable to a particular data type.
+		int (*decodeInt)(int nRow, int nColumn, int packingLength, uint8_t* packing, int32_t* data, void* appInfo);
+		int (*decodeFloat)(int nRow, int nColumn, int packingLength, uint8_t* packing, float* data, void* appInfo);
 
-	int (*encodeInt)(  int nRow, int nColumn, int32_t* data,   int index, int* packingLength, uint8_t** packingReference, void *appInfo);
-	int (*encodeFloat)(int nRow, int nColumn, float* data, int index, int* packingLength, uint8_t** packingReference, void *appInfo);
+		int (*encodeInt)(int nRow, int nColumn, int32_t* data, int index, int* packingLength, uint8_t** packingReference, void* appInfo);
+		int (*encodeFloat)(int nRow, int nColumn, float* data, int index, int* packingLength, uint8_t** packingReference, void* appInfo);
+
+		/**
+		* Free any memory associated with the codec and otherwise dispose of resources.
+		* It is expected that some codecs may include unique elements that must be managed
+		* by the specific implementation.  So the GVRS API requires that codecs supply
+		* their own clean-up functions.
+		* @param a valid codec; implementatins should include handling to ignore a null reference.
+		* @return a null reference.
+		*/
+		struct GvrsCodecTag* (*destroyCodec)(struct GvrsCodecTag* codec);
+
+		/**
+		* Allocate a new instance of a codec, initializing all internal elements as appropriate.
+		* This function is intended for use in the GvrsBuilder implementation when initializing
+		* a new GVRS instance.  This approach is necessary because each GVRS instance must have
+		* a unique and independent set of elements.  Some codecs may maintain state information.
+		* This function allows specific implementations to create new instances of compressors
+		* that manage their own internal information as necessary.
+		* <p>
+		* For example, the zlib API (Deflate algorithm) allows a compressor to specify the
+		* level of compression. The default compression level is 6, but applications requiring
+		* a higher compression level could specify a level of 9 (the maxiumum).  In such a case,
+		* an application could create its own instance of a deflate codec and pass it in to
+		* the GvrsBuilder.  The GvrsBuilder would then duplicate the information in the codec
+		* when it allocates a new codec to be included in the GVRS object.
+		* @param a valid codec; implementatins should include handling to ignore a null reference.
+		* @return a valid reference to a codec.
+		*/
+		struct GvrsCodecTag* (*allocateNewCodec)(struct GvrsCodecTag* codec);
+
+		void* appInfo;
+
+		int64_t nTimesEncoded;
+		int64_t nBytesEncoded;
+	}GvrsCodec;
+
+
+	typedef struct GvrsM32Tag {
+		uint8_t* buffer;
+		int32_t   bufferLimit;
+		int32_t   offset;
+		int       bufferIsManaged;
+	}GvrsM32;
+
+	typedef struct GvrsBitInputTag {
+		uint8_t* text;
+		int iBit;
+		int nBytesInText;
+		int nBytesProcessed;
+		unsigned int scratch;
+	}GvrsBitInput;
+
+	typedef struct GvrsBitOutputTag {
+		uint8_t* text;
+		int iBit;
+		int nBytesAllocated;
+		int nBytesProcessed;
+		int scratch;
+	}GvrsBitOutput;
+
 
 	/**
-	* Free any memory associated with the codec and otherwise dispose of resources.
-	* It is expected that some codecs may include unique elements that must be managed
-	* by the specific implementation.  So the GVRS API requires that codecs supply
-	* their own clean-up functions.
-	* @param a valid codec; implementatins should include handling to ignore a null reference.
-	* @return a null reference.
-	*/
-	struct GvrsCodecTag* (*destroyCodec)(struct GvrsCodecTag* codec);
-
-	/**
-	* Allocate a new instance of a codec, initializing all internal elements as appropriate.
-	* This function is intended for use in the GvrsBuilder implementation when initializing
-	* a new GVRS instance.  This approach is necessary because each GVRS instance must have 
-	* a unique and independent set of elements.  Some codecs may maintain state information.
-	* This function allows specific implementations to create new instances of compressors
-	* that manage their own internal information as necessary.
+	* Wraps the input in an M32 structure.
 	* <p>
-	* For example, the zlib API (Deflate algorithm) allows a compressor to specify the
-	* level of compression. The default compression level is 6, but applications requiring
-	* a higher compression level could specify a level of 9 (the maxiumum).  In such a case,
-	* an application could create its own instance of a deflate codec and pass it in to
-	* the GvrsBuilder.  The GvrsBuilder would then duplicate the information in the codec
-	* when it allocates a new codec to be included in the GVRS object.
-	* @param a valid codec; implementatins should include handling to ignore a null reference.
-	* @return a valid reference to a codec.
+	* When a M32 structure is initialized using this call, the management of the memory
+	* for the buffer is assumed to be under the control of the calling application.
+	* When the M32 structure is freed, the buffer will not be modified.
+	* Note that this behavior is different than that of the alloc-for-output function.
+	* @param buffer an array of bytes supplying a sequence of one or more M32 codes.
+	* @param bufferLength the number of bytes in the buffer; because some M32 codes have
+	* multi-byte counts, this value may be larger than the number of symbols in the sequence.
+	* @param m32 a pointer to a pointer for a variable to receive the address for the GvrsM32 structure.
+	* @return if successful, zero; otherwise an integer value indicating an error condition.
 	*/
-	struct GvrsCodecTag* (*allocateNewCodec)(struct GvrsCodecTag* codec);
+	int  GvrsM32Alloc(uint8_t* buffer, int32_t bufferLength, GvrsM32** m32);
 
-	void* appInfo;
+	/**
+	* Deallocates the memory associated with the m32 codec.
+	* @param m32 a valid m32 reference.
+	* @return a null pointer.
+	*/
+	GvrsM32* GvrsM32Free(GvrsM32* m32);
 
-	int64_t nTimesEncoded;
-	int64_t nBytesEncoded;
-}GvrsCodec;
+	/**
+	* Get the next integer value provided by the GvrsM32 instance.  The responsibility for determining
+	* whether additional symbols are available is left to the application.  If no future symbols are
+	* available, this function returns an INT_MIN (indicating "no data").  Note that in ordinary use,
+	* an INT_MIN is a valid symbol, so that value cannot be used to detect an end-of-data condition.
+	* @param m32 a valid instance of a M32 codec.
+	* @return if successful, a valid integer; otherwise an INT_MIN.
+	*/
+	int32_t  GvrsM32GetNextSymbol(GvrsM32* m32);
 
+	/**
+	* Allocates a M32 structure, including internal buffer.  The internal buffer is assumed
+	* to be under the management of the GvrsM32 functions.  When the allocated M32 structure is
+	* freed, its buffer will also be freed.  Note that this behavior is different than that of the
+	* alternate alloc function.
+	* @return if successful, a valid reference; otherwise, a null.
+	*/
+	GvrsM32* GvrsM32AllocForOutput();
 
-typedef struct GvrsM32Tag {
-	uint8_t* buffer;
-	int32_t   bufferLimit;
-	int32_t   offset;
-	int       bufferIsManaged;
-}GvrsM32;
+	/**
+	* Appends the specified integer value to the specified m32 encoding.
+	* @param m32 a valid instance, initialized for output.
+	* @param symbol an arbitrary integer value to be appended to the M32 instance.
+	* @return if successful, zero; otherwise an integer value indicating an error condition.
+	*/
+	int GvrsM32AppendSymbol(GvrsM32* m32, int symbol);
 
-typedef struct GvrsBitInputTag {
-	uint8_t* text;
-	int iBit;
-	int nBytesInText;
-	int nBytesProcessed;
-	unsigned int scratch;
-}GvrsBitInput;
+	GvrsBitInput* GvrsBitInputAlloc(uint8_t* text, size_t nBytesInText, int* errorCode);
+	GvrsBitInput* GvrsBitInputFree(GvrsBitInput* input);
+	int GvrsBitInputGetBit(GvrsBitInput* input);
+	int GvrsBitInputGetBits(GvrsBitInput* input, int nBitsInValue);
+	int GvrsBitInputGetByte(GvrsBitInput* input, int* errorCode);
+	int GvrsBitInputGetPosition(GvrsBitInput* input);
 
-typedef struct GvrsBitOutputTag {
-	uint8_t* text;
-	int iBit;
-	int nBytesAllocated;
-	int nBytesProcessed;
-	int scratch;
-}GvrsBitOutput;
+	int GvrsBitOutputAlloc(GvrsBitOutput** outputReference);
+	int GvrsBitOutputPutBit(GvrsBitOutput* output, int bit);
+	int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol);
+	int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, uint8_t** reservedByteReference);
+	int GvrsBitOutputGetBitCount(GvrsBitOutput* output);
+	int GvrsBitOutputFlush(GvrsBitOutput* output);
+	GvrsBitOutput* GvrsBitOutputFree(GvrsBitOutput* output);
 
+	/**
+	* Get a safe copy of the current text in the output.  The memory allocated for
+	* the text is assumed to be under the management of the application and will
+	* not be affected by subsequent calls to GVRS bit operations.
+	* @param output a valid instance.
+	* @param nBytesInText a pointer to a variable to receive the number of bytes in the text
+	* @param text a pointer to a pointer variable to receive the text.
+	* @return if successful, a value of zero; otherwise an error code indicating the cause of the failure.
+	*/
+	int GvrsBitOutputGetText(GvrsBitOutput* output, int* nBytesInText, uint8_t** text);
 
-/**
-* Wraps the input in an M32 structure.
-* <p>
-* When a M32 structure is initialized using this call, the management of the memory
-* for the buffer is assumed to be under the control of the calling application.
-* When the M32 structure is freed, the buffer will not be modified.
-* Note that this behavior is different than that of the alloc-for-output function.
-* @param buffer an array of bytes supplying a sequence of one or more M32 codes.
-* @param bufferLength the number of bytes in the buffer; because some M32 codes have
-* multi-byte counts, this value may be larger than the number of symbols in the sequence.
-* @param m32 a pointer to a pointer for a variable to receive the address for the GvrsM32 structure.
-* @return if successful, zero; otherwise an integer value indicating an error condition.
-*/
-int  GvrsM32Alloc(uint8_t* buffer, int32_t bufferLength, GvrsM32** m32);
+	void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output);
+	void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output);
+	void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output);
 
-/**
-* Deallocates the memory associated with the m32 codec.
-* @param m32 a valid m32 reference.
-* @return a null pointer.
-*/
-GvrsM32* GvrsM32Free(GvrsM32* m32);
+	void GvrsPredictor1i(int nRows, int nColumns, int seed, int32_t* encoding, int32_t* output);
+	void GvrsPredictor2i(int nRows, int nColumns, int seed, int32_t* encoding, int32_t* output);
+	void GvrsPredictor3i(int nRows, int nColumns, int seed, int32_t* encoding, int32_t* output);
 
-/**
-* Get the next integer value provided by the GvrsM32 instance.  The responsibility for determining
-* whether additional symbols are available is left to the application.  If no future symbols are
-* available, this function returns an INT_MIN (indicating "no data").  Note that in ordinary use,
-* an INT_MIN is a valid symbol, so that value cannot be used to detect an end-of-data condition.
-* @param m32 a valid instance of a M32 codec.
-* @return if successful, a valid integer; otherwise an INT_MIN.
-*/
-int32_t  GvrsM32GetNextSymbol(GvrsM32* m32);
-
-/**
-* Allocates a M32 structure, including internal buffer.  The internal buffer is assumed
-* to be under the management of the GvrsM32 functions.  When the allocated M32 structure is
-* freed, its buffer will also be freed.  Note that this behavior is different than that of the
-* alternate alloc function.
-* @return if successful, a valid reference; otherwise, a null.
-*/
-GvrsM32* GvrsM32AllocForOutput();
-
-/**
-* Appends the specified integer value to the specified m32 encoding.
-* @param m32 a valid instance, initialized for output.
-* @param symbol an arbitrary integer value to be appended to the M32 instance. 
-* @return if successful, zero; otherwise an integer value indicating an error condition.
-*/
-int GvrsM32AppendSymbol(GvrsM32* m32, int symbol);
-
-GvrsBitInput* GvrsBitInputAlloc(uint8_t* text, size_t nBytesInText, int *errorCode);
-GvrsBitInput* GvrsBitInputFree( GvrsBitInput* input);
-int GvrsBitInputGetBit( GvrsBitInput* input);
-int GvrsBitInputGetByte(GvrsBitInput* input, int *errorCode);
-int GvrsBitInputGetPosition(GvrsBitInput* input);
-
-int GvrsBitOutputAlloc(GvrsBitOutput** outputReference);
-int GvrsBitOutputPutBit(GvrsBitOutput* output, int bit);
-int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol);
-int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, uint8_t** reservedByteReference);
-int GvrsBitOutputGetBitCount(GvrsBitOutput* output);
-int GvrsBitOutputFlush(GvrsBitOutput* output);
-GvrsBitOutput* GvrsBitOutputFree(GvrsBitOutput* output);
-
-/**
-* Get a safe copy of the current text in the output.  The memory allocated for
-* the text is assumed to be under the management of the application and will
-* not be affected by subsequent calls to GVRS bit operations.
-* @param output a valid instance.
-* @param nBytesInText a pointer to a variable to receive the number of bytes in the text
-* @param text a pointer to a pointer variable to receive the text.
-* @return if successful, a value of zero; otherwise an error code indicating the cause of the failure.
-*/
-int GvrsBitOutputGetText(GvrsBitOutput* output, int* nBytesInText, uint8_t** text);
-
-void GvrsPredictor1(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output);
-void GvrsPredictor2(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output);
-void GvrsPredictor3(int nRows, int nColumns, int seed, GvrsM32* m32, int32_t* output);
-
-int GvrsPredictor1encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
-int GvrsPredictor2encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
-int GvrsPredictor3encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
+	int GvrsPredictor1encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
+	int GvrsPredictor2encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
+	int GvrsPredictor3encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
 
 
-// -------------------------------------------------------------------------------------------
-// The following declarations give the signatures for the standard compressors and
-// any optional functions that support them.  The Huffman declarations are provided
-// the support testing and non-GVRS applications.
+	// -------------------------------------------------------------------------------------------
+	// The following declarations give the signatures for the standard compressors and
+	// any optional functions that support them.  The Huffman declarations are provided
+	// the support testing and non-GVRS applications.
 
-GvrsCodec* GvrsCodecHuffmanAlloc();
-int GvrsHuffmanCompress(int nSymbols, uint8_t* symbols, int* nUniqueSymbolsFound, GvrsBitOutput* output);
-int GvrsHuffmanDecodeTree(GvrsBitInput* input, int* indexSize, int32_t** nodeIndexReference);
-int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, uint8_t* output);
+	GvrsCodec* GvrsCodecHuffmanAlloc();
+	int GvrsHuffmanCompress(int nSymbols, uint8_t* symbols, int* nUniqueSymbolsFound, GvrsBitOutput* output);
+	int GvrsHuffmanDecodeTree(GvrsBitInput* input, int* indexSize, int32_t** nodeIndexReference);
+	int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, uint8_t* output);
+
+	GvrsCodec* GvrsCodecCanonicalHuffmanAlloc();
 
 #ifdef GVRS_ZLIB
-GvrsCodec* GvrsCodecDeflateAlloc();
-GvrsCodec* GvrsCodecFloatAlloc();
-GvrsCodec* GvrsCodecLsopAlloc();
+	GvrsCodec* GvrsCodecDeflateAlloc();
+	GvrsCodec* GvrsCodecFloatAlloc();
+	GvrsCodec* GvrsCodecLsopAlloc();
 
-int GvrsDeflateSetMaximumCompression(GvrsCodec* codec, int useMaximumCompression);
+	int GvrsDeflateSetMaximumCompression(GvrsCodec* codec, int useMaximumCompression);
 
 #endif
 

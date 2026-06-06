@@ -278,11 +278,10 @@ int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex
         // inside the GvrsBit functions.   But the performance improvement is substatial,
         // about 40 percent when testing on a Raspberry PI.
         
-        int iBit = input->iBit;
-        unsigned int scratch = input->scratch;
-        int nBytesProcessed = input->nBytesProcessed;
-        int nBytesInText = input->nBytesInText;
-        uint8_t* text = input->text;
+    int iBit = input->iBit;
+    unsigned int scratch = input->scratch;
+    int nBytesProcessed = input->nBytesProcessed;
+    uint8_t* text = input->text;
 	int offset;
 
 	for (i = 0; i < nSymbolsInOutput; i++) {
@@ -847,6 +846,7 @@ GvrsCodec* GvrsCodecHuffmanAlloc() {
 	}
 	codec->appInfo = calloc(1, sizeof(huffmanAppInfo));
 	if (!codec->appInfo) {
+		free(codec);
 		return 0;
 	}
 
