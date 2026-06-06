@@ -28,6 +28,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 	src/GvrsBspline.c
 	src/GvrsBuilder.c
 	src/GvrsChecksum.c
+	src/GvrsCodecCanonicalHuffman.c
 	src/GvrsCodecHuffman.c
 	src/GvrsCrossPlatform.c
 	src/GvrsElement.c

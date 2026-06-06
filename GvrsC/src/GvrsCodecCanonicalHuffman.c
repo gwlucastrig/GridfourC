@@ -65,15 +65,6 @@ typedef struct canonicalHuffmanAppInfoTag {
 
 }canonicalHuffmanAppInfo;
 
-static void cleanUp(uint8_t* output, GvrsBitInput* input, int* nodeIndex) {
-	if (output) {
-		free(output);
-	}
-	input = GvrsBitInputFree(input);
-	if (nodeIndex) {
-		free(nodeIndex);
-	}
-}
 
 // case-sensitive name of codec
 static const char* identification = "GvrsCanonicalHuffman";
@@ -423,7 +414,7 @@ static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing,
 				text[iSymbol - 1] = prior;
 				break;
 			case I_ESCAPE_1BYTE:
-				part = part = GvrsBitInputGetBits(input, 8);
+				part = GvrsBitInputGetBits(input, 8);
 				prior = (prior << 8) | part;
 				text[iSymbol - 1] = prior;
 				break;
