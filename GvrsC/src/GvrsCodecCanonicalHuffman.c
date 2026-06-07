@@ -56,8 +56,7 @@ static unsigned int mask[] = {
 };
 
 typedef struct canonicalHuffmanAppInfoTag {
-	//int32_t nDecoded; // both uniform and non-uniform tiles
-	//int32_t nDecodedUniform;
+	int32_t nDecoded;  
 	int64_t nBitsInCodeTable;
 	int64_t nBitsInEncodedBody;
 
@@ -129,6 +128,21 @@ static CodeTable* codeTableFree(CodeTable* table) {
 	}
 	return (CodeTable*)0;
 }
+
+
+static void summarize(FILE* fp, struct GvrsCodecTag* codec) {
+	canonicalHuffmanAppInfo* h = (canonicalHuffmanAppInfo*)(codec->appInfo);
+	int64_t nbCode = h->nBitsInCodeTable;
+	int64_t nbBody = h->nBitsInEncodedBody;
+	fprintf(fp, "%s\n", codec->identification);
+	double d = h->nDecoded == 0 ? 1 : (double)h->nDecoded;
+	fprintf(fp, "  Times decoded:             %6d\n", h->nDecoded);
+	fprintf(fp, "  Avg bits for code table:   %8.1f\n", nbCode / d);
+	fprintf(fp, "  Avg bits for encoded text: %8.1f\n", nbBody / d);
+	fprintf(fp, "  Avg bits total:            %8.1f\n", (nbCode + nbBody) / d);
+
+}
+
 
 // Build a tree for the specified code lengths.  The last symbol is always the end-of-text symbol.
 // So nCodeLengths is the number of unique possible symbols, including the end-of-text symbol.
@@ -354,7 +368,8 @@ static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing,
 	canonicalHuffmanAppInfo* hInfo = (canonicalHuffmanAppInfo*)appInfo;
 	int nSymbolsInText = nRow * nColumn;
 
-
+	hInfo->nDecoded++;
+	
 	// int compressorIndex = (int)packing[0];
 	int predictorIndex = (int)packing[1];
 	int seed
@@ -484,5 +499,7 @@ GvrsCodec* GvrsCodecCanonicalHuffmanAlloc() {
 	//codec->encodeInt = encodeInt;
 	codec->destroyCodec = destroyCodecCanonicalHuffman;
 	codec->allocateNewCodec = allocateCodecCanonicalHuffman;
+	codec->summarize = summarize;
 	return codec;
 }
+

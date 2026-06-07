@@ -153,14 +153,14 @@ GvrsSummarize(Gvrs* gvrs, FILE* fp) {
 	if (gvrs->nDataCompressionCodecs) {
 		fprintf(fp, "\n");
 		fprintf(fp, "Data compression:  Enabled\n");
-		fprintf(fp, "Identification            Read Int    Write Int     Read Float     Write Flt\n");
+		fprintf(fp, "Identification                    Read Int    Write Int     Read Float     Write Flt\n");
 		for (i = 0; i < gvrs->nDataCompressionCodecs; i++) {
 			GvrsCodec* codec = gvrs->dataCompressionCodecs[i];
 			const char* rdInt = codec->decodeInt ? "Yes" : "No ";
 			const char* wrInt = codec->encodeInt ? "Yes" : "No ";
 			const char* rdFlt = codec->decodeFloat ? "Yes" : "No ";
 			const char* wrFlt = codec->encodeFloat ? "Yes" : "No ";
-			fprintf(fp, "    %-16.16s      %s         %s           %s            %s\n", 
+			fprintf(fp, "    %-24.24s      %s         %s           %s            %s\n", 
 				codec->identification, rdInt, wrInt, rdFlt, wrFlt);
 		}
 	}
@@ -265,6 +265,15 @@ GvrsSummarizeAccessStatistics(Gvrs* gvrs, FILE* fp) {
 				fprintf(fp, "    %-16.16s      %8ld         %12ld             %6.2f\n",
 					codec->identification, (long)codec->nTimesEncoded, (long)codec->nBytesEncoded, avgBitsSymbol);
 			}
+	}
+ 
+	int iCompress;
+	for (iCompress = 0; iCompress < gvrs->nDataCompressionCodecs; iCompress++) {
+		GvrsCodec* codec = gvrs->dataCompressionCodecs[iCompress];
+		if (codec->summarize) {
+			fprintf(fp, "\n--------------------------------------\n");
+			codec->summarize(fp, codec);
+		}
 	}
 	return 0;
 }

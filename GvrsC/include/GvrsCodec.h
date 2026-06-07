@@ -35,7 +35,7 @@ extern "C"
 {
 #endif
 
-#define GVRS_CODEC_IDENTIFICATION_MAXLEN 16
+#define GVRS_CODEC_IDENTIFICATION_MAXLEN 32
 
 	typedef struct GvrsCodecTag {
 		char identification[GVRS_CODEC_IDENTIFICATION_MAXLEN + 1]; // follows GVRS Identifier syntax
@@ -82,10 +82,21 @@ extern "C"
 		*/
 		struct GvrsCodecTag* (*allocateNewCodec)(struct GvrsCodecTag* codec);
 
+		/**
+		* Writes a summary of internal information for the codec to the specified
+		* ile pointer (usually stdout or stderr);  Intended for diagnostic and information assurance
+		* purposes. Not all codecs will implement this function.
+		* @param a valid file pointer to receive text output.
+		* @param a valid codec to supply the relevant information for report generation.
+		*/
+		void (*summarize)(FILE* fp, struct GvrsCodecTag* codec);
+
 		void* appInfo;
 
 		int64_t nTimesEncoded;
 		int64_t nBytesEncoded;
+
+	
 	}GvrsCodec;
 
 

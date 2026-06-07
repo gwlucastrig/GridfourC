@@ -514,6 +514,9 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 	        if (strcmp("GvrsHuffman", sp) == 0) {
 				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecHuffmanAlloc();
 			}
+			else if (strcmp("GvrsCanonicalHuffman", sp) == 0) {
+				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecCanonicalHuffmanAlloc();
+			}
 			else {
 				gvrs->dataCompressionCodecs[iCompress] = createCodecPlaceholder(sp);
 			}
