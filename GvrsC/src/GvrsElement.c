@@ -104,6 +104,7 @@ int GvrsElementReadInt(GvrsElement* element, int gridRow, int gridColumn, int32_
 			*value = ((int*)data)[indexInTile];
 			return 0;
 		case GvrsElementTypeIntCodedFloat:
+			// note that the scale and offset are NOT applied in this case
 			*value = ((int*)data)[indexInTile];
 			return 0;
 		case GvrsElementTypeFloat:
