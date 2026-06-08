@@ -136,10 +136,10 @@ static void summarize(FILE* fp, struct GvrsCodecTag* codec) {
 	int64_t nbBody = h->nBitsInEncodedBody;
 	fprintf(fp, "%s\n", codec->identification);
 	double d = h->nDecoded == 0 ? 1 : (double)h->nDecoded;
-	fprintf(fp, "  Times decoded:             %6d\n", h->nDecoded);
-	fprintf(fp, "  Avg bits for code table:   %8.1f\n", nbCode / d);
-	fprintf(fp, "  Avg bits for encoded text: %8.1f\n", nbBody / d);
-	fprintf(fp, "  Avg bits total:            %8.1f\n", (nbCode + nbBody) / d);
+	fprintf(fp, "  Times decoded:             %8d\n", h->nDecoded);
+	fprintf(fp, "  Avg bits for code table:   %10.1f\n", nbCode / d);
+	fprintf(fp, "  Avg bits for encoded text: %10.1f\n", nbBody / d);
+	fprintf(fp, "  Avg bits total:            %10.1f\n", (nbCode + nbBody) / d);
 
 }
 
@@ -523,6 +523,7 @@ static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing,
 			}
 		}
 	}
+	GvrsBitInputSetState(input, iSource, iBit);
 	int pos2 = GvrsBitInputGetPosition(input);
 	hInfo->nBitsInEncodedBody += (int64_t)(pos2 - pos1);
 

@@ -179,6 +179,7 @@ extern "C"
 	int GvrsBitInputGetBits(GvrsBitInput* input, int nBitsInValue);
 	int GvrsBitInputGetByte(GvrsBitInput* input, int* errorCode);
 	int GvrsBitInputGetPosition(GvrsBitInput* input);
+	void GvrsBitInputSetState(GvrsBitInput* input, int nBytesProcessed, int iBit);
 
 	int GvrsBitOutputAlloc(GvrsBitOutput** outputReference);
 	int GvrsBitOutputPutBit(GvrsBitOutput* output, int bit);

@@ -146,6 +146,16 @@ int GvrsBitInputGetPosition(GvrsBitInput* input) {
 	}
 }
 
+void GvrsBitInputSetState(GvrsBitInput* input, int nBytesProcessed, int iBit) {
+	input->nBytesProcessed = nBytesProcessed;
+	input->iBit = iBit;
+	// if iBit is zero, no further action is required because the scratch variable
+	// will be set the next time an access function is invoked.
+	// if iBit > 0, then we need to initialize the scratch variable.
+	if (iBit) {
+		input->scratch = input->text[input->nBytesProcessed - 1] >> iBit;
+	}
+}
 
 GvrsBitInput* GvrsBitInputFree(GvrsBitInput* input) {
 	if (input) {
