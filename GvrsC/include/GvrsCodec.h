@@ -224,6 +224,7 @@ extern "C"
 	int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, uint8_t* output);
 
 	GvrsCodec* GvrsCodecCanonicalHuffmanAlloc();
+	int	GvrsCanonicalHuffmanDecode(GvrsBitInput* input, int nSymbolsInText, int* text, void* appInfo);
 
 #ifdef GVRS_ZLIB
 	GvrsCodec* GvrsCodecDeflateAlloc();

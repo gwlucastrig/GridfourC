@@ -364,7 +364,6 @@ static CodeTable* decodeCodeTable(canonicalHuffmanAppInfo* hInfo, GvrsBitInput* 
 
 static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing, int32_t* data, void* appInfo) {
 	int errCode = 0;
-	GvrsBitInput* input = 0;
 	canonicalHuffmanAppInfo* hInfo = (canonicalHuffmanAppInfo*)appInfo;
 	int nSymbolsInText = nRow * nColumn;
 
@@ -383,7 +382,7 @@ static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing,
 		return GVRSERR_NOMEM;
 	}
 
-	input = GvrsBitInputAlloc(packing + 6, (size_t)(packingLength - 6), &errCode);
+	GvrsBitInput* input = GvrsBitInputAlloc(packing + 6, (size_t)(packingLength - 6), &errCode);
 	if (!input) {
 		free(text);
 		return GVRSERR_NOMEM;
@@ -555,7 +554,154 @@ static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing,
 	return status;
 }
 
+int
+GvrsCanonicalHuffmanDecode(GvrsBitInput* input, int nSymbolsInText, int* text, void* appInfo) {
+	canonicalHuffmanAppInfo* hInfo;
+	if (appInfo) {
+		hInfo = appInfo;
+	}
+	else {
+		canonicalHuffmanAppInfo hInfoLocal;
+		memset(&hInfoLocal, 0, sizeof(hInfoLocal));
+		hInfo = &hInfoLocal;
+	}
+	int pos0 = GvrsBitInputGetPosition(input);
 
+	hInfo->revision = GvrsBitInputGetBit(input);
+
+	CodeTable* codeTable = decodeCodeTable(hInfo, input);
+	if (!codeTable) {
+		return GVRSERR_COMPRESSION_FAILURE;
+	}
+	int pos1 = GvrsBitInputGetPosition(input);
+	hInfo->nBitsInCodeTable += (int64_t)(pos1 - pos0);
+
+	int lookupLength = codeTable->lookupLength;
+	unsigned int lookupMask = codeTable->lookupMask;
+	int* lookupTable = codeTable->lookupTable;
+	int* nodeIndex = codeTable->nodeIndex;
+	int prior = 0;
+	int iSymbol = 0;
+	uint8_t* source = input->text;
+	unsigned int scratch = input->scratch;
+	int iSource = input->nBytesProcessed;
+	int iBit = input->iBit;
+	int n;
+	unsigned int bit, bits;
+	while (iSymbol < nSymbolsInText) {
+		// int bits = GvrsBitInputGetBits(input, lookupLength); ------------------
+		n = (8 - iBit) & 0x07;  // n is the number of bits available
+		if (n >= lookupLength) {
+			// the scratch field contains enoungh bits to satisfy the request.
+			bits = scratch & lookupMask;
+			scratch >>= lookupLength;
+			iBit = (iBit + lookupLength) & 0x07;
+		}
+		else if (n == 0) {
+			scratch = source[iSource++];
+			bits = scratch & lookupMask;
+			scratch >>= lookupLength;
+			iBit = lookupLength & 0x07; // if lookupLength is 8, iBit will go to zero
+		}
+		else {
+			// we need to combine the remaining n bits in scratch
+			// with lookupLength-n bits from next byte in source array
+			bits = scratch;
+			scratch = source[iSource++];
+			iBit = lookupLength - n;
+			bits |= ((scratch & mask[iBit])) << n;
+			scratch >>= iBit;
+		}
+		// end of GetBits() -------------------------------------------------------
+		int offset = lookupTable[bits];
+		int symbol = 0;
+		while (nodeIndex[offset]) {
+			// int bit = GvrsBitInputGetBit(input); -------------------------------
+			if (iBit) {
+				bit = scratch & 0x01u;
+				scratch >>= 1;
+				iBit = (iBit + 1) & 0x07;
+			}
+			else {
+				scratch = source[iSource++];
+				bit = scratch & 0x01u;
+				scratch >>= 1;
+				iBit = 1;
+			}
+			// end of GetBit() ----------------------------------------------------
+			offset = nodeIndex[offset + bit];
+		}
+		symbol = nodeIndex[offset + 1];
+		if (symbol < N_SYMBOLS_STANDARD) {
+			symbol -= 128;
+			text[iSymbol++] = symbol;
+			prior = symbol;
+		}
+		else {
+			switch (symbol) {
+			case I_ESCAPE_2BITS:
+				// bits = GvrsBitInputGetBits(input, 2);  ------------------------------
+				// Because te following logic is optimized for getting 2 bits,
+				// it is a little different than the standard GetBits(n) function
+				n = (8 - iBit) & 0x07;  // n is the number of bits available
+				if (n >= 2) {
+					bits = scratch & 0x03u;
+					scratch >>= 2;
+					iBit = (iBit + 2) & 0x07;
+				}
+				else if (n == 1) {
+					bits = scratch;
+					scratch = source[iSource++];
+					bits |= ((scratch & 0x01u) << 1);
+					scratch >>= 1;
+					iBit = 1;
+				}
+				else {
+					//n == 0, so iBit == 0
+					scratch = source[iSource++];
+					bits = scratch & 0x03u;
+					scratch >>= 2;
+					iBit = 2;
+				}
+				// end of GetBits(2) --------------------------------------------
+				prior = (prior << 2) | bits;
+				text[iSymbol - 1] = prior;
+				break;
+			case I_ESCAPE_1BYTE:
+				// bits = GvrsBitInputGetByte(input);  ---------------------------------
+				if (iBit == 0) {
+					bits = source[iSource++];
+				}
+				else {
+					n = 8 - iBit;  // n bits available, iBit bits needed
+					bits = scratch;
+					scratch = source[iSource++];
+					bits |= ((scratch & mask[iBit]) << n);
+					scratch >>= iBit;
+					// iBit doesn't change
+				}
+				// end of GetByte -------------------------------------------------
+				prior = (prior << 8) | bits;
+				text[iSymbol - 1] = prior;
+				break;
+			case I_NULL_DATA_CODE:
+				prior = 0x80000000;
+				text[iSymbol++] = prior;
+				break;
+			case I_END_OF_TEXT:
+				iSymbol = nSymbolsInText;  // causes exit from the loop
+				break;
+			default:
+				free(text);
+				GvrsBitInputFree(input);
+				return GVRSERR_BAD_COMPRESSION_FORMAT;
+			}
+		}
+	}
+	GvrsBitInputSetState(input, iSource, iBit);
+	codeTableFree(codeTable);
+	return 0;
+}
 
 
 

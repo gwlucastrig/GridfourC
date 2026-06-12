@@ -43,17 +43,27 @@ static int COMPRESSION_TYPE_HUFFMAN = 0;
  * A code value indicating that the post-prediction code sequence was compressed
  * using the Deflate library.
  */
+static int COMPRESSION_TYPE_CANON_HUFFMAN = 2;
+/**
+ * A code value indicating that the post-prediction code sequence was compressed
+ * using Gridfour's canonical Huffman format.
+ */
 static int COMPRESSION_TYPE_DEFLATE = 1;
 /**
  * A mask for extracting the compression type from a packing.
  */
 
+
 static int COMPRESSION_TYPE_MASK = 0x0f;
 /**
  * A bit flag indicating that the packing includes a checksum.
 */
-int VALUE_CHECKSUM_INCLUDED = 0x80;
+static int VALUE_CHECKSUM_INCLUDED = 0x80;
 
+/**
+A bit flag indicating that the LSOP header is stored in the revised format
+*/
+static int REVISION_FLAG = 0x40;
 
 
 static int32_t unpackInteger(uint8_t input[], int offset) {
@@ -64,8 +74,8 @@ static int32_t unpackInteger(uint8_t input[], int offset) {
 }
 
 static float unpackFloat(uint8_t input[], int offset) {
-	float f=0;
-	int32_t* p = (int32_t* )(&f);
+	float f = 0;
+	int32_t* p = (int32_t*)(&f);
 	*p = (input[offset] & 0xff)
 		| ((input[offset + 1] & 0xff) << 8)
 		| ((input[offset + 2] & 0xff) << 16)
@@ -97,7 +107,7 @@ typedef struct LsHeaderTag {
 //    4 bytes    nInteriorCodes
 //    1 byte     method
 
- 
+
 // case-sensitive name of codec
 static const char* identification = "LSOP12";
 static const char* description = "Implements the optional LSOP compression";
@@ -115,7 +125,7 @@ static GvrsCodec* destroyCodecLsop(struct GvrsCodecTag* codec) {
 static GvrsCodec* allocateCodecLsop(struct GvrsCodecTag* codec) {
 	return GvrsCodecLsopAlloc();
 }
- 
+
 
 static int doHuff(GvrsBitInput* input, int nSymbols, uint8_t* output) {
 	int indexSize;
@@ -126,16 +136,16 @@ static int doHuff(GvrsBitInput* input, int nSymbols, uint8_t* output) {
 		// nodeIndex will be null.
 		return errCode;
 	}
- 
+
 	errCode = GvrsHuffmanDecodeText(input, indexSize, nodeIndex, nSymbols, output);
- 
+
 	free(nodeIndex);
 	return errCode;
 }
 
 
 
-static int doInflate(uint8_t* input, int inputLength, uint8_t* output, int outputLength, int *inputUsed) {
+static int doInflate(uint8_t* input, int inputLength, uint8_t* output, int outputLength, int* inputUsed) {
 	Bytef* zInput = (Bytef*)input;
 	z_stream zs;
 	memset(&zs, 0, sizeof(zs));
@@ -161,135 +171,44 @@ static int doInflate(uint8_t* input, int inputLength, uint8_t* output, int outpu
 
 
 
-static void cleanUp(uint8_t* initializerCodes, uint8_t* interiorCodes, GvrsBitInput* inputBits) {
-	if (initializerCodes) {
-		free(initializerCodes);
+static void cleanUp(
+	uint8_t* initializerM32,
+	uint8_t* interiorM32,
+	int* intInitializer,
+	int* intInterior,
+	GvrsBitInput* inputBits) {
+	if (initializerM32) {
+		free(initializerM32);
 	}
-	if (interiorCodes) {
-		free(interiorCodes);
+	if (interiorM32) {
+		free(interiorM32);
+	}
+	if (intInitializer) {
+		free(intInitializer);
+	}
+	if (intInterior) {
+		free(intInterior);
 	}
 	if (inputBits) {
 		GvrsBitInputFree(inputBits);
 	}
 }
 
-
-static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packing, int32_t* values, void *appInfo) {
-	int i, iRow, iCol;
-	uint8_t* initializerCodes = 0;
-	uint8_t* interiorCodes = 0;
-	GvrsBitInput* inputBits = 0;
-
-// the header is 15+N*4 bytes:
-//   for 8 predictor coefficients:  47 bytes
-//   for 12 predictor coefficients: 63 bytes
-//    1 byte     codecIndex
-//    1 byte     number of predictor coefficients (N)
-//    4 bytes    seed
-//    N*4 bytes  predictor coefficients
-//    4 bytes    nInitializationCodes
-//    4 bytes    nInteriorCodes
-//    1 byte     method
- 
-	// int codecIndex = packing[0];
-	int nCoefficients = packing[1];
-	if (nCoefficients != 12) {
-		// the 8-coefficient variation is not implemented
-		return GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
-	}
-
-	int32_t seed = unpackInteger(packing, 2);
-	int offset = 6;
-	float u[12]; // room for up to 12 coefficients
-	for (i = 0; i <nCoefficients; i++) {
-		u[i] = unpackFloat(packing, offset);
-		offset += 4;
-	}
-	int32_t nInitializerCodes = unpackInteger(packing, offset);
-	offset += 4;
-	int32_t nInteriorCodes = unpackInteger(packing, offset);
-	offset += 4;
-	int method = packing[offset++];
-	int compressionType = method&COMPRESSION_TYPE_MASK;
-	int valueChecksumIncluded = (method & VALUE_CHECKSUM_INCLUDED) != 0;
-	if (valueChecksumIncluded) {
-		// int32_t valueChecksum = unpackInteger(packing, filePos);
-		offset += 4;
-	}
-
-	initializerCodes = (uint8_t* )malloc(nInitializerCodes);
-	if (!initializerCodes) {
-		cleanUp(initializerCodes, interiorCodes, inputBits);
-		return GVRSERR_NOMEM;
-	}
-	 interiorCodes = (uint8_t* )malloc(nInteriorCodes);
-	if (!interiorCodes) {
-		cleanUp(initializerCodes, interiorCodes, inputBits);
-		return GVRSERR_NOMEM;
-	}
-
-
-	int status = 0;
-	uint8_t* inputBytes = packing + offset;
-	int inputBytesLength = packingLength - offset;
-	if (compressionType == COMPRESSION_TYPE_HUFFMAN) {
-		inputBits = GvrsBitInputAlloc(inputBytes, inputBytesLength, &status);
-		if (!inputBits) {
-			cleanUp(initializerCodes, interiorCodes, inputBits);
-			return status;
-		}
-		status =  doHuff(inputBits, nInitializerCodes, initializerCodes );
-		if (status) {
-			cleanUp(initializerCodes, interiorCodes, inputBits);
-			return status;
-		}
-		status = doHuff(inputBits, nInteriorCodes, interiorCodes);
-		if (status) {
-			cleanUp(initializerCodes, interiorCodes, inputBits);
-			return status;
-		}
-		inputBits = GvrsBitInputFree(inputBits);
-	}
-	else if (compressionType == COMPRESSION_TYPE_DEFLATE) {
-		// TO DO:  inflate.  The next_in from the inflate structure will let me
-		//                   know how many bytes were used?  Maybe one of the other elements.
-		int inputUsed;
-		status = doInflate(inputBytes, inputBytesLength, initializerCodes, nInitializerCodes, &inputUsed);
-		if (status) {
-			cleanUp(initializerCodes, interiorCodes, inputBits);
-			return status;
-		}
-		inputBytes += inputUsed;
-		inputBytesLength -= inputUsed;
-		status = doInflate(inputBytes, inputBytesLength, interiorCodes, nInteriorCodes, &inputUsed);
-		if (status) {
-			cleanUp(initializerCodes, interiorCodes, inputBits);
-			return status;
-		}
-	}
-	else {
-		return GVRSERR_BAD_COMPRESSION_FORMAT;
-	}
-
-	GvrsM32* mInit;
-	status = GvrsM32Alloc(initializerCodes, nInitializerCodes, &mInit);
-	if (status) {
-		cleanUp(initializerCodes, interiorCodes, inputBits);
-		return status;
-	}
-
+static int decodeInitializers(int nRows, int nColumns, int seed, int* initializerInt, int* values) {
+	int k = 0;
+	int i;
 	// step 1, the first row -------------------
 	values[0] = seed;
 	int v = seed;
 	for (i = 1; i < nColumns; i++) {
-		v += GvrsM32GetNextSymbol(mInit);
+		v += initializerInt[k++];
 		values[i] = v;
 	}
 
 	// step 2, the left column -------------------------
 	v = seed;
 	for (i = 1; i < nRows; i++) {
-		v += GvrsM32GetNextSymbol(mInit);
+		v += initializerInt[k++];
 		values[i * nColumns] = v;
 	}
 
@@ -300,7 +219,7 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 		long a = values[index - 1];
 		long b = values[index - nColumns - 1];
 		long c = values[index - nColumns];
-		values[index] = (int)(GvrsM32GetNextSymbol(mInit) + ((a + c) - b));
+		values[index] = (int)(initializerInt[k++] + ((a + c) - b));
 	}
 
 	// step 5, the second column ------------------------
@@ -309,8 +228,16 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 		long a = values[index - 1];
 		long b = values[index - nColumns - 1];
 		long c = values[index - nColumns];
-		values[index] = (int)(GvrsM32GetNextSymbol(mInit) + ((a + c) - b));
+		values[index] = (int)(initializerInt[k++] + ((a + c) - b));
 	}
+	return k;
+}
+
+static void decodeInterior(int nRows, int nColumns, float* u, int initializerOffset, int* interiorInt, int* initializerInt, int* values) {
+	int k = 0;
+	int kInit = initializerOffset;
+	int iRow;
+	int iCol;
 
 	// Although the array u[] is indexed from zero, the coefficients
 	// for the predictors are numbered starting at one. Here we copy them
@@ -331,12 +258,6 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 	float u11 = u[10];
 	float u12 = u[11];
 
-	GvrsM32* m32;
-	status = GvrsM32Alloc(interiorCodes, nInteriorCodes, &m32);
-	if (status) {
-		cleanUp(initializerCodes, interiorCodes, inputBits);
-		return status;
-	}
 
 	// in the loop below, we wish to economize on processing by copying
 	 // the neighbor values into local variables.  In the inner (column)
@@ -389,8 +310,8 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 				+ u10 * z10
 				+ u11 * z11
 				+ u12 * z12;
-			int estimate = (int)floorf(p+0.5f);
-			values[index] = estimate + GvrsM32GetNextSymbol(m32);
+			int estimate = (int)floorf(p + 0.5f);
+			values[index] = estimate + interiorInt[k++];
 
 			// perform the shifting operation for all variables so that
 			// only z5 and z12 will have to be read from the values array.
@@ -411,35 +332,287 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 		// The last two columns in the row are "unreachable" to
 		// the Optimal Predictor and must be populated using some other
 		// predictor.  In this case, we apply the Triangle Predictor.
+		// Also note that we count the position in the initializer array using kInit, not k
 		index = iRow * nColumns + nColumns - 2;
 		long a = values[index - 1];
 		long b = values[index - nColumns - 1];
 		long c = values[index - nColumns];
-		values[index] = (int)(GvrsM32GetNextSymbol(mInit) + ((a + c) - b));
+		values[index] = (int)(initializerInt[kInit++] + ((a + c) - b));
 		index++;
 		a = values[index - 1];
 		b = values[index - nColumns - 1];
 		c = values[index - nColumns];
-		values[index] = (int)(GvrsM32GetNextSymbol(mInit) + ((a + c) - b));
+		values[index] = (int)(initializerInt[kInit++] + ((a + c) - b));
 	}
-	
-	GvrsM32Free(mInit);
-	GvrsM32Free(m32);
-	cleanUp(initializerCodes, interiorCodes, inputBits);
 
 
-	 
+
+
+}
+
+
+static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packing, int32_t* values, void* appInfo) {
+
+	// The following pointers are used to track memory that will be allocated and freed.
+	uint8_t* initializerM32 = 0;  // sotrage for extracted m32 codes
+	uint8_t* interiorM32 = 0;
+	int* intInitializer = 0;  // storage for extracted integer "corrector" codes
+	int* intInterior = 0;
+	GvrsBitInput* inputBits = 0;  // storage for bit sources used by Huffman variations
+
+	// In order to support legacy formats, there are two layouts used for
+		// the header.
+		//  Legacy
+		//   the header is 15+N*4 bytes + 4 byte optional checksum:
+		//   for 8 predictor coefficients:  47 bytes
+		//   for 12 predictor coefficients: 63 bytes
+		//    1 byte     codecIndex
+		//    1 byte     number of predictor coefficients (N)
+		//    4 bytes    seed
+		//    N*4 bytes  coefficients
+		//    4 bytes    nInitializationCodes
+		//    4 bytes    nInteriorM32
+		//    1 byte     method
+		//    if checksum is included
+		//       4 bytes value checksum
+		//  Revised added to support Canonical Huffman
+		//   the header is 7+N*4 bytes + 8 bytes if not canonical huffman + optional checksum:
+		//    1 byte     codecIndex
+		//    1 byte
+		//        bit 7:     checksum included
+		//        bit 6:     revision flag
+		//        bit 5:     reserved
+		//        bits 0 to 4:  type code
+		//    1 byte     number of predictor coefficients (N)
+		//    4 bytes    seed
+		//    N*4 bytes  coefficients
+		//    if type is deflate or legacy Huffman
+		//       4 bytes    nInitializationCodes
+		//       4 bytes    nInteriorM32
+		//    if checksum is included
+		//       4 bites value checksum
+
+
+	int i;
+	// int codecIndex = packing[0];
+	int packingFlags = packing[1];
+	int revisionTest = packingFlags & REVISION_FLAG;
+	int nCoefficients;
+	int32_t seed;
+	int offset;
+	float u[12]; // room for up to 12 coefficients
+	int32_t nInitializerM32;  // the number of m32 codes
+	int32_t nInteriorM32;
+	int nIntInitializer; // the number of integers for predictor input
+	int nIntInterior;
+
+	int method;
+	int compressionType;;
+	int valueChecksumIncluded;
+	int headerSize;
+
+
+
+	if (revisionTest == 0) {
+		// Legacy configuration -----------------------------------
+		nCoefficients = packing[1];
+		if (nCoefficients != 12) {
+			// the 8-coefficient variation is not implemented
+			return GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
+		}
+
+		seed = unpackInteger(packing, 2);
+		offset = 6;
+		for (i = 0; i < nCoefficients; i++) {
+			u[i] = unpackFloat(packing, offset);
+			offset += 4;
+		}
+		nInitializerM32 = unpackInteger(packing, offset);
+		offset += 4;
+		nInteriorM32 = unpackInteger(packing, offset);
+		offset += 4;
+		method = packing[offset++];
+		compressionType = method & COMPRESSION_TYPE_MASK;
+		valueChecksumIncluded = (method & VALUE_CHECKSUM_INCLUDED) != 0;
+		if (valueChecksumIncluded) {
+			// int32_t valueChecksum = unpackInteger(packing, filePos);
+			offset += 4;
+		}
+		headerSize = offset;
+	}
+	else {
+		// Revised configuration ----------------------------------
+		method = packing[1];
+		valueChecksumIncluded = (packing[1] & VALUE_CHECKSUM_INCLUDED) != 0;
+		compressionType = method & COMPRESSION_TYPE_MASK;
+		nCoefficients = packing[2];
+		if (nCoefficients != 12) {
+			// the 8-coefficient variation is not implemented
+			return GVRSERR_COMPRESSION_NOT_IMPLEMENTED;
+		}
+
+		seed = unpackInteger(packing, 3);
+		offset = 7;
+		for (i = 0; i < nCoefficients; i++) {
+			u[i] = unpackFloat(packing, offset);
+			offset += 4;
+		}
+
+		if (compressionType == COMPRESSION_TYPE_CANON_HUFFMAN) {
+			nInitializerM32 = 0;
+			nInteriorM32 = 0;
+		}
+		else {
+			nInitializerM32 = unpackInteger(packing, offset);
+			offset += 4;
+			nInteriorM32 = unpackInteger(packing, offset);
+			offset += 4;
+		}
+		if (valueChecksumIncluded) {
+			// int32_t valueChecksum = unpackInteger(packing, filePos);
+			offset += 4;
+		}
+		headerSize = offset;
+
+	}
+
+	int status = 0;
+	uint8_t* inputBytes = packing + offset;
+	int inputBytesLength = packingLength - offset;
+
+	nIntInitializer = nRows * 4 + nColumns * 2 - 9;
+	nIntInterior = (nRows - 2) * (nColumns - 4);
+
+	//intInitializer = calloc((size_t)(nIntInitializer + 1), sizeof(int));
+	//intInterior = calloc((size_t)(nIntInterior + 1), sizeof(int));
+	intInitializer = (int*)malloc((size_t)(nIntInitializer + 1) * sizeof(int));
+	intInterior = (int*)malloc((size_t)(nIntInterior + 1) * sizeof(int));
+	if (!intInitializer || !intInterior) {
+		cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+		return GVRSERR_NOMEM;
+	}
+
+	if (compressionType == COMPRESSION_TYPE_CANON_HUFFMAN) {
+		inputBits = GvrsBitInputAlloc(inputBytes, inputBytesLength, &status);
+		if (!inputBits) {
+			cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+			return status;
+		}
+
+		status = GvrsCanonicalHuffmanDecode(inputBits, nIntInitializer + 1, intInitializer, (void*)0);
+		if (status) {
+			cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+			return status;
+		}
+
+		status = GvrsCanonicalHuffmanDecode(inputBits, nIntInterior + 1, intInterior, (void*)0);
+		if (status) {
+			cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+			return status;
+		}
+		inputBits = GvrsBitInputFree(inputBits);
+	}
+	else {
+		// Legacy --------------------------------------------------------------
+		//   Both the legacy Huffman and the Deflate decode the input bytes to populate
+		//   arrays of bytes containing m32-formatted data.  These, are then expanded
+		//   into integer arrays used by the LSOP predictor code.
+
+		initializerM32 = (uint8_t*)malloc(nInitializerM32);
+		interiorM32 = (uint8_t*)malloc(nInteriorM32);
+		if (!initializerM32 || !interiorM32) {
+			cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+			return GVRSERR_NOMEM;
+		}
+
+
+		if (compressionType == COMPRESSION_TYPE_HUFFMAN) {
+			inputBits = GvrsBitInputAlloc(inputBytes, inputBytesLength, &status);
+			if (!inputBits) {
+				cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+				return status;
+			}
+			status = doHuff(inputBits, nInitializerM32, initializerM32);
+			if (status) {
+				cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+				return status;
+			}
+			status = doHuff(inputBits, nInteriorM32, interiorM32);
+			if (status) {
+				cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+				return status;
+			}
+			inputBits = GvrsBitInputFree(inputBits);
+		}
+		else if (compressionType == COMPRESSION_TYPE_DEFLATE) {
+			// TO DO:  inflate.  The next_in from the inflate structure will let me
+			//                   know how many bytes were used?  Maybe one of the other elements.
+			int inputUsed;
+			status = doInflate(inputBytes, inputBytesLength, initializerM32, nInitializerM32, &inputUsed);
+			if (status) {
+				cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+				return status;
+			}
+			inputBytes += inputUsed;
+			inputBytesLength -= inputUsed;
+			status = doInflate(inputBytes, inputBytesLength, interiorM32, nInteriorM32, &inputUsed);
+			if (status) {
+				cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+				return status;
+			}
+		}
+		else {
+			cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+			return GVRSERR_BAD_COMPRESSION_FORMAT;
+		}
+
+
+		GvrsM32* mInit = 0;
+		status = GvrsM32Alloc(initializerM32, nInitializerM32, &mInit);
+		if (status) {
+			cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+			return status;
+		}
+
+		for (i = 0; i < nIntInitializer; i++) {
+			intInitializer[i] = GvrsM32GetNextSymbol(mInit);
+		}
+		mInit = GvrsM32Free(mInit);
+		free(initializerM32);
+		initializerM32 = 0;
+
+		GvrsM32* mInterior = 0;
+		status = GvrsM32Alloc(interiorM32, nInteriorM32, &mInterior);
+		if (status) {
+			cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+			return status;
+		}
+		for (i = 0; i < nIntInterior; i++) {
+			intInterior[i] = GvrsM32GetNextSymbol(mInterior);
+		}
+		mInterior = GvrsM32Free(mInterior);
+		free(interiorM32);
+		interiorM32 = 0;
+	}
+
+	int kInit = decodeInitializers(nRows, nColumns, seed, intInitializer, values);
+	decodeInterior(nRows, nColumns, u, kInit, intInterior, intInitializer, values);
+
+	cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
+
 	return 0;
 }
 
+
+
 GvrsCodec* GvrsCodecLsopAlloc() {
-    GvrsCodec* codec = calloc(1, sizeof(GvrsCodec));
+	GvrsCodec* codec = calloc(1, sizeof(GvrsCodec));
 	if (!codec) {
 		return 0;
 	}
-    GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
-    codec->description = GVRS_STRDUP(description);
-    codec->decodeInt = decodeInt;
+	GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
+	codec->description = GVRS_STRDUP(description);
+	codec->decodeInt = decodeInt;
 	codec->destroyCodec = destroyCodecLsop;
 	codec->allocateNewCodec = allocateCodecLsop;
 	return codec;
