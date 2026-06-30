@@ -24,6 +24,22 @@
  * ---------------------------------------------------------------------
  */
 
+ // --------------------------------------------------------------------
+ // Unfortunately, there is an issue when using the gcc compiler with optimize levels
+ // of O2 or O3.  The use of optimization causes the code to produce the wrong walues.
+ // At this time, we do not know whether the error is due to a problem with coding
+ // or something in the way gcc optimizes numeric calculations.  The LSOP predictor
+ // depends on floating-point logic that would be very sensitive to non-repeatability 
+ // in computations. For now, we avoid the problem by using a pragma to limit
+ // the optimization level.
+ //    We have not seen this problem under Windows with the Microsoft MSVC compiler
+ // nor with gcc running level O1 or Debug optimization.
+
+#ifdef __GNUC__
+#pragma GCC optimize ("O1")
+#endif
+
+
 #include <math.h>
 #include "GvrsFramework.h"
 
@@ -32,6 +48,7 @@
 #include "GvrsCodec.h"
 #include "zlib.h"
 
+
 GvrsCodec* GvrsCodecLsopAlloc();
 
 /**
@@ -39,22 +56,24 @@ GvrsCodec* GvrsCodecLsopAlloc();
  * compressed using Huffman coding in the Gridfour format
  */
 static int COMPRESSION_TYPE_HUFFMAN = 0;
-/**
- * A code value indicating that the post-prediction code sequence was compressed
- * using the Deflate library.
- */
-static int COMPRESSION_TYPE_CANON_HUFFMAN = 2;
+
 /**
  * A code value indicating that the post-prediction code sequence was compressed
  * using Gridfour's canonical Huffman format.
  */
 static int COMPRESSION_TYPE_DEFLATE = 1;
+
+/**
+ * A code value indicating that the post-prediction code sequence was compressed
+ * using the Deflate library.
+ */
+static int COMPRESSION_TYPE_CANON_HUFFMAN = 2;
+
 /**
  * A mask for extracting the compression type from a packing.
  */
-
-
 static int COMPRESSION_TYPE_MASK = 0x0f;
+
 /**
  * A bit flag indicating that the packing includes a checksum.
 */
@@ -344,10 +363,6 @@ static void decodeInterior(int nRows, int nColumns, float* u, int initializerOff
 		c = values[index - nColumns];
 		values[index] = (int)(initializerInt[kInit++] + ((a + c) - b));
 	}
-
-
-
-
 }
 
 
@@ -394,7 +409,7 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 
 
 	int i;
-	// int codecIndex = packing[0];
+	// int codecIndex = packing[0];  // not needed, provided for information purposes
 	int packingFlags = packing[1];
 	int revisionTest = packingFlags & REVISION_FLAG;
 	int nCoefficients;
