@@ -24,6 +24,51 @@
  * ---------------------------------------------------------------------
  */
 
+
+//  About the nodeIndex array:
+//  Early versions of this code used a tree based structure with pointers to
+//  the child nodes for each branch node.  But testing indicated that the overhead
+//  for navigating the tree had a strong impact on performance.  As an alternate
+//  we use a nodeIndex array to represent the virtual structure for the Huffman code:
+//    1. Given a Huffman tree with nNode nodes (including branches and terminal nodes),
+//       allocate nodeIndex = int[2*nNode].  
+//    2. Each node is indicated by a pair of adjacent array entries.  So the ith node will
+//       be located at nodeIndex[i*2] and nodeIndex[i*2+1].
+//    3. For branch nodes,  nodeIndex[i*2] indicates the left-side child of the branch
+//       (the branch associated with bit value of 0) and node[index[i*2+1] the right
+//       (the branch associated with bit value of 1).
+//    4. For symbol (terminal) nodes, nodeIndex[i*2] is set to zero.  NodeIndex[i*2+1] is
+//       set to the value of the symbol (which may be any integer, including zero and negative values).
+//  
+//  About the quick-entry table:
+//  The quick-entry table provides us with a way of avoiding, or shortening, the traversal
+//  of the nodeIndex array.  As the code loops through the encoded symbols in the input bit stream,
+//  it extracts 8 bits at the top of the loop.  These bits give the code an index in the range
+//  0 to 255 for looking up an entry in the quick-entry table.  
+//     1. For symbols with an encoded bit length of 8 or less, the quick-entry table
+//        gives a value for the symbol.  
+//     2. For symbols with an encoded bit length greater than 8, the quick-entry table
+//        gives an index into the nodeIndex array.
+//     3. The quick-entry table tells the code how many bits to "consume" for the symbol
+//        (1 to 8) or the transition to nodeIndex (all 8).
+//  The quick-entry table is designed so that the bit-sequence for a symbol becomes the
+//  low-order bits for an array index into the table elements.  For example, a symbol 
+//  with bit sequence 110 (length 3) becomes array index of 6.  When the code extracts
+//  8 bits from the encoded bit-stream, the code does not actually know how many of those
+//  bits may apply to the symbol.  To resolve those 8 bits to either a symbol or a nodeIndex offset,
+//  a symbol with a short bit sequence would appear in the quick-entry table multiple times.
+//  This approach allows the quick-entry table to match any bit sequence that would include the
+//  symbol.  Using the example above, the code would store the data for a symbol at the
+//  following array indices:
+//        00000 110  (array index 6)
+//        00001 110  (array index 6+8 = 14)
+//        00010 110  (array index 6+8+8 = 22)
+//        00011 110  (array index 6+8+8+8 = 30)
+//  Note that the step increment for each entry is simply 2 raised to the power of the bit length.
+//  In this case, a bit length of 3 leads to a step increment of 8.
+//  
+//  
+
 #include "GvrsFramework.h"
 
 #include "GvrsCrossPlatform.h"
@@ -43,17 +88,6 @@
 #define I_ESCAPE_2BITS     258
 #define I_END_OF_TEXT      259
 
-static unsigned int mask[] = {
-	0x00,
-	0x01,
-	0x03,
-	0x07,
-	0x0f,
-	0x1f,
-	0x3f,
-	0x7f,
-	0xff
-};
 
 typedef struct canonicalHuffmanAppInfoTag {
 	int32_t nDecoded;
@@ -97,10 +131,11 @@ typedef struct {
 }CodeEntry;
 
 typedef struct {
-	int lookupLength;
-	int lookupMask;
-	int* lookupTable;
-	int* nodeIndex;
+	int* nodeIndex;       // represents the structure of the Huffman tree
+	// The "quick-entry" table elements
+	int qEntryIndex[256]; // index for entry to the nodeIndex array
+	int qSymbol[256];     // the symbol
+	int qConsumed[256];   // number of bits for symbol
 }CodeTable;
 
 
@@ -122,7 +157,6 @@ static void* cleanFree(void* f) {
 
 static CodeTable* codeTableFree(CodeTable* table) {
 	if (table) {
-		table->lookupTable = cleanFree(table->lookupTable);
 		table->nodeIndex = cleanFree(table->nodeIndex);
 		free(table);
 	}
@@ -149,7 +183,7 @@ static void summarize(FILE* fp, struct GvrsCodecTag* codec) {
 // Some of the unique symbols may have zero length.
 static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) {
 	int n = nCodeLengths * 16;
-	uint8_t* populated = calloc(n, 1);
+	int* populated = calloc(n, sizeof(int));
 	if (!populated) {
 		return (CodeTable*)0;
 	}
@@ -200,38 +234,18 @@ static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) 
 
 	populated = cleanFree(populated);
 
-
-	// Find the shortest code length is the canonical Huffman encoding.
-	// This value will be used to create a lookup table for decoding symbols
-	// from the encoded text.  We limit the size of the entries for the lookup
-	// table to 8 bits for two reasons:  
-	//    it conserves memory for the lookup table
-	//    some implementations of the GvrsBitInputGetBits(n) functions do not support n>8.
-	// in practice, symbol sets with a minimum code length of 8 or more will be rare.
-	int lookupLength = sortCodes[0].bitsLength;
-	if (lookupLength > 8) {
-		// limit the pcLen to length 8
-		lookupLength = 8;
-	}
-	int lookupMask = mask[lookupLength];
-
 	// The number of nodes is the Huffman tree where k is the number of symbols
 	// would be k+(k-1).  Allocate enough nodes to hold the tree
 	int nNode = 2 * kSort;
 	CodeTable* codeTable = calloc(1, sizeof(CodeTable));
-	int* lookupTable = calloc((size_t)1 << lookupLength, sizeof(int));
 	int* nodeIndex = calloc((size_t)(2 * nNode + 2), sizeof(int));
-	if (!codeTable || !lookupTable || !nodeIndex) {
+	if (!codeTable || !nodeIndex) {
 		codeTable = failFree(codeTable);
-		lookupTable = failFree(lookupTable);
 		nodeIndex = failFree(nodeIndex);
 		free(sortCodes);
 		return (CodeTable*)0;
 	}
 
-	codeTable->lookupLength = lookupLength;
-	codeTable->lookupMask = lookupMask;
-	codeTable->lookupTable = lookupTable;
 	codeTable->nodeIndex = nodeIndex;
 
 	// populate the node index
@@ -240,6 +254,7 @@ static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) 
 		CodeEntry* s = sortCodes + i;
 		int offset = 0;
 		int xmit = 0;
+		int nodeEntryIndex = 0;
 		for (int j = 0; j < s->bitsLength; j++) {
 			int bit = (s->bits >> (s->bitsLength - 1 - j)) & 1;
 			xmit |= (bit << j);
@@ -252,14 +267,34 @@ static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) 
 				offset = kIndex;
 				kIndex += 2;
 			}
-			if (j == lookupLength - 1) {
-				lookupTable[xmit] = offset;
+			if (j == 7) {
+				nodeEntryIndex = offset;
 			}
 		}
 		// the path to the symbol is now established,
 		// the offset is pointing to the position of the terminal node
 		// nodeIndex[offset] will be zero, indicating a terminal node
 		nodeIndex[offset + 1] = s->symbol;
+
+		// Populate the quick-entry elements for this symbol
+		// If the entire symbol can be specified by the quick-entry table
+		// then the bit-consumption value for quick-entry will be the symbol length
+		// If the symbol's bit length is greater than 8, then we limit it.  Also,
+		// the quick entry will provide an index into the nodeIndex array rather
+		// than a symbol.  As a development diagnostic, note that if s->bitLength
+		// is greater than 8, then nodeIndex will be non-zero.
+		int nConsumed = s->bitsLength > 8 ? 8 : s->bitsLength;
+		int nInterval = 1 << nConsumed;
+		int test = xmit & 0xff;
+		for (int j = test; j < 256; j += nInterval) {
+			if (nodeEntryIndex) {
+				codeTable->qEntryIndex[j] = nodeEntryIndex;
+			}
+			else {
+				codeTable->qSymbol[j] = s->symbol;
+			}
+			codeTable->qConsumed[j] = nConsumed;
+		}
 	}
 
 	free(sortCodes);
@@ -312,16 +347,13 @@ static CodeTable* decodeCodeTable(canonicalHuffmanAppInfo* hInfo, GvrsBitInput* 
 		return 0;
 	}
 
-	int lookupLength = countTable->lookupLength;
-	int* lookupTable = countTable->lookupTable;
 	int* nodeIndex = countTable->nodeIndex;
 	prior = 0;
 	k = 0;
 	int textLengths[N_TXT_SYMBOLS];
 	while (k < N_TXT_SYMBOLS) {
-		int bits = GvrsBitInputGetBits(input, lookupLength);
-		int offset = lookupTable[bits];
 
+		int offset = 0;
 		while (nodeIndex[offset]) {
 			int bit = GvrsBitInputGetBit(input);
 			offset = nodeIndex[offset + bit];
@@ -400,62 +432,49 @@ static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing,
 	int pos1 = GvrsBitInputGetPosition(input);
 	hInfo->nBitsInCodeTable += (int64_t)(pos1 - pos0);
 
-	int lookupLength = codeTable->lookupLength;
-	unsigned int lookupMask = codeTable->lookupMask;
-	int* lookupTable = codeTable->lookupTable;
 	int* nodeIndex = codeTable->nodeIndex;
 	int prior = 0;
 	int iSymbol = 0;
 	uint8_t* source = input->text;
 	unsigned int scratch = input->scratch;
 	int iSource = input->nBytesProcessed;
-	int iBit = input->iBit;
+	int nBit = input->nBit;
+	int nSource = input->nBytesInText;
 	int n;
 	unsigned int bit, bits;
 	while (iSymbol < nSymbolsInText) {
-		// int bits = GvrsBitInputGetBits(input, lookupLength); ------------------
-		n = (8 - iBit) & 0x07;  // n is the number of bits available
-		if (n >= lookupLength) {
-			// the scratch field contains enoungh bits to satisfy the request.
-			bits = scratch & lookupMask;
-			scratch >>= lookupLength;
-			iBit = (iBit + lookupLength) & 0x07;
+		if (nBit < 8) {
+			// This is the only case where the loop might try to claim more bits
+			// than stored in the bit source.  So we need to test.  If the logic
+			// requests more than the available bits, it is okay to allow them
+			// to go to zero.
+			if (iSource < nSource) {
+				scratch |= (source[iSource++] << nBit);
+			}
+			nBit += 8;
 		}
-		else if (n == 0) {
-			scratch = source[iSource++];
-			bits = scratch & lookupMask;
-			scratch >>= lookupLength;
-			iBit = lookupLength & 0x07; // if lookupLength is 8, iBit will go to zero
-		}
-		else {
-			// we need to combine the remaining n bits in scratch
-			// with lookupLength-n bits from next byte in source array
-			bits = scratch;
-			scratch = source[iSource++];
-			iBit = lookupLength - n;
-			bits |= ((scratch & mask[iBit])) << n;
-			scratch >>= iBit;
-		}
-		// end of GetBits() -------------------------------------------------------
-		int offset = lookupTable[bits];
-		int symbol = 0;
-		while (nodeIndex[offset]) {
-			// int bit = GvrsBitInputGetBit(input); -------------------------------
-			if (iBit) {
+		int test = scratch & 0xff;
+		n = codeTable->qConsumed[test];
+		scratch >>= n;
+		nBit -= n;
+		int symbol = codeTable->qSymbol[test];;
+		int offset = codeTable->qEntryIndex[test];
+		if (offset) {
+			while (nodeIndex[offset]) {
+				// int bit = GvrsBitInputGetBit(input); -------------------------------
+				if (nBit == 0) {
+					scratch = source[iSource++];
+					nBit = 8;
+				}
 				bit = scratch & 0x01u;
 				scratch >>= 1;
-				iBit = (iBit + 1) & 0x07;
+				nBit--;
+				// end of GetBit() ----------------------------------------------------
+				offset = nodeIndex[offset + bit];
 			}
-			else {
-				scratch = source[iSource++];
-				bit = scratch & 0x01u;
-				scratch >>= 1;
-				iBit = 1;
-			}
-			// end of GetBit() ----------------------------------------------------
-			offset = nodeIndex[offset + bit];
+			symbol = nodeIndex[offset + 1];
 		}
-		symbol = nodeIndex[offset + 1];
+
 		if (symbol < N_SYMBOLS_STANDARD) {
 			symbol -= 128;
 			text[iSymbol++] = symbol;
@@ -465,45 +484,27 @@ static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing,
 			switch (symbol) {
 			case I_ESCAPE_2BITS:
 				// bits = GvrsBitInputGetBits(input, 2);  ------------------------------
-				// Because te following logic is optimized for getting 2 bits,
-				// it is a little different than the standard GetBits(n) function
-				n = (8 - iBit) & 0x07;  // n is the number of bits available
-				if (n >= 2) {
-					bits = scratch & 0x03u;
-					scratch >>= 2;
-					iBit = (iBit + 2) & 0x07;
+				if (nBit < 2) {
+					scratch |= (source[iSource++] << nBit);
+					nBit += 8;
 				}
-				else if (n == 1) {
-					bits = scratch;
-					scratch = source[iSource++];
-					bits |= ((scratch & 0x01u) << 1);
-					scratch >>= 1;
-					iBit = 1;
-				}
-				else {
-					//n == 0, so iBit == 0
-					scratch = source[iSource++];
-					bits = scratch & 0x03u;
-					scratch >>= 2;
-					iBit = 2;
-				}
+				bits = scratch & 0x03u;
+				scratch >>= 2;
+				nBit -= 2;
+
 				// end of GetBits(2) --------------------------------------------
 				prior = (prior << 2) | bits;
 				text[iSymbol - 1] = prior;
 				break;
 			case I_ESCAPE_1BYTE:
 				// bits = GvrsBitInputGetByte(input);  ---------------------------------
-				if (iBit == 0) {
-					bits = source[iSource++];
+				if (nBit < 8) {
+					scratch |= (source[iSource++] << nBit);
+					nBit += 8;
 				}
-				else {
-					n = 8 - iBit;  // n bits available, iBit bits needed
-					bits = scratch;
-					scratch = source[iSource++];
-					bits |= ((scratch & mask[iBit]) << n);
-					scratch >>= iBit;
-					// iBit doesn't change
-				}
+				bits = scratch & 0xffu;
+				scratch >>= 8;
+				nBit -= 8;
 				// end of GetByte -------------------------------------------------
 				prior = (prior << 8) | bits;
 				text[iSymbol - 1] = prior;
@@ -522,7 +523,9 @@ static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing,
 			}
 		}
 	}
-	GvrsBitInputSetState(input, iSource, iBit);
+
+	GvrsBitInputSetState(input, iSource, nBit, scratch);
+
 	int pos2 = GvrsBitInputGetPosition(input);
 	hInfo->nBitsInEncodedBody += (int64_t)(pos2 - pos1);
 
@@ -576,62 +579,54 @@ GvrsCanonicalHuffmanDecode(GvrsBitInput* input, int nSymbolsInText, int* text, v
 	int pos1 = GvrsBitInputGetPosition(input);
 	hInfo->nBitsInCodeTable += (int64_t)(pos1 - pos0);
 
-	int lookupLength = codeTable->lookupLength;
-	unsigned int lookupMask = codeTable->lookupMask;
-	int* lookupTable = codeTable->lookupTable;
+
 	int* nodeIndex = codeTable->nodeIndex;
 	int prior = 0;
 	int iSymbol = 0;
 	uint8_t* source = input->text;
 	unsigned int scratch = input->scratch;
 	int iSource = input->nBytesProcessed;
-	int iBit = input->iBit;
+	int nBit = input->nBit;
+	int nSource = input->nBytesInText;
 	int n;
 	unsigned int bit, bits;
+
 	while (iSymbol < nSymbolsInText) {
-		// int bits = GvrsBitInputGetBits(input, lookupLength); ------------------
-		n = (8 - iBit) & 0x07;  // n is the number of bits available
-		if (n >= lookupLength) {
-			// the scratch field contains enoungh bits to satisfy the request.
-			bits = scratch & lookupMask;
-			scratch >>= lookupLength;
-			iBit = (iBit + lookupLength) & 0x07;
+
+		if (nBit < 8) {
+			// This is the only case where the loop might try to claim more bits
+			// than stored in the bit source.  So we need to test.  If the logic
+			// requests more than the available bits, it is okay to allow them
+			// to go to zero.
+			if (iSource < nSource) {
+				scratch |= (source[iSource++] << nBit);
+			}
+			nBit += 8;
 		}
-		else if (n == 0) {
-			scratch = source[iSource++];
-			bits = scratch & lookupMask;
-			scratch >>= lookupLength;
-			iBit = lookupLength & 0x07; // if lookupLength is 8, iBit will go to zero
-		}
-		else {
-			// we need to combine the remaining n bits in scratch
-			// with lookupLength-n bits from next byte in source array
-			bits = scratch;
-			scratch = source[iSource++];
-			iBit = lookupLength - n;
-			bits |= ((scratch & mask[iBit])) << n;
-			scratch >>= iBit;
-		}
-		// end of GetBits() -------------------------------------------------------
-		int offset = lookupTable[bits];
-		int symbol = 0;
-		while (nodeIndex[offset]) {
-			// int bit = GvrsBitInputGetBit(input); -------------------------------
-			if (iBit) {
+		int test = scratch & 0xff;
+		n = codeTable->qConsumed[test];
+		scratch >>= n;
+		nBit -= n;
+		int symbol = codeTable->qSymbol[test];;
+		int offset = codeTable->qEntryIndex[test];
+		if (offset) {
+			while (nodeIndex[offset]) {
+				// int bit = GvrsBitInputGetBit(input); -------------------------------
+				if (nBit == 0) {
+					scratch = source[iSource++];
+					nBit = 8;
+				}
 				bit = scratch & 0x01u;
 				scratch >>= 1;
-				iBit = (iBit + 1) & 0x07;
+				nBit--;
+				// end of GetBit() ----------------------------------------------------
+				offset = nodeIndex[offset + bit];
 			}
-			else {
-				scratch = source[iSource++];
-				bit = scratch & 0x01u;
-				scratch >>= 1;
-				iBit = 1;
-			}
-			// end of GetBit() ----------------------------------------------------
-			offset = nodeIndex[offset + bit];
+			symbol = nodeIndex[offset + 1];
 		}
-		symbol = nodeIndex[offset + 1];
+
+
+
 		if (symbol < N_SYMBOLS_STANDARD) {
 			symbol -= 128;
 			text[iSymbol++] = symbol;
@@ -641,45 +636,27 @@ GvrsCanonicalHuffmanDecode(GvrsBitInput* input, int nSymbolsInText, int* text, v
 			switch (symbol) {
 			case I_ESCAPE_2BITS:
 				// bits = GvrsBitInputGetBits(input, 2);  ------------------------------
-				// Because te following logic is optimized for getting 2 bits,
-				// it is a little different than the standard GetBits(n) function
-				n = (8 - iBit) & 0x07;  // n is the number of bits available
-				if (n >= 2) {
-					bits = scratch & 0x03u;
-					scratch >>= 2;
-					iBit = (iBit + 2) & 0x07;
+				if (nBit < 2) {
+					scratch |= (source[iSource++] << nBit);
+					nBit += 8;
 				}
-				else if (n == 1) {
-					bits = scratch;
-					scratch = source[iSource++];
-					bits |= ((scratch & 0x01u) << 1);
-					scratch >>= 1;
-					iBit = 1;
-				}
-				else {
-					//n == 0, so iBit == 0
-					scratch = source[iSource++];
-					bits = scratch & 0x03u;
-					scratch >>= 2;
-					iBit = 2;
-				}
+				bits = scratch & 0x03u;
+				scratch >>= 2;
+				nBit -= 2;
+
 				// end of GetBits(2) --------------------------------------------
 				prior = (prior << 2) | bits;
 				text[iSymbol - 1] = prior;
 				break;
 			case I_ESCAPE_1BYTE:
 				// bits = GvrsBitInputGetByte(input);  ---------------------------------
-				if (iBit == 0) {
-					bits = source[iSource++];
+				if (nBit < 8) {
+					scratch |= (source[iSource++] << nBit);
+					nBit += 8;
 				}
-				else {
-					n = 8 - iBit;  // n bits available, iBit bits needed
-					bits = scratch;
-					scratch = source[iSource++];
-					bits |= ((scratch & mask[iBit]) << n);
-					scratch >>= iBit;
-					// iBit doesn't change
-				}
+				bits = scratch & 0xffu;
+				scratch >>= 8;
+				nBit -= 8;
 				// end of GetByte -------------------------------------------------
 				prior = (prior << 8) | bits;
 				text[iSymbol - 1] = prior;
@@ -698,7 +675,7 @@ GvrsCanonicalHuffmanDecode(GvrsBitInput* input, int nSymbolsInText, int* text, v
 			}
 		}
 	}
-	GvrsBitInputSetState(input, iSource, iBit);
+	GvrsBitInputSetState(input, iSource, nBit, scratch);
 	codeTableFree(codeTable);
 	return 0;
 }

@@ -109,7 +109,7 @@ extern "C"
 
 	typedef struct GvrsBitInputTag {
 		uint8_t* text;
-		int iBit;
+		int nBit;
 		int nBytesInText;
 		int nBytesProcessed;
 		unsigned int scratch;
@@ -179,7 +179,7 @@ extern "C"
 	int GvrsBitInputGetBits(GvrsBitInput* input, int nBitsInValue);
 	int GvrsBitInputGetByte(GvrsBitInput* input, int* errorCode);
 	int GvrsBitInputGetPosition(GvrsBitInput* input);
-	void GvrsBitInputSetState(GvrsBitInput* input, int nBytesProcessed, int iBit);
+	void GvrsBitInputSetState(GvrsBitInput* input, int nBytesProcessed, int nBit, unsigned int scratch);
 
 	int GvrsBitOutputAlloc(GvrsBitOutput** outputReference);
 	int GvrsBitOutputPutBit(GvrsBitOutput* output, int bit);
