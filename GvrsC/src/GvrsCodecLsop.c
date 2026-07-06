@@ -424,9 +424,6 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 	int method;
 	int compressionType;;
 	int valueChecksumIncluded;
-	int headerSize;
-
-
 
 	if (revisionTest == 0) {
 		// Legacy configuration -----------------------------------
@@ -453,7 +450,6 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 			// int32_t valueChecksum = unpackInteger(packing, filePos);
 			offset += 4;
 		}
-		headerSize = offset;
 	}
 	else {
 		// Revised configuration ----------------------------------
@@ -487,8 +483,6 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 			// int32_t valueChecksum = unpackInteger(packing, filePos);
 			offset += 4;
 		}
-		headerSize = offset;
-
 	}
 
 	int status = 0;
