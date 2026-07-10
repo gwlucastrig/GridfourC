@@ -208,7 +208,7 @@ static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) 
 	// to simplify arithmetic).  So, we can skip the first nCodeLengths block of populated flags. 
 	int kSort = 0;
 	for (int i = nCodeLengths; i < n; i++) {
-		if (populated[i]) {
+		if (populated[i] != 0) {
 			CodeEntry* entry = sortCodes + kSort;
 			int index = i / nCodeLengths;
 			int symbol = i - index * nCodeLengths;
@@ -408,6 +408,14 @@ static int decodeInt(int nRow, int nColumn, int packingLength, uint8_t* packing,
 		| ((packing[3] & 0xff) << 8)
 		| ((packing[4] & 0xff) << 16)
 		| ((packing[5] & 0xff) << 24);
+
+	// special case: check to see if there is a uniform encoding
+	if (predictorIndex == 0 && packingLength==6) {
+		for (int i = 0; i < nSymbolsInText; i++) {
+			data[i] = seed;
+		}
+		return 0;
+	}
 
 	int32_t* text = calloc(nSymbolsInText, sizeof(int32_t));
 	if (!text) {
