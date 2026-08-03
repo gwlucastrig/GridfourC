@@ -330,3 +330,123 @@ GvrsPredictor3encode(int nRows, int nColumns, int32_t* values, int32_t* encodedS
 	*m32Reference = m32;
 	return 0;
 }
+
+
+
+  int GvrsPredictor1iEncode(
+	int nRows,
+	int nColumns,
+	int* values,
+	int *seed,
+	int* output) {
+
+	*seed = values[0];
+	int prior = values[0];
+	int kEncoding = 0;
+	for (int i = 1; i < nColumns; i++) {
+		int test = values[i];
+		int delta = test - prior;
+		output[kEncoding++] = delta;
+		prior = test;
+	}
+
+	for (int iRow = 1; iRow < nRows; iRow++) {
+		int index = iRow * nColumns;
+		prior = values[index - nColumns];
+		for (int i = 0; i < nColumns; i++) {
+			int test = values[index++];
+			int delta = test - prior;
+			output[kEncoding++] = delta;
+			prior = test;
+		}
+
+	}
+
+	return kEncoding;
+
+}
+
+ int GvrsPredictor2iEncode(
+	  int nRows,
+	  int nColumns,
+	  int* values,
+	  int* seed,
+	  int* encoding) {
+
+	  *seed = values[0];
+
+	  long delta, test;
+	  long prior = values[0];
+	  delta = (long)values[1] - prior;
+	  int kEncoding = 0;
+	  encoding[kEncoding++] = (int)delta;
+	  for (int iRow = 1; iRow < nRows; iRow++) {
+		  int index = iRow * nColumns;
+		  test = values[index];
+		  delta = test - prior;
+		  encoding[kEncoding++] = (int)delta;
+		  prior = test;
+
+		  test = values[index + 1];
+		  delta = test - prior;
+		  encoding[kEncoding++] = (int)delta;
+	  }
+
+	  for (int iRow = 0; iRow < nRows; iRow++) {
+		  int index = iRow * nColumns;
+		  long a = values[index];
+		  long b = values[index + 1];
+		  //accumulate second differences starting at column 2
+		  for (int iCol = 2; iCol < nColumns; iCol++) {
+			  int c = values[index + iCol];
+			  int prediction = (int)(2L * b - a);
+			  int residual = c - prediction;
+			  encoding[kEncoding++] = residual;
+			  a = b;
+			  b = c;
+		  }
+	  }
+	  return kEncoding;
+  }
+
+
+
+  int GvrsPredictor3iEncode(int nRows, int nColumns, int* values, int *seed, int* encoding) {
+	  if (nRows < 2 || nColumns < 2) {
+		  return -1;
+	  }
+
+	  int kEncoding = 0;
+	  // The zeroeth row and column are populated using simple differences.
+	  // All other grid cells are populated using the triangle-predictor
+	  *seed = values[0];
+	  long prior = values[0];
+	  for (int i = 1; i < nColumns; i++) {
+		  long test = values[i];
+		  encoding[kEncoding++] = (int)(test - prior);
+		  prior = test;
+	  }
+
+	  prior = values[0];
+	  for (int i = 1; i < nRows; i++) {
+		  long test = values[i * nColumns];
+		  encoding[kEncoding++] = (int)(test - prior);
+		  prior = test;
+	  }
+
+	  // populate the rest of the grid using the triangle-predictor model
+	  for (int iRow = 1; iRow < nRows; iRow++) {
+		  int k1 = iRow * nColumns;
+		  int k0 = k1 - nColumns;
+		  for (int i = 1; i < nColumns; i++) {
+			  long za = values[k0++];
+			  long zb = values[k1++];
+			  long zc = values[k0];
+			  int prediction = (int)(zc + zb - za);
+			  int residual = values[k1] - prediction;
+			  encoding[kEncoding++] = residual;
+		  }
+	  }
+
+	  return kEncoding;
+  }

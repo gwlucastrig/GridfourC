@@ -38,10 +38,6 @@ typedef struct huffmanAppInfoTag {
 	int64_t nBitsInDecodeBody;
 }huffmanAppInfo;
 
-// TO DO:  test the one-symbol special case.  It is possible that
-//         even the baseline Java code is not correctly implemented.
-
-
 static void cleanUp(uint8_t* output, GvrsBitInput* input, GvrsM32* m32, int* nodeIndex) {
 	if (output) {
 		free(output);
@@ -438,8 +434,6 @@ static int encodeTree(GvrsBitOutput* output, SymbolNode* root, int nLeafNodes, u
 	// of this action would probably be accomplished by using recursion.  Unfortunately,
 	// the depth of the resulting stack (max 256 levels) would be too much for many environments.
 	// Therefore, a stack is used to indicate the state of the traversal at each iteration:
-	//    
-	//   TO DO: explain iPath
 
 	int iPath[256]; // to track the traversal
 	memset(iPath, 0, sizeof(iPath));
@@ -840,7 +834,7 @@ GvrsCodec* GvrsCodecHuffmanAlloc() {
 	GvrsStrncpy(codec->identification, sizeof(codec->identification), identification);
 	codec->description = GVRS_STRDUP(description);
 	codec->decodeInt = decodeInt;
-	codec->encodeInt = encodeInt;
+	codec->encodeInt = 0; //  encodeInt;
 	codec->destroyCodec = destroyCodecHuffman;
 	codec->allocateNewCodec = allocateCodecHuffman;
 	return codec;

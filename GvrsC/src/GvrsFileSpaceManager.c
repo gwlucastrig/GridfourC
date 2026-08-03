@@ -267,7 +267,6 @@ GvrsFileSpaceFinish(GvrsFileSpaceManager* manager, int64_t contentPos) {
 		// The calling application overwrote the space that was allocated to it
 		// for writing the record.   This is a pretty serious error because it could
 		// lead to a corrupt file.
-		//   TO DO:  implement some kind of debugging aid to tran this issue.
 		return GVRSERR_INTERNAL_ERROR;
 	}
 	 

@@ -127,7 +127,7 @@ int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol) {
 		int nBitsAvailable = 8 - nBitsConsumed;
 		output->scratch |= (uint8_t)((symbol << nBitsConsumed) & 0xff);
 		output->text[output->nBytesProcessed++] = output->scratch;
-		output->scratch = (uint8_t)((symbol>>nBitsAvailable) & mask[nBitsConsumed]);  // TO DO: is mask required?
+		output->scratch = (uint8_t)((symbol>>nBitsAvailable) & mask[nBitsConsumed]); // apply mask in case input has undefined bits
 		// output->iBit = nBitsConsumed;   iBit doesn't actually change
 	}
 
@@ -136,6 +136,42 @@ int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol) {
 	}
 	return 0;
 }
+
+int GvrsBitOutputPutMultiBits(GvrsBitOutput* output, int nBits, int inputBits) {
+	if (nBits < 1 || nBits>8) {
+		return -1;
+	}
+	// ideally, the input would only have the low-order nBits populated
+	// but in case the calling code has stray bits in the field, we apply a mask.
+	int bits = inputBits & mask[nBits];
+	if (nBits == 8) {
+		return GvrsBitOutputPutByte(output, bits);
+	}
+
+	// nBits will be in range 1 to 7
+	if (output->iBit == 0) {
+		output->scratch = bits;
+		output->iBit = nBits;
+	}
+	else {
+		int nBitsConsumed = output->iBit;
+		int nBitsAvailable = 8 - nBitsConsumed;
+		output->scratch |= (uint8_t)((bits << nBitsConsumed) & 0xff);
+		if (nBitsAvailable > nBits) {
+			output->iBit += nBits;
+			return 0;
+		}
+		output->text[output->nBytesProcessed++] = output->scratch;
+		output->iBit = nBits - nBitsAvailable;
+		output->scratch = (bits >> nBitsAvailable) & mask[output->iBit];   
+		if (output->nBytesProcessed == output->nBytesAllocated) {
+			return growText(output, TEXT_GROWTH_FACTOR);
+		}
+	}
+
+	return 0;
+}
+
 
 int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, uint8_t** reservedByteReference){
 	if (!output || !reservedByteReference) {

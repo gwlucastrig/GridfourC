@@ -184,6 +184,7 @@ extern "C"
 	int GvrsBitOutputAlloc(GvrsBitOutput** outputReference);
 	int GvrsBitOutputPutBit(GvrsBitOutput* output, int bit);
 	int GvrsBitOutputPutByte(GvrsBitOutput* output, int symbol);
+	int GvrsBitOutputPutMultiBits(GvrsBitOutput* output, int nBits, int inputBits);
 	int GvrsBitOutputReserveBytes(GvrsBitOutput* output, int nBytesToReserve, uint8_t** reservedByteReference);
 	int GvrsBitOutputGetBitCount(GvrsBitOutput* output);
 	int GvrsBitOutputFlush(GvrsBitOutput* output);
@@ -212,6 +213,10 @@ extern "C"
 	int GvrsPredictor2encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
 	int GvrsPredictor3encode(int nRows, int nColumns, int32_t* values, int32_t* encodedSeed, GvrsM32** m32);
 
+	int GvrsPredictor1iEncode( int nRows, int nColumns, int* values, int* seed, int* output);
+	int GvrsPredictor2iEncode(int nRows, int nColumns, int* values, int* seed, int* output);
+	int GvrsPredictor3iEncode(int nRows, int nColumns, int* values, int* seed, int* output);
+
 
 	// -------------------------------------------------------------------------------------------
 	// The following declarations give the signatures for the standard compressors and
@@ -224,7 +229,6 @@ extern "C"
 	int GvrsHuffmanDecodeText(GvrsBitInput* input, int nNodesInIndex, int* nodeIndex, int nSymbolsInOutput, uint8_t* output);
 
 	GvrsCodec* GvrsCodecCanonicalHuffmanAlloc();
-	int	GvrsCanonicalHuffmanDecode(GvrsBitInput* input, int nSymbolsInText, int* text, void* appInfo);
 
 #ifdef GVRS_ZLIB
 	GvrsCodec* GvrsCodecDeflateAlloc();

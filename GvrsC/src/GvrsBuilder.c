@@ -1095,13 +1095,14 @@ GvrsBuilderRegisterStandardDataCompressionCodecs(GvrsBuilder* builder) {
 	freeCodecs(builder);
 
 #ifdef GVRS_ZLIB
-	builder->nDataCompressionCodecs = 4;
-	builder->dataCompressionCodecs = calloc(4, sizeof(GvrsCodec*));
+	builder->nDataCompressionCodecs = 5;
+	builder->dataCompressionCodecs = calloc(5, sizeof(GvrsCodec*));
 	if (builder->dataCompressionCodecs) {
-		builder->dataCompressionCodecs[0] = GvrsCodecHuffmanAlloc();
-		builder->dataCompressionCodecs[1] = GvrsCodecDeflateAlloc();
-		builder->dataCompressionCodecs[2] = GvrsCodecFloatAlloc();
-		builder->dataCompressionCodecs[3] = GvrsCodecLsopAlloc();
+		builder->dataCompressionCodecs[0] = GvrsCodecCanonicalHuffmanAlloc();
+		builder->dataCompressionCodecs[1] = GvrsCodecHuffmanAlloc();
+		builder->dataCompressionCodecs[2] = GvrsCodecDeflateAlloc();
+		builder->dataCompressionCodecs[3] = GvrsCodecFloatAlloc();
+		builder->dataCompressionCodecs[4] = GvrsCodecLsopAlloc();
 	}
 	else {
 		return GVRSERR_NOMEM;

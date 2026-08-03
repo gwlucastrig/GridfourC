@@ -119,7 +119,7 @@ typedef struct GvrsElmSpecShortTag {
 	int16_t minValue;
 	int16_t maxValue;
 	int16_t fillValue;
-	char pad[2];  // TO DO: is this actually needed?
+	char pad[2];  
 }GvrsElementSpecShort;
 
 

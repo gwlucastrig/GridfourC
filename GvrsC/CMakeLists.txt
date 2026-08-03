@@ -27,6 +27,8 @@ target_sources(${PROJECT_NAME} PRIVATE
 	src/GvrsBitOutput.c
 	src/GvrsBspline.c
 	src/GvrsBuilder.c
+	src/GvrsCanonHuffmanReader.c
+	src/GvrsCanonHuffmanWriter.c
 	src/GvrsChecksum.c
 	src/GvrsCodecCanonicalHuffman.c
 	src/GvrsCodecHuffman.c

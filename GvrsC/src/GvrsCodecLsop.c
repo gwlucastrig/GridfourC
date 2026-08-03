@@ -46,6 +46,8 @@
 #include "GvrsCrossPlatform.h"
 #include "GvrsError.h"
 #include "GvrsCodec.h"
+#include "GvrsCanonicalHuffman.h"
+
 #include "zlib.h"
 
 
@@ -508,14 +510,14 @@ static int decodeInt(int nRows, int nColumns, int packingLength, uint8_t* packin
 			return status;
 		}
 
-		status = GvrsCanonicalHuffmanDecode(inputBits, nIntInitializer + 1, intInitializer, (void*)0);
-		if (status) {
+		status = GvrsCanonicalHuffmanReadInt(inputBits, nIntInitializer, intInitializer, (void*)0);
+		if (status<0) {
 			cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
 			return status;
 		}
 
-		status = GvrsCanonicalHuffmanDecode(inputBits, nIntInterior + 1, intInterior, (void*)0);
-		if (status) {
+		status = GvrsCanonicalHuffmanReadInt(inputBits, nIntInterior, intInterior, (void*)0);
+		if (status<0) {
 			cleanUp(initializerM32, interiorM32, intInitializer, intInterior, inputBits);
 			return status;
 		}
