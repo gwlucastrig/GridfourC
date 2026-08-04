@@ -32,7 +32,7 @@
 #include "zlib.h"
 
 // case-sensitive name of codec
-static const char* identification = "float";
+static const char* identification = "GvrsFloat";
 static const char* description = "Implements the standard GVRS compression for floating-point data";
 
 

@@ -487,7 +487,7 @@ int GvrsOpen(Gvrs **gvrsReference, const char* path, const char* accessMode) {
 			else if (strcmp("GvrsDeflate", sp) == 0) {
 				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecDeflateAlloc();
 			}
-			else if (strcmp("float", sp) == 0) {
+			else if (strcmp("GvrsFloat", sp) == 0) {
 				gvrs->dataCompressionCodecs[iCompress] = GvrsCodecFloatAlloc();
 	}
 			else if (strcmp("LSOP12", sp)==0) {
