@@ -126,8 +126,14 @@ static CodeTable* codeTableFree(CodeTable* table) {
 // So nCodeLengths is the number of unique possible symbols, including the end-of-text symbol.
 // Some of the unique symbols may have zero length.
 static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) {
+	for (int i = 0; i < nCodeLengths; i++) {
+		if (codeLengths[i] < 0 || codeLengths[i] >= 16) {
+			return NULL;
+		}
+	}
+
 	int n = nCodeLengths * 16;
-	int* populated = calloc(n, sizeof(int));
+	int* populated = calloc(n+16, sizeof(int));
 	if (!populated) {
 		return (CodeTable*)0;
 	}
@@ -377,6 +383,7 @@ GvrsCanonicalHuffmanReadInt(GvrsBitInput* input, int nSymbolsInText, int* text, 
 	int n;
 	unsigned int bit, bits;
 
+	int reserveByte3 = nSource - 2;
 	while (iSymbol < nSymbolsInText) {
 
 		if (nBit < 8) {
@@ -384,10 +391,18 @@ GvrsCanonicalHuffmanReadInt(GvrsBitInput* input, int nSymbolsInText, int* text, 
 			// than stored in the bit source.  So we need to test.  If the logic
 			// requests more than the available bits, it is okay to allow them
 			// to go to zero.
-			if (iSource < nSource) {
-				scratch |= (source[iSource++] << nBit);
+			if (iSource < reserveByte3) {
+				int temp = source[iSource] | (source[iSource + 1] << 8) | (source[iSource + 2] << 16);
+				scratch |= (temp << nBit);
+				nBit += 24;
+				iSource += 3;
 			}
-			nBit += 8;
+			else {
+				if (iSource < nSource) {
+					scratch |= (source[iSource++] << nBit);
+				}
+				nBit += 8;
+			}
 		}
 		int test = scratch & 0xff;
 		n = codeTable->qConsumed[test];
