@@ -247,8 +247,9 @@ static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) 
 			int jStep = 1 << n;
 			for (int j = xmit; j < 256; j += jStep) {
 				codeTable->qLength[j] = len;
-				codeTable->qBits[j] = (q >> len - 8) & 0xff;
 				codeTable->qSymbol[j] = symbol;
+				// qBits will be used only when len>8
+				codeTable->qBits[j] = len > 8 ? (q >> (len - 8)) & 0xff : 0;
 			}
 		}
 	}
