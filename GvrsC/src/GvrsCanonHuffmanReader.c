@@ -88,11 +88,16 @@ typedef struct {
 }CodeEntry;
 
 typedef struct {
-	int* nodeIndex;       // represents the structure of the Huffman tree
+	int nUniqueSymbols;
+	int firstCode[17];
+	int maxCode[17];
+	int firstSymbolIndex[17];
+	int connellSymbol[I_N_SYMBOLS];
+
 	// The "quick-entry" table elements
-	int qEntryIndex[256]; // index for entry to the nodeIndex array
+	int qLength[256]; // index for entry to the nodeIndex array
 	int qSymbol[256];     // the symbol
-	int qConsumed[256];   // number of bits for symbol
+	int qBits[256];   // number of bits for symbol
 }CodeTable;
 
 
@@ -114,7 +119,6 @@ static void* cleanFree(void* f) {
 
 static CodeTable* codeTableFree(CodeTable* table) {
 	if (table) {
-		table->nodeIndex = cleanFree(table->nodeIndex);
 		free(table);
 	}
 	return (CodeTable*)0;
@@ -133,7 +137,7 @@ static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) 
 	}
 
 	int n = nCodeLengths * 16;
-	int* populated = calloc(n+16, sizeof(int));
+	int* populated = calloc(n + 16, sizeof(int));
 	if (!populated) {
 		return (CodeTable*)0;
 	}
@@ -172,6 +176,15 @@ static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) 
 		}
 	}
 
+
+	populated = cleanFree(populated);
+	CodeTable* codeTable = calloc(1, sizeof(CodeTable));
+	if (!codeTable) {
+		return (CodeTable*)0;
+	}
+
+	codeTable->nUniqueSymbols = kSort;
+
 	for (int i = 1; i < kSort; i++) {
 		CodeEntry* p = sortCodes + (i - 1);  // prior sort code
 		CodeEntry* s = sortCodes + i;
@@ -182,68 +195,61 @@ static CodeTable* buildCodeTableFromLengths(int* codeLengths, int nCodeLengths) 
 	}
 
 
-	populated = cleanFree(populated);
 
-	// The number of nodes is the Huffman tree where k is the number of symbols
-	// would be k+(k-1).  Allocate enough nodes to hold the tree
-	int nNode = 2 * kSort;
-	CodeTable* codeTable = calloc(1, sizeof(CodeTable));
-	int* nodeIndex = calloc((size_t)(2 * nNode + 2), sizeof(int));
-	if (!codeTable || !nodeIndex) {
-		codeTable = failFree(codeTable);
-		nodeIndex = failFree(nodeIndex);
-		free(sortCodes);
-		return (CodeTable*)0;
+
+
+	// Populate the elements related to Connell's algorithm ------------
+	for (int i = 0; i < kSort; i++) {
+		codeTable->connellSymbol[i] = sortCodes[i].symbol;
 	}
 
-	codeTable->nodeIndex = nodeIndex;
+	// Fill maxCode array with -1 for undefined lengths (will replace some of these later)
+	for (int i = 0; i < 17; i++) {
+		codeTable->maxCode[i] = -1;
+	}
 
-	// populate the node index
-	int kIndex = 2;
+
 	for (int i = 0; i < kSort; i++) {
-		CodeEntry* s = sortCodes + i;
-		int offset = 0;
-		int xmit = 0;
-		int nodeEntryIndex = 0;
-		for (int j = 0; j < s->bitsLength; j++) {
-			int bit = (s->bits >> (s->bitsLength - 1 - j)) & 1;
-			xmit |= (bit << j);
-			int index = offset + bit;
-			if (nodeIndex[index]) {
-				offset = nodeIndex[index];
+		int len = sortCodes[i].bitsLength;
+		int q = sortCodes[i].bits;
+		codeTable->firstCode[len] = q; // (int)codeBits[i].bits;
+		codeTable->firstSymbolIndex[len] = i;
+		n = 1;
+		for (int j = i + 1; j < kSort; j++) {
+			if (sortCodes[j].bitsLength == len) {
+				n = j - i + 1;
 			}
 			else {
-				nodeIndex[index] = kIndex;
-				offset = kIndex;
-				kIndex += 2;
-			}
-			if (j == 7) {
-				nodeEntryIndex = offset;
+				break;
 			}
 		}
-		// the path to the symbol is now established,
-		// the offset is pointing to the position of the terminal node
-		// nodeIndex[offset] will be zero, indicating a terminal node
-		nodeIndex[offset + 1] = s->symbol;
+		codeTable->maxCode[len] = codeTable->firstCode[len] + n - 1;
+		i += (n - 1);
+	}
 
-		// Populate the quick-entry elements for this symbol
-		// If the entire symbol can be specified by the quick-entry table
-		// then the bit-consumption value for quick-entry will be the symbol length
-		// If the symbol's bit length is greater than 8, then we limit it.  Also,
-		// the quick entry will provide an index into the nodeIndex array rather
-		// than a symbol.  As a development diagnostic, note that if s->bitLength
-		// is greater than 8, then nodeIndex will be non-zero.
-		int nConsumed = s->bitsLength > 8 ? 8 : s->bitsLength;
-		int nInterval = 1 << nConsumed;
-		int test = xmit & 0xff;
-		for (int j = test; j < 256; j += nInterval) {
-			if (nodeEntryIndex) {
-				codeTable->qEntryIndex[j] = nodeEntryIndex;
+	int isQuickEntryRequested = 1;
+	if (isQuickEntryRequested) {
+		// populate the quick-entry elements ----------------
+		// xmit variable is the bit code formatted in the same order
+		// as appears in the BitInputStream class.  It is the mirror
+		// image of the code-bits, except that we only capture the
+		// first 8 bits max.
+		for (int i = 0; i < kSort; i++) {
+			int symbol = sortCodes[i].symbol;
+			int len = sortCodes[i].bitsLength;
+			int q = sortCodes[i].bits;
+			n = len > 8 ? 8 : len;
+			int xmit = (q >> (len - 1)) & 1;
+			for (int j = 1; j < n; j++) {
+				int bit = (q >> (len - 1 - j)) & 1;
+				xmit |= (bit << j);
 			}
-			else {
-				codeTable->qSymbol[j] = s->symbol;
+			int jStep = 1 << n;
+			for (int j = xmit; j < 256; j += jStep) {
+				codeTable->qLength[j] = len;
+				codeTable->qBits[j] = (q >> len - 8) & 0xff;
+				codeTable->qSymbol[j] = symbol;
 			}
-			codeTable->qConsumed[j] = nConsumed;
 		}
 	}
 
@@ -300,25 +306,36 @@ static CodeTable* decodeCodeTable(GvrsCanonicalHuffmanAppInfo* hInfo, GvrsBitInp
 		// the was an internal error or malloc failure
 		return 0;
 	}
+	int* firstCode = countTable->firstCode;
+	int* maxCode = countTable->maxCode;
+	int* connellSymbol = countTable->connellSymbol;
+	int* firstSymbolIndex = countTable->firstSymbolIndex;
 
-	int* nodeIndex = countTable->nodeIndex;
 	prior = 0;
 	k = 0;
 	int textLengths[I_N_SYMBOLS];
 	while (k < I_N_SYMBOLS) {
-
+		int codeVal = 0;
+		int length = 0;
+		int symbol = 0;
 		int offset = 0;
-		while (nodeIndex[offset]) {
+		while (1) {
 			int bit = GvrsBitInputGetBit(input);
-			offset = nodeIndex[offset + bit];
+			codeVal = (codeVal << 1) | bit;
+			length++;
+			if (codeVal <= maxCode[length]) {
+				int offset = codeVal - firstCode[length];
+				symbol = connellSymbol[firstSymbolIndex[length] + offset];
+				break;
+			}
 		}
-		int index = nodeIndex[offset + 1];
-		if (index <= CL_MAX_STANDARD) {
-			prior = index;
-			textLengths[k++] = index;
+
+		if (symbol <= CL_MAX_STANDARD) {
+			prior = symbol;
+			textLengths[k++] = symbol;
 		}
 		else {
-			switch (index) {
+			switch (symbol) {
 			case CL_REPEAT_PREV_2BITS:
 				n = GvrsBitInputGetBits(input, 2) + 3;
 				for (int i = 0; i < n; i++) {
@@ -345,6 +362,7 @@ static CodeTable* decodeCodeTable(GvrsCanonicalHuffmanAppInfo* hInfo, GvrsBitInp
 		}
 	}
 	codeTableFree(countTable);
+
 	return buildCodeTableFromLengths(textLengths, I_N_SYMBOLS);
 }
 
@@ -372,7 +390,6 @@ GvrsCanonicalHuffmanReadInt(GvrsBitInput* input, int nSymbolsInText, int* text, 
 	hInfo->nBitsInCodeTable += (int64_t)(pos1 - pos0);
 
 
-	int* nodeIndex = codeTable->nodeIndex;
 	int prior = 0;
 	int iSymbol = 0;
 	uint8_t* source = input->text;
@@ -382,6 +399,15 @@ GvrsCanonicalHuffmanReadInt(GvrsBitInput* input, int nSymbolsInText, int* text, 
 	int nSource = input->nBytesInText;
 	int n;
 	unsigned int bit, bits;
+
+	int* firstCode = codeTable->firstCode;
+	int* maxCode = codeTable->maxCode;
+	int* connellSymbol = codeTable->connellSymbol;
+	int* firstSymbolIndex = codeTable->firstSymbolIndex;
+
+	int* qLength = codeTable->qLength;
+	int* qSymbol = codeTable->qSymbol;
+	int* qBits = codeTable->qBits;
 
 	int reserveByte3 = nSource - 2;
 	while (iSymbol < nSymbolsInText) {
@@ -404,27 +430,43 @@ GvrsCanonicalHuffmanReadInt(GvrsBitInput* input, int nSymbolsInText, int* text, 
 				nBit += 8;
 			}
 		}
+
+		int symbol = 0;
 		int test = scratch & 0xff;
-		n = codeTable->qConsumed[test];
-		scratch >>= n;
-		nBit -= n;
-		int symbol = codeTable->qSymbol[test];;
-		int offset = codeTable->qEntryIndex[test];
-		if (offset) {
-			while (nodeIndex[offset]) {
-				// int bit = GvrsBitInputGetBit(input); -------------------------------
+		int testLen = qLength[test];
+		if (testLen <= 8) {
+			symbol = qSymbol[test];
+			scratch >>= testLen;
+			nBit -= testLen;
+		}
+		else {
+			// the quick-entry tables navigated the first 8 bits of the code,
+			// but the code is longer than 8 bits. no jump ahead and then
+			// access the source coding one bit at a time using Connell's algorithm.
+			int codeVal = qBits[test];
+			int length = 8;
+			scratch >>= 8;
+			nBit -= 8;
+			while (1) {
+				// bit = input.getBit() -------------------------
 				if (nBit == 0) {
-					scratch = source[iSource++];
+					scratch = source[iSource++] & 0xff;
 					nBit = 8;
 				}
-				bit = scratch & 0x01u;
+				bit = scratch & 1;
 				scratch >>= 1;
 				nBit--;
-				// end of GetBit() ----------------------------------------------------
-				offset = nodeIndex[offset + bit];
+
+				codeVal = (codeVal << 1) | bit;
+				length++;
+				if (codeVal <= maxCode[length]) {
+					int offset = codeVal - firstCode[length];
+					symbol = connellSymbol[firstSymbolIndex[length] + offset];
+					break;
+				}
 			}
-			symbol = nodeIndex[offset + 1];
 		}
+
 
 
 
@@ -500,8 +542,10 @@ GvrsCanonicalHuffmanReadInt(GvrsBitInput* input, int nSymbolsInText, int* text, 
 	int finishLoop = 1;
 	while (finishLoop) {
 		GvrsBitInputSetState(input, iSource, nBit, scratch);
-		int offset = 0;
-		while (nodeIndex[offset]) {
+		int codeVal = 0;
+		int length = 0;
+		int symbol = 0;
+		while (1) {
 			// int bit = GvrsBitInputGetBit(input); -------------------------------
 			if (nBit == 0) {
 				if (iSource == nSource) {
@@ -517,9 +561,15 @@ GvrsCanonicalHuffmanReadInt(GvrsBitInput* input, int nSymbolsInText, int* text, 
 			scratch >>= 1;
 			nBit--;
 			// end of GetBit() ----------------------------------------------------
-			offset = nodeIndex[offset + bit];
+			codeVal = (codeVal << 1) | bit;
+			length++;
+			if (codeVal <= maxCode[length]) {
+				int offset = codeVal - firstCode[length];
+				symbol = connellSymbol[firstSymbolIndex[length] + offset];
+				break;
+			}
 		}
-		int symbol = nodeIndex[offset + 1];
+
 
 		switch (symbol) {
 		case I_ESCAPE_2BITS:
@@ -554,8 +604,10 @@ GvrsCanonicalHuffmanReadInt(GvrsBitInput* input, int nSymbolsInText, int* text, 
 			// state variables, but processing is otherwise complete.
 			GvrsBitInputSetState(input, iSource, nBit, scratch);
 			finishLoop = 0;
+			break;
 		default:
-			// all other symbols just end the loop without
+			// any remaining symbols would be part of a different encoding that
+			// would be concatenated to this one...  just end the loop without
 			// recording the state variables.
 			finishLoop = 0;
 		}
